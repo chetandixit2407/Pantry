@@ -5,11 +5,69 @@
       "email": "raju.sharma@whitecollarrealty.com",
       "name": "Raju Sharma",
       "role": "PANTRY_BOY",
-      "department": "Hospitality & Operations",
+      "department": "Hospitality & Operations Team A",
       "status": "active",
       "avatarUrl": "/assets/wcr_logo.png",
       "phone": "+91 98765 43210",
-      "createdAt": "2026-01-15T09:00:00Z"
+      "createdAt": "2026-01-15T09:00:00Z",
+      "permissions": {
+        "dashboards": {
+          "pantry": true,
+          "management": false
+        },
+        "sidebarItems": {
+          "dashboard": true,
+          "myTasks": true,
+          "roomSupport": true,
+          "pantryRequests": true,
+          "notifications": true,
+          "taskHistory": true,
+          "myProfile": true,
+          "overview": false,
+          "tasks": false,
+          "rooms": false,
+          "visitors": false,
+          "reports": false,
+          "users": false,
+          "audit": false,
+          "settings": false
+        },
+        "actions": {
+          "tasks": {
+            "view": true,
+            "create": false,
+            "edit": true,
+            "delete": false
+          },
+          "rooms": {
+            "view": true,
+            "create": false,
+            "edit": false,
+            "delete": false
+          },
+          "visitors": {
+            "view": true,
+            "create": false,
+            "edit": false,
+            "delete": false
+          },
+          "users": {
+            "view": false,
+            "create": false,
+            "edit": false,
+            "delete": false
+          },
+          "reports": {
+            "view": false,
+            "export": false
+          }
+        },
+        "confidentialAccess": {
+          "hrNotes": false,
+          "resumes": false,
+          "governmentIds": false
+        }
+      }
     },
     {
       "id": "user-hr-1",
@@ -20,7 +78,65 @@
       "status": "active",
       "avatarUrl": "/assets/wcr_logo.png",
       "phone": "+91 98765 43211",
-      "createdAt": "2026-01-10T09:00:00Z"
+      "createdAt": "2026-01-10T09:00:00Z",
+      "permissions": {
+        "dashboards": {
+          "pantry": true,
+          "management": true
+        },
+        "sidebarItems": {
+          "dashboard": true,
+          "myTasks": true,
+          "roomSupport": true,
+          "pantryRequests": true,
+          "notifications": true,
+          "taskHistory": true,
+          "myProfile": true,
+          "overview": true,
+          "tasks": true,
+          "rooms": true,
+          "visitors": true,
+          "reports": true,
+          "users": true,
+          "audit": true,
+          "settings": true
+        },
+        "actions": {
+          "tasks": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "rooms": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": false
+          },
+          "visitors": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "users": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": false
+          },
+          "reports": {
+            "view": true,
+            "export": true
+          }
+        },
+        "confidentialAccess": {
+          "hrNotes": true,
+          "resumes": true,
+          "governmentIds": true
+        }
+      }
     },
     {
       "id": "user-kimmy-1",
@@ -31,7 +147,65 @@
       "status": "active",
       "avatarUrl": "/assets/wcr_logo.png",
       "phone": "+91 98765 43212",
-      "createdAt": "2025-11-01T09:00:00Z"
+      "createdAt": "2025-11-01T09:00:00Z",
+      "permissions": {
+        "dashboards": {
+          "pantry": true,
+          "management": true
+        },
+        "sidebarItems": {
+          "dashboard": true,
+          "myTasks": true,
+          "roomSupport": true,
+          "pantryRequests": true,
+          "notifications": true,
+          "taskHistory": true,
+          "myProfile": true,
+          "overview": true,
+          "tasks": true,
+          "rooms": true,
+          "visitors": true,
+          "reports": true,
+          "users": true,
+          "audit": true,
+          "settings": true
+        },
+        "actions": {
+          "tasks": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "rooms": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": false
+          },
+          "visitors": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "users": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": false
+          },
+          "reports": {
+            "view": true,
+            "export": true
+          }
+        },
+        "confidentialAccess": {
+          "hrNotes": true,
+          "resumes": true,
+          "governmentIds": true
+        }
+      }
     },
     {
       "id": "user-admin-1",
@@ -42,7 +216,66 @@
       "status": "active",
       "avatarUrl": "/assets/wcr_logo.png",
       "phone": "+91 98765 43214",
-      "createdAt": "2025-09-01T09:00:00Z"
+      "createdAt": "2025-09-01T09:00:00Z",
+      "permissions": {
+        "dashboards": {
+          "pantry": true,
+          "management": true
+        },
+        "sidebarItems": {
+          "dashboard": true,
+          "myTasks": true,
+          "roomSupport": true,
+          "pantryRequests": true,
+          "notifications": true,
+          "taskHistory": true,
+          "myProfile": true,
+          "overview": true,
+          "tasks": true,
+          "rooms": true,
+          "visitors": true,
+          "reports": true,
+          "users": true,
+          "audit": true,
+          "settings": true
+        },
+        "actions": {
+          "tasks": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "rooms": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "visitors": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "users": {
+            "view": true,
+            "create": true,
+            "edit": true,
+            "delete": true
+          },
+          "reports": {
+            "view": true,
+            "export": true
+          }
+        },
+        "confidentialAccess": {
+          "hrNotes": true,
+          "resumes": true,
+          "governmentIds": true
+        }
+      },
+      "isSuperAdmin": true
     }
   ],
   "rooms": [
@@ -621,7 +854,7 @@
     },
     {
       "id": "task-2026-10-26-skyline",
-      "title": "The The The The Skyline Boardroom 12-Chair Geometric Alignment & Table Sanitization",
+      "title": "The The The The The The Skyline Boardroom 12-Chair Geometric Alignment & Table Sanitization",
       "description": "Clean boardroom table, align 12 chairs evenly, check whiteboard and markers.",
       "roomAreaId": "room-6",
       "roomAreaName": "The Skyline",
@@ -1120,7 +1353,7 @@
         },
         {
           "id": "c-4",
-          "text": "Ensure all meeting rooms (The The The The Skyline, The Summit, Prestige Loft Loft Loft Loft, WCR Air, Elegance Suite (Kimmi Suite)) are reset",
+          "text": "Ensure all meeting rooms (The The The The The The Skyline, The Summit, Prestige Loft Loft Loft Loft Loft Loft, WCR Air, Elegance Suite (Kimmi Suite)) are reset",
           "completed": false
         },
         {
@@ -1171,6 +1404,72 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793009739261-ksiw",
+      "timestamp": "2026-10-26T10:15:39.261Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "PANTRY_REQUEST_CREATED",
+      "entityType": "TASK",
+      "entityId": "preq-1793009739261",
+      "details": "Created pantry request for Reception: Fresh Lime Water, Napkins"
+    },
+    {
+      "id": "audit-1793009739257-5dsi",
+      "timestamp": "2026-10-26T10:15:39.257Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_UPDATED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Updated details and permissions for Raju Sharma (raju.sharma@whitecollarrealty.com)"
+    },
+    {
+      "id": "audit-1793009739250-11v7",
+      "timestamp": "2026-10-26T10:15:39.250Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793009727258-e7n8",
+      "timestamp": "2026-10-26T10:15:27.258Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793009711185-tmfc",
+      "timestamp": "2026-10-26T10:15:11.185Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793008710627-gzrc",
+      "timestamp": "2026-10-26T09:58:30.627Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
     {
       "id": "audit-1793001994962-h346",
       "timestamp": "2026-10-26T08:06:34.962Z",
@@ -1251,6 +1550,17 @@
   ],
   "notifications": [
     {
+      "id": "notif-1793009739261-snlb",
+      "title": "☕ New Pantry Request: Reception",
+      "message": "Operations Administrator requested: Fresh Lime Water, Napkins. Priority: URGENT.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "roomId": "room-1",
+      "roomName": "Reception",
+      "read": false,
+      "timestamp": "2026-10-26T10:15:39.261Z"
+    },
+    {
       "id": "notif-1",
       "recipientRole": "PANTRY_BOY",
       "title": "Daily Shift Active · 9:00 AM – 8:00 PM",
@@ -1260,5 +1570,70 @@
       "timestamp": "2026-10-26T07:48:15.767Z"
     }
   ],
-  "lastGeneratedDate": "2026-10-26"
+  "lastGeneratedDate": "2026-10-26",
+  "pantryRequests": [
+    {
+      "id": "preq-1793009739261",
+      "roomAreaId": "room-1",
+      "roomAreaName": "Reception",
+      "requesterName": "Operations Administrator",
+      "requesterRole": "Admin",
+      "items": [
+        "Fresh Lime Water",
+        "Napkins"
+      ],
+      "instructions": "Serve immediately for client arrival",
+      "priority": "URGENT",
+      "status": "PENDING",
+      "createdAt": "2026-10-26T10:15:39.261Z"
+    },
+    {
+      "id": "preq-1",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "requesterName": "Kimmi",
+      "requesterRole": "Co-Founder",
+      "items": [
+        "2x Tender Coconut Water",
+        "4x Sealed Mineral Bottles",
+        "Dry Fruits Platter"
+      ],
+      "instructions": "Serve before Birla Estates delegation arrives. Use clean crystal glasses.",
+      "priority": "URGENT",
+      "status": "PENDING",
+      "createdAt": "2026-10-26T10:14:53.868Z"
+    },
+    {
+      "id": "preq-2",
+      "roomAreaId": "room-5",
+      "roomAreaName": "Prestige Loft",
+      "requesterName": "Priya Sen",
+      "requesterRole": "HR",
+      "items": [
+        "Hot Masala Tea (2 cups)",
+        "Water Carafe with 2 glasses"
+      ],
+      "instructions": "Senior candidate interview in progress. Deliver promptly.",
+      "priority": "HIGH",
+      "status": "IN_PREPARATION",
+      "createdAt": "2026-10-26T09:59:53.868Z"
+    },
+    {
+      "id": "preq-3",
+      "roomAreaId": "room-3",
+      "roomAreaName": "Executive Cabin",
+      "requesterName": "Operations Administrator",
+      "requesterRole": "Admin",
+      "items": [
+        "Black Coffee (1 cup)",
+        "Fresh Sealed Bottle"
+      ],
+      "instructions": "Place on side credenza table.",
+      "priority": "NORMAL",
+      "status": "SERVED",
+      "createdAt": "2026-10-26T08:44:53.868Z",
+      "servedAt": "2026-10-26T08:59:53.868Z",
+      "servedBy": "Raju Sharma"
+    }
+  ]
 }

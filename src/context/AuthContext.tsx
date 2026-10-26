@@ -1,6 +1,110 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { UserAccount, AppNotification } from '../types/index.ts';
+import type { UserAccount, AppNotification, Role, UserPermissions } from '../types/index.ts';
 import { api, getSessionToken, clearSessionToken } from '../services/api.ts';
+
+export function getDefaultPermissions(role: Role): UserPermissions {
+  if (role === 'ADMIN') {
+    return {
+      dashboards: { pantry: true, management: true },
+      sidebarItems: {
+        dashboard: true,
+        myTasks: true,
+        roomSupport: true,
+        pantryRequests: true,
+        notifications: true,
+        taskHistory: true,
+        myProfile: true,
+        overview: true,
+        tasks: true,
+        rooms: true,
+        visitors: true,
+        reports: true,
+        users: true,
+        audit: true,
+        settings: true,
+      },
+      actions: {
+        tasks: { view: true, create: true, edit: true, delete: true },
+        rooms: { view: true, create: true, edit: true, delete: true },
+        visitors: { view: true, create: true, edit: true, delete: true },
+        users: { view: true, create: true, edit: true, delete: true },
+        reports: { view: true, export: true },
+      },
+      confidentialAccess: {
+        hrNotes: true,
+        resumes: true,
+        governmentIds: true,
+      },
+    };
+  }
+  if (role === 'KIMMY_MAM' || role === 'HR') {
+    return {
+      dashboards: { pantry: true, management: true },
+      sidebarItems: {
+        dashboard: true,
+        myTasks: true,
+        roomSupport: true,
+        pantryRequests: true,
+        notifications: true,
+        taskHistory: true,
+        myProfile: true,
+        overview: true,
+        tasks: true,
+        rooms: true,
+        visitors: true,
+        reports: true,
+        users: true,
+        audit: true,
+        settings: true,
+      },
+      actions: {
+        tasks: { view: true, create: true, edit: true, delete: true },
+        rooms: { view: true, create: true, edit: true, delete: false },
+        visitors: { view: true, create: true, edit: true, delete: true },
+        users: { view: true, create: true, edit: true, delete: false },
+        reports: { view: true, export: true },
+      },
+      confidentialAccess: {
+        hrNotes: true,
+        resumes: true,
+        governmentIds: true,
+      },
+    };
+  }
+  // Default PANTRY_BOY
+  return {
+    dashboards: { pantry: true, management: false },
+    sidebarItems: {
+      dashboard: true,
+      myTasks: true,
+      roomSupport: true,
+      pantryRequests: true,
+      notifications: true,
+      taskHistory: true,
+      myProfile: true,
+      overview: false,
+      tasks: false,
+      rooms: false,
+      visitors: false,
+      reports: false,
+      users: false,
+      audit: false,
+      settings: false,
+    },
+    actions: {
+      tasks: { view: true, create: false, edit: true, delete: false },
+      rooms: { view: true, create: false, edit: false, delete: false },
+      visitors: { view: true, create: false, edit: false, delete: false },
+      users: { view: false, create: false, edit: false, delete: false },
+      reports: { view: false, export: false },
+    },
+    confidentialAccess: {
+      hrNotes: false,
+      resumes: false,
+      governmentIds: false,
+    },
+  };
+}
 
 interface AuthContextType {
   currentUser: UserAccount | null;
@@ -15,6 +119,12 @@ interface AuthContextType {
   refreshUsers: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
+  hasPermission: (
+    module: 'tasks' | 'rooms' | 'visitors' | 'users' | 'reports',
+    action: 'view' | 'create' | 'edit' | 'delete' | 'export'
+  ) => boolean;
+  hasSidebarAccess: (item: keyof UserPermissions['sidebarItems']) => boolean;
+  hasDashboardAccess: (dashboard: 'pantry' | 'management') => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,7 +179,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const token = getSessionToken();
 
         if (!token) {
-          // Unauthenticated state: fetch user list for switcher options, leave currentUser as null
           const users = await api.getUsers().catch(() => []);
           if (!mounted) return;
           setAllUsers(users);
@@ -90,7 +199,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCurrentUser(user);
           setIsDeactivated(user.status === 'inactive');
         } else {
-          // Invalid or expired token
           clearSessionToken();
           setCurrentUser(null);
           setIsDeactivated(false);
@@ -121,7 +229,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = api.subscribeRealtime((event, payload) => {
       if (event === 'notification:new' && payload?.notification) {
         const notif = payload.notification;
-        // Check relevance
         const isRelevant =
           !notif.recipientRole && !notif.recipientEmail
             ? true
@@ -138,7 +245,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return [notif, ...prev];
           });
         }
-      } else if (event === 'room:updated' || event === 'task:updated') {
+      } else if (event === 'user:updated' && payload?.user) {
+        const updated = payload.user as UserAccount;
+        setAllUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+        if (currentUser.id === updated.id) {
+          if (updated.status === 'inactive') {
+            setIsDeactivated(true);
+            setCurrentUser(updated);
+          } else {
+            setIsDeactivated(false);
+            setCurrentUser(updated);
+          }
+        }
+      } else if (event === 'account:revoked' && payload?.userId) {
+        if (currentUser.id === payload.userId) {
+          setIsDeactivated(true);
+          clearSessionToken();
+        }
+      } else if (event === 'room:updated' || event === 'task:updated' || event === 'pantry_request:created' || event === 'pantry_request:updated') {
         refreshNotifications();
       }
     });
@@ -206,6 +330,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
 
+  const hasPermission = useCallback(
+    (
+      module: 'tasks' | 'rooms' | 'visitors' | 'users' | 'reports',
+      action: 'view' | 'create' | 'edit' | 'delete' | 'export'
+    ): boolean => {
+      if (!currentUser) return false;
+      if (currentUser.role === 'ADMIN' || currentUser.isSuperAdmin) return true;
+      const perms = currentUser.permissions || getDefaultPermissions(currentUser.role);
+      if (action === 'export') {
+        return Boolean((perms.actions as any)[module]?.export);
+      }
+      return Boolean((perms.actions as any)[module]?.[action]);
+    },
+    [currentUser]
+  );
+
+  const hasSidebarAccess = useCallback(
+    (item: keyof UserPermissions['sidebarItems']): boolean => {
+      if (!currentUser) return false;
+      if (currentUser.role === 'ADMIN' || currentUser.isSuperAdmin) return true;
+      const perms = currentUser.permissions || getDefaultPermissions(currentUser.role);
+      return Boolean(perms.sidebarItems?.[item]);
+    },
+    [currentUser]
+  );
+
+  const hasDashboardAccess = useCallback(
+    (dashboard: 'pantry' | 'management'): boolean => {
+      if (!currentUser) return false;
+      if (currentUser.role === 'ADMIN' || currentUser.isSuperAdmin) return true;
+      const perms = currentUser.permissions || getDefaultPermissions(currentUser.role);
+      return Boolean(perms.dashboards?.[dashboard]);
+    },
+    [currentUser]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -221,6 +381,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshUsers,
         refreshNotifications,
         markNotificationRead,
+        hasPermission,
+        hasSidebarAccess,
+        hasDashboardAccess,
       }}
     >
       {children}

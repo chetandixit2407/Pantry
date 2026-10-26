@@ -6,23 +6,29 @@ import { ManagementView } from './components/management/ManagementView.tsx';
 import { ShieldAlert, LogIn, Lock, Users, LogOut, Loader2 } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
-  const { currentUser, isDeactivated, switchUser, allUsers, login, logout, isLoading } = useAuth();
+  const { currentUser, isDeactivated, switchUser, allUsers, login, logout, isLoading, hasDashboardAccess } = useAuth();
   const [activeView, setActiveView] = useState<'PANTRY' | 'MANAGEMENT'>('PANTRY');
   const [loginEmail, setLoginEmail] = useState<string>('');
   const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Sync default view on account change
+  // Sync default view on account change or permission update
   useEffect(() => {
     if (currentUser) {
-      if (currentUser.role === 'PANTRY_BOY') {
+      const canPantry = hasDashboardAccess('pantry');
+      const canMgmt = hasDashboardAccess('management');
+      if (canPantry && !canMgmt) {
+        setActiveView('PANTRY');
+      } else if (canMgmt && !canPantry) {
+        setActiveView('MANAGEMENT');
+      } else if (currentUser.role === 'PANTRY_BOY') {
         setActiveView('PANTRY');
       } else {
         setActiveView('MANAGEMENT');
       }
     }
-  }, [currentUser?.id, currentUser?.role]);
+  }, [currentUser?.id, currentUser?.role, currentUser?.permissions]);
 
   // Loading spinner during initial auth check
   if (isLoading && !currentUser) {
@@ -248,34 +254,63 @@ const MainLayout: React.FC = () => {
     );
   }
 
+  const canPantry = hasDashboardAccess('pantry');
+  const canMgmt = hasDashboardAccess('management');
+
+  // If user has no dashboard permissions at all
+  if (!canPantry && !canMgmt) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl text-center">
+          <div className="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">No Dashboard Access Authorized</h2>
+          <p className="text-xs text-slate-300 leading-relaxed mb-4">
+            Account <strong className="text-white font-mono">{currentUser.email}</strong> has not been granted view access to the Pantry or Management dashboards by an Administrator.
+          </p>
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="w-full py-2.5 px-4 text-xs font-bold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Log Out</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const effectiveView = activeView === 'PANTRY' && canPantry ? 'PANTRY' : (canMgmt ? 'MANAGEMENT' : 'PANTRY');
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {currentUser.role === 'PANTRY_BOY' ? (
-        <>
-          <Navbar activeView={activeView} setActiveView={setActiveView} />
+      {effectiveView === 'PANTRY' ? (
+        currentUser.role === 'PANTRY_BOY' ? (
           <main className="flex-1">
             <PantryBoyView />
           </main>
-        </>
-      ) : activeView === 'PANTRY' ? (
-        <>
-          <Navbar activeView={activeView} setActiveView={setActiveView} />
-          <main className="flex-1">
-            <div className="bg-amber-100 border-b border-amber-200 py-1.5 px-4 text-center text-xs text-amber-900 font-semibold">
-              Management Simulation: Previewing Raju Sharma's Mobile Pantry Interface ·{' '}
-              <button
-                type="button"
-                onClick={() => setActiveView('MANAGEMENT')}
-                className="underline hover:text-black font-bold ml-1"
-              >
-                Return to Operations Command
-              </button>
-            </div>
-            <PantryBoyView />
-          </main>
-        </>
+        ) : (
+          <>
+            <Navbar activeView={effectiveView} setActiveView={setActiveView} />
+            <main className="flex-1">
+              <div className="bg-amber-100 border-b border-amber-200 py-1.5 px-4 text-center text-xs text-amber-900 font-semibold flex items-center justify-center gap-2">
+                <span>Management View: Previewing Attendant Dashboard ·</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('MANAGEMENT')}
+                  className="underline hover:text-black font-bold cursor-pointer"
+                >
+                  Return to Operations Command
+                </button>
+              </div>
+              <PantryBoyView />
+            </main>
+          </>
+        )
       ) : (
-        <ManagementView activeView={activeView} setActiveView={setActiveView} />
+        <ManagementView activeView={effectiveView} setActiveView={setActiveView} />
       )}
     </div>
   );

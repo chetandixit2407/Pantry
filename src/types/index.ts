@@ -1,5 +1,43 @@
 export type Role = 'PANTRY_BOY' | 'HR' | 'KIMMY_MAM' | 'ADMIN';
 
+export interface UserPermissions {
+  dashboards: {
+    pantry: boolean;
+    management: boolean;
+  };
+  sidebarItems: {
+    // Pantry sidebar items
+    dashboard: boolean;
+    myTasks: boolean;
+    roomSupport: boolean;
+    pantryRequests: boolean;
+    notifications: boolean;
+    taskHistory: boolean;
+    myProfile: boolean;
+    // Management sidebar items
+    overview: boolean;
+    tasks: boolean;
+    rooms: boolean;
+    visitors: boolean;
+    reports: boolean;
+    users: boolean;
+    audit: boolean;
+    settings: boolean;
+  };
+  actions: {
+    tasks: { view: boolean; create: boolean; edit: boolean; delete: boolean };
+    rooms: { view: boolean; create: boolean; edit: boolean; delete: boolean };
+    visitors: { view: boolean; create: boolean; edit: boolean; delete: boolean };
+    users: { view: boolean; create: boolean; edit: boolean; delete: boolean };
+    reports: { view: boolean; export: boolean };
+  };
+  confidentialAccess?: {
+    hrNotes: boolean;
+    resumes: boolean;
+    governmentIds: boolean;
+  };
+}
+
 export interface UserAccount {
   id: string;
   email: string;
@@ -12,6 +50,23 @@ export interface UserAccount {
   createdAt: string;
   deactivatedAt?: string;
   deactivatedBy?: string;
+  isSuperAdmin?: boolean;
+  permissions?: UserPermissions;
+}
+
+export interface PantryRequest {
+  id: string;
+  roomAreaId: string;
+  roomAreaName: string;
+  requesterName: string;
+  requesterRole: string;
+  items: string[];
+  instructions: string;
+  priority: 'URGENT' | 'HIGH' | 'NORMAL';
+  status: 'PENDING' | 'IN_PREPARATION' | 'SERVED' | 'CANCELLED';
+  createdAt: string;
+  servedAt?: string;
+  servedBy?: string;
 }
 
 export type RoomCategory =

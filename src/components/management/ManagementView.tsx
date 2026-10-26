@@ -13,9 +13,11 @@ import type {
   WeeklyReportSummary,
   TaskPriority,
   TaskStatus,
+  UserPermissions,
+  Role,
 } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
-import { useAuth } from '../../context/AuthContext.tsx';
+import { useAuth, getDefaultPermissions } from '../../context/AuthContext.tsx';
 import {
   Sparkles,
   Plus,
@@ -28,6 +30,10 @@ import {
   Download,
   Users,
   MapPin,
+  Trash2,
+  Edit3,
+  Shield,
+  Sliders,
   Calendar,
   FileText,
   ShieldCheck,
@@ -83,7 +89,7 @@ export type ManagementTab =
   | 'AUDIT';
 
 export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setActiveView }) => {
-  const { currentUser, allUsers, refreshUsers, logout } = useAuth();
+  const { currentUser, allUsers, refreshUsers, logout, hasPermission } = useAuth();
 
   // Active navigation sub-tab
   const [subTab, setSubTab] = useState<ManagementTab>('DASHBOARD');
@@ -160,13 +166,42 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   });
 
   // New User Form
-  const [newUserForm, setNewUserForm] = useState({
+  const [newUserForm, setNewUserForm] = useState<{
+    name: string;
+    email: string;
+    role: Role;
+    department: string;
+    phone: string;
+    permissions?: UserPermissions;
+  }>({
     name: '',
     email: '',
     role: 'PANTRY_BOY',
-    department: 'Hospitality',
+    department: 'Hospitality & Operations',
     phone: '',
   });
+
+  // Edit User & Permissions State
+  const [showEditUserModal, setShowEditUserModal] = useState<boolean>(false);
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [editUserForm, setEditUserForm] = useState<{
+    name: string;
+    email: string;
+    role: Role;
+    department: string;
+    phone: string;
+    permissions: UserPermissions;
+  }>({
+    name: '',
+    email: '',
+    role: 'PANTRY_BOY',
+    department: '',
+    phone: '',
+    permissions: getDefaultPermissions('PANTRY_BOY'),
+  });
+
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserAccount | null>(null);
+  const [userActionLoading, setUserActionLoading] = useState<boolean>(false);
 
   // Room Management State
   const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
@@ -465,13 +500,67 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         name: '',
         email: '',
         role: 'PANTRY_BOY',
-        department: 'Hospitality',
+        department: 'Hospitality & Operations',
         phone: '',
       });
       await refreshUsers();
       await loadData();
     } catch (err: any) {
       alert(err.message || 'Failed to create company user');
+    }
+  };
+
+  const handleOpenEditUser = (user: UserAccount) => {
+    setEditingUser(user);
+    setEditUserForm({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      department: user.department || '',
+      phone: user.phone || '',
+      permissions: user.permissions || getDefaultPermissions(user.role),
+    });
+    setShowEditUserModal(true);
+  };
+
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setUserActionLoading(true);
+    try {
+      await api.updateUser(editingUser.id, editUserForm);
+      setShowEditUserModal(false);
+      setEditingUser(null);
+      await refreshUsers();
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update user and permissions');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    setUserActionLoading(true);
+    try {
+      await api.deleteUser(userId);
+      setDeleteConfirmUser(null);
+      await refreshUsers();
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete user');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('Are you sure you want to permanently delete this task?')) return;
+    try {
+      await api.deleteTask(taskId);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete task');
     }
   };
 
@@ -1609,33 +1698,46 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                       <div className="text-[11px] text-slate-400 font-mono">Due {task.dueTime}</div>
 
-                      {isPendingReview ? (
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {isPendingReview ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyPhoto(task.id, 'APPROVE')}
+                              className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyPhoto(task.id, 'REJECT', 'Chairs misaligned or debris visible')}
+                              className="px-2 py-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        ) : task.photoEvidence ? (
                           <button
                             type="button"
-                            onClick={() => handleVerifyPhoto(task.id, 'APPROVE')}
-                            className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors"
+                            onClick={() => setInspectPhotoTask(task)}
+                            className="text-xs text-slate-700 font-medium hover:underline flex items-center gap-1"
                           >
-                            Approve
+                            <Camera className="w-3.5 h-3.5" />
+                            View Photo
                           </button>
+                        ) : null}
+
+                        {hasPermission('tasks', 'delete') && (
                           <button
                             type="button"
-                            onClick={() => handleVerifyPhoto(task.id, 'REJECT', 'Chairs misaligned or debris visible')}
-                            className="px-2 py-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md"
+                            onClick={() => handleDeleteTask(task.id)}
+                            title="Delete Task"
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
                           >
-                            Reject
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                        </div>
-                      ) : task.photoEvidence ? (
-                        <button
-                          type="button"
-                          onClick={() => setInspectPhotoTask(task)}
-                          className="text-xs text-slate-700 font-medium hover:underline flex items-center gap-1"
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          View Photo
-                        </button>
-                      ) : null}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -2225,54 +2327,92 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
             {allUsers.map((u) => {
               const isDeactivated = u.status === 'inactive';
               const isMe = currentUser?.id === u.id;
+              const isSuper = Boolean(u.isSuperAdmin || u.id === 'user-admin-1' || u.email.toLowerCase() === 'admin.director@whitecollarrealty.com');
 
               return (
-                <div key={u.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div key={u.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <img src={u.avatarUrl} alt={u.name} className="w-10 h-10 rounded-full object-cover border" />
+                    <img src={u.avatarUrl} alt={u.name} className="w-11 h-11 rounded-2xl object-cover border border-slate-200 shadow-xs" />
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-slate-900">{u.name}</span>
-                        <span className="text-xs text-slate-500">· {u.role}</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono">
+                          {u.role === 'KIMMY_MAM' ? 'Co-Founder' : u.role}
+                        </span>
+                        {isSuper && (
+                          <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Shield className="w-3 h-3 text-amber-600" />
+                            Primary Super Admin (Protected)
+                          </span>
+                        )}
                         {isDeactivated && (
-                          <span className="text-[10px] font-mono text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded font-bold">
-                            ACCESS REVOKED
+                          <span className="text-[10px] font-mono text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full font-bold border border-rose-200">
+                            ACCESS SUSPENDED
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-500 font-mono">
-                        {u.email} · {u.department} {u.phone ? `· ${u.phone}` : ''}
+                      <div className="text-xs text-slate-500 font-mono mt-0.5">
+                        {u.email} • {u.department || 'Hospitality & Operations'} {u.phone ? `• ${u.phone}` : ''}
                       </div>
                       {isDeactivated && u.deactivatedAt && (
-                        <div className="text-[11px] text-rose-600 mt-0.5">
-                          Deactivated by {u.deactivatedBy} at {new Date(u.deactivatedAt).toLocaleString()}
+                        <div className="text-[11px] text-rose-600 mt-1 font-medium">
+                          Deactivated by {u.deactivatedBy || 'Management'} at {new Date(u.deactivatedAt).toLocaleString()}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {!isMe && (
-                      <button
-                        type="button"
-                        onClick={() => handleToggleUser(u.id)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
-                          isDeactivated
-                            ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
-                            : 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200'
-                        }`}
-                      >
-                        {isDeactivated ? (
-                          <>
-                            <UserCheck className="w-3.5 h-3.5" /> Reactivate Access
-                          </>
-                        ) : (
-                          <>
-                            <UserX className="w-3.5 h-3.5" /> Deactivate Immediately
-                          </>
-                        )}
-                      </button>
-                    )}
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    {/* Permissions & Edit Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditUser(u)}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-xs"
+                      title="Customize Dashboards, Sidebar Items, and CRUD Actions"
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Edit & Permissions</span>
+                    </button>
+
+                    {/* Activate / Deactivate Toggle */}
+                    <button
+                      type="button"
+                      disabled={isSuper}
+                      onClick={() => handleToggleUser(u.id)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                        isSuper
+                          ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
+                          : isDeactivated
+                          ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+                          : 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200'
+                      }`}
+                      title={isSuper ? 'Security Policy: Super Administrator cannot be deactivated.' : undefined}
+                    >
+                      {isDeactivated ? (
+                        <>
+                          <UserCheck className="w-3.5 h-3.5" /> Reactivate
+                        </>
+                      ) : (
+                        <>
+                          <UserX className="w-3.5 h-3.5" /> Deactivate
+                        </>
+                      )}
+                    </button>
+
+                    {/* Delete User Button */}
+                    <button
+                      type="button"
+                      disabled={isSuper}
+                      onClick={() => setDeleteConfirmUser(u)}
+                      className={`p-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center ${
+                        isSuper
+                          ? 'opacity-30 cursor-not-allowed bg-slate-100 text-slate-400'
+                          : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200'
+                      }`}
+                      title={isSuper ? 'Security Policy: Primary Super Administrator cannot be deleted.' : 'Delete User Account'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );
@@ -2596,7 +2736,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   <label className="block text-xs font-bold text-slate-700 mb-1">Role</label>
                   <select
                     value={newUserForm.role}
-                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value as Role })}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
                   >
                     <option value="PANTRY_BOY">Pantry Boy</option>
@@ -2617,6 +2757,27 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number (Optional)</label>
+                <input
+                  type="text"
+                  value={newUserForm.phone}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, phone: e.target.value })}
+                  placeholder="+91 98765 43210"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900">
+                <div className="font-bold flex items-center gap-1 mb-0.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Default Permissions Assigned</span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Standard {newUserForm.role} permissions for dashboards, sidebar navigation, and CRUD actions will be provisioned automatically. You can customize each user's exact access anytime via the "Edit & Permissions" button.
+                </p>
+              </div>
+
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -2633,6 +2794,573 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Edit User & Customizable Permissions */}
+      {showEditUserModal && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 max-h-[92vh] flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Edit Employee & Access Permissions
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Fine-grained role, dashboard, sidebar navigation, and CRUD action permissions. Changes apply immediately.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditUserModal(false)}
+                className="p-1 rounded text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSaveEditUser} className="overflow-y-auto p-6 space-y-6 flex-1 text-xs">
+              {/* Employee Basic Details */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <div className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center justify-between">
+                  <span>Employee Profile Details</span>
+                  {editingUser.isSuperAdmin && (
+                    <span className="text-[10px] font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Shield className="w-3 h-3 text-amber-600" /> Primary Super Admin (Protected)
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={editUserForm.name}
+                      onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Company Email</label>
+                    <input
+                      type="email"
+                      disabled
+                      value={editUserForm.email}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-100 text-slate-500 font-mono cursor-not-allowed"
+                      title="Company email cannot be changed"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Assigned Role</label>
+                    <select
+                      value={editUserForm.role}
+                      disabled={editingUser.isSuperAdmin}
+                      onChange={(e) => {
+                        const newRole = e.target.value as Role;
+                        setEditUserForm({
+                          ...editUserForm,
+                          role: newRole,
+                          permissions: getDefaultPermissions(newRole),
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
+                    >
+                      <option value="PANTRY_BOY">Pantry Boy</option>
+                      <option value="HR">HR Operations</option>
+                      <option value="KIMMY_MAM">Kimmi (Co-Founder)</option>
+                      <option value="ADMIN">Administrator</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Department</label>
+                    <input
+                      type="text"
+                      value={editUserForm.department}
+                      onChange={(e) => setEditUserForm({ ...editUserForm, department: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Phone Number</label>
+                    <input
+                      type="text"
+                      value={editUserForm.phone}
+                      onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                      placeholder="+91 98765 43210"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditUserForm({
+                        ...editUserForm,
+                        permissions: getDefaultPermissions(editUserForm.role),
+                      });
+                    }}
+                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Reset to Standard Role Defaults ({editUserForm.role})
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 1: Authorized Dashboards */}
+              <div className="space-y-3">
+                <div className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <LayoutDashboard className="w-4 h-4 text-slate-600" />
+                  <span>1. Dashboard Views Authorization</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="p-3 bg-white border border-slate-200 rounded-xl flex items-start gap-3 cursor-pointer hover:border-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={editUserForm.permissions.dashboards.pantry}
+                      onChange={(e) =>
+                        setEditUserForm({
+                          ...editUserForm,
+                          permissions: {
+                            ...editUserForm.permissions,
+                            dashboards: {
+                              ...editUserForm.permissions.dashboards,
+                              pantry: e.target.checked,
+                            },
+                          },
+                        })
+                      }
+                      className="w-4 h-4 text-slate-900 rounded border-slate-300 mt-0.5"
+                    />
+                    <div>
+                      <div className="font-bold text-slate-900">Pantry Boy Dashboard</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Access dedicated attendant dashboard with shift clock, room support, and live camera evidence.
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className="p-3 bg-white border border-slate-200 rounded-xl flex items-start gap-3 cursor-pointer hover:border-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={editUserForm.permissions.dashboards.management}
+                      onChange={(e) =>
+                        setEditUserForm({
+                          ...editUserForm,
+                          permissions: {
+                            ...editUserForm.permissions,
+                            dashboards: {
+                              ...editUserForm.permissions.dashboards,
+                              management: e.target.checked,
+                            },
+                          },
+                        })
+                      }
+                      className="w-4 h-4 text-slate-900 rounded border-slate-300 mt-0.5"
+                    />
+                    <div>
+                      <div className="font-bold text-slate-900">Management & Operations Dashboard</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Access supervisory views for task assignments, room collision control, and analytics.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* SECTION 2: Pantry Boy Dashboard Sidebar Items */}
+              <div className="space-y-3">
+                <div className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Coffee className="w-4 h-4 text-amber-600" />
+                    2. Pantry Boy Sidebar Items (Attendant View)
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">Controls what shows in attendant sidebar</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  {(
+                    [
+                      { key: 'dashboard', label: 'Dashboard' },
+                      { key: 'myTasks', label: 'My Tasks' },
+                      { key: 'roomSupport', label: 'Room Support' },
+                      { key: 'pantryRequests', label: 'Pantry Requests' },
+                      { key: 'notifications', label: 'Notifications' },
+                      { key: 'taskHistory', label: 'Task History' },
+                      { key: 'myProfile', label: 'My Profile' },
+                    ] as const
+                  ).map((item) => (
+                    <label key={item.key} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-white rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editUserForm.permissions.sidebarItems?.[item.key])}
+                        onChange={(e) =>
+                          setEditUserForm({
+                            ...editUserForm,
+                            permissions: {
+                              ...editUserForm.permissions,
+                              sidebarItems: {
+                                ...editUserForm.permissions.sidebarItems,
+                                [item.key]: e.target.checked,
+                              },
+                            },
+                          })
+                        }
+                        className="w-3.5 h-3.5 text-slate-900 rounded border-slate-300"
+                      />
+                      <span className="font-medium text-slate-700">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECTION 3: Management Sidebar Items */}
+              <div className="space-y-3">
+                <div className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-indigo-600" />
+                    3. Management Sidebar Items
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">Controls management navigation tabs</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  {(
+                    [
+                      { key: 'overview', label: 'Overview' },
+                      { key: 'tasks', label: 'Tasks' },
+                      { key: 'rooms', label: 'Rooms' },
+                      { key: 'visitors', label: 'Visitors' },
+                      { key: 'reports', label: 'Reports' },
+                      { key: 'users', label: 'Users & Security' },
+                      { key: 'audit', label: 'Audit Trail' },
+                      { key: 'settings', label: 'Settings' },
+                    ] as const
+                  ).map((item) => (
+                    <label key={item.key} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-white rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editUserForm.permissions.sidebarItems?.[item.key])}
+                        onChange={(e) =>
+                          setEditUserForm({
+                            ...editUserForm,
+                            permissions: {
+                              ...editUserForm.permissions,
+                              sidebarItems: {
+                                ...editUserForm.permissions.sidebarItems,
+                                [item.key]: e.target.checked,
+                              },
+                            },
+                          })
+                        }
+                        className="w-3.5 h-3.5 text-slate-900 rounded border-slate-300"
+                      />
+                      <span className="font-medium text-slate-700">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECTION 4: Granular CRUD Action Privileges */}
+              <div className="space-y-3">
+                <div className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>4. Granular CRUD Action Privileges</span>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                  {[
+                    {
+                      module: 'tasks' as const,
+                      label: 'Tasks',
+                      desc: 'Schedule, dispatch, edit, or delete routines and ad-hoc requests',
+                      actions: ['view', 'create', 'edit', 'delete'] as const,
+                    },
+                    {
+                      module: 'rooms' as const,
+                      label: 'Rooms & Areas',
+                      desc: 'Configure office zones, assign candidates/clients, toggle active status',
+                      actions: ['view', 'create', 'edit', 'delete'] as const,
+                    },
+                    {
+                      module: 'visitors' as const,
+                      label: 'Visitors & Candidates',
+                      desc: 'Register visitor arrivals, view interview references, mark departure',
+                      actions: ['view', 'create', 'edit', 'delete'] as const,
+                    },
+                    {
+                      module: 'users' as const,
+                      label: 'User Accounts',
+                      desc: 'Create employees, edit role & permission matrices, deactivate/delete',
+                      actions: ['view', 'create', 'edit', 'delete'] as const,
+                    },
+                  ].map((row) => (
+                    <div key={row.module} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-slate-900">{row.label}</div>
+                        <div className="text-[11px] text-slate-500">{row.desc}</div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {row.actions.map((act) => (
+                          <label key={act} className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(editUserForm.permissions.actions[row.module]?.[act])}
+                              onChange={(e) =>
+                                setEditUserForm({
+                                  ...editUserForm,
+                                  permissions: {
+                                    ...editUserForm.permissions,
+                                    actions: {
+                                      ...editUserForm.permissions.actions,
+                                      [row.module]: {
+                                        ...editUserForm.permissions.actions[row.module],
+                                        [act]: e.target.checked,
+                                      },
+                                    },
+                                  },
+                                })
+                              }
+                              className="w-3.5 h-3.5 text-slate-900 rounded border-slate-300"
+                            />
+                            <span className="capitalize font-mono text-[11px] text-slate-700">{act}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Reports row */}
+                  <div className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-slate-900">Reports & Analytics</div>
+                      <div className="text-[11px] text-slate-500">View daily/weekly performance analytics and export CSV snapshots</div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editUserForm.permissions.actions.reports.view}
+                          onChange={(e) =>
+                            setEditUserForm({
+                              ...editUserForm,
+                              permissions: {
+                                ...editUserForm.permissions,
+                                actions: {
+                                  ...editUserForm.permissions.actions,
+                                  reports: {
+                                    ...editUserForm.permissions.actions.reports,
+                                    view: e.target.checked,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          className="w-3.5 h-3.5 text-slate-900 rounded border-slate-300"
+                        />
+                        <span className="capitalize font-mono text-[11px] text-slate-700">view</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editUserForm.permissions.actions.reports.export}
+                          onChange={(e) =>
+                            setEditUserForm({
+                              ...editUserForm,
+                              permissions: {
+                                ...editUserForm.permissions,
+                                actions: {
+                                  ...editUserForm.permissions.actions,
+                                  reports: {
+                                    ...editUserForm.permissions.actions.reports,
+                                    export: e.target.checked,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          className="w-3.5 h-3.5 text-slate-900 rounded border-slate-300"
+                        />
+                        <span className="capitalize font-mono text-[11px] text-slate-700">export</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 5: Confidential Information Security Clearances */}
+              <div className="space-y-3">
+                <div className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-600" />
+                    5. Confidential Data Access Clearances
+                  </span>
+                  <span className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-mono font-bold">
+                    RESTRICTED
+                  </span>
+                </div>
+                <div className="p-3.5 bg-rose-50/60 border border-rose-200 rounded-xl space-y-2">
+                  <p className="text-[11px] text-rose-900 leading-relaxed">
+                    By default, Pantry Boys and non-management personnel are strictly prohibited from viewing candidate resumes, internal HR notes, and government IDs. Grant clearance only when operationally essential.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-rose-200/80">
+                    <label className="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-lg border border-rose-200/80">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editUserForm.permissions.confidentialAccess?.hrNotes)}
+                        onChange={(e) =>
+                          setEditUserForm({
+                            ...editUserForm,
+                            permissions: {
+                              ...editUserForm.permissions,
+                              confidentialAccess: {
+                                hrNotes: e.target.checked,
+                                resumes: Boolean(editUserForm.permissions.confidentialAccess?.resumes),
+                                governmentIds: Boolean(editUserForm.permissions.confidentialAccess?.governmentIds),
+                              },
+                            },
+                          })
+                        }
+                        className="w-3.5 h-3.5 text-rose-600 rounded border-rose-300"
+                      />
+                      <span className="font-semibold text-rose-950">Internal HR Notes</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-lg border border-rose-200/80">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editUserForm.permissions.confidentialAccess?.resumes)}
+                        onChange={(e) =>
+                          setEditUserForm({
+                            ...editUserForm,
+                            permissions: {
+                              ...editUserForm.permissions,
+                              confidentialAccess: {
+                                hrNotes: Boolean(editUserForm.permissions.confidentialAccess?.hrNotes),
+                                resumes: e.target.checked,
+                                governmentIds: Boolean(editUserForm.permissions.confidentialAccess?.governmentIds),
+                              },
+                            },
+                          })
+                        }
+                        className="w-3.5 h-3.5 text-rose-600 rounded border-rose-300"
+                      />
+                      <span className="font-semibold text-rose-950">Candidate Resumes</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-lg border border-rose-200/80">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editUserForm.permissions.confidentialAccess?.governmentIds)}
+                        onChange={(e) =>
+                          setEditUserForm({
+                            ...editUserForm,
+                            permissions: {
+                              ...editUserForm.permissions,
+                              confidentialAccess: {
+                                hrNotes: Boolean(editUserForm.permissions.confidentialAccess?.hrNotes),
+                                resumes: Boolean(editUserForm.permissions.confidentialAccess?.resumes),
+                                governmentIds: e.target.checked,
+                              },
+                            },
+                          })
+                        }
+                        className="w-3.5 h-3.5 text-rose-600 rounded border-rose-300"
+                      />
+                      <span className="font-semibold text-rose-950">Government IDs</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Footer */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-3 sticky bottom-0 bg-white">
+                <span className="text-[11px] text-slate-500 font-mono">
+                  Applied in real-time across active sessions via SSE
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditUserModal(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={userActionLoading}
+                    className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {userActionLoading ? (
+                      <span>Saving Permissions...</span>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span>Save Permissions & Update User</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Delete User Confirmation */}
+      {deleteConfirmUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-rose-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 text-center mb-1">
+              Delete Employee Account?
+            </h3>
+            <p className="text-xs text-slate-600 text-center mb-4 leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <strong className="text-slate-900 font-mono">{deleteConfirmUser.name}</strong> ({deleteConfirmUser.email})?
+            </p>
+
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-800 space-y-1 mb-5">
+              <div className="font-bold flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span>Immediate Access Termination</span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                Active sessions for this account will be invalidated immediately in real-time. Any assigned tasks will be unassigned and returned to the operational pool.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmUser(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={userActionLoading}
+                onClick={() => handleDeleteUser(deleteConfirmUser.id)}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm cursor-pointer"
+              >
+                {userActionLoading ? 'Deleting Account...' : 'Confirm Permanent Deletion'}
+              </button>
+            </div>
           </div>
         </div>
       )}

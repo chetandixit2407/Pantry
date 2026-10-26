@@ -12,6 +12,7 @@ import type {
   WeeklyReportSummary,
   TaskPriority,
   TaskStatus,
+  PantryRequest,
 } from '../types/index.ts';
 
 const BASE_URL = '/api';
@@ -158,6 +159,31 @@ export const api = {
     }
     const data = await res.json();
     return data.user;
+  },
+
+  async updateUser(userId: string, payload: Partial<UserAccount>): Promise<UserAccount> {
+    const res = await fetch(`${BASE_URL}/users/${userId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update user');
+    }
+    const data = await res.json();
+    return data.user;
+  },
+
+  async deleteUser(userId: string): Promise<void> {
+    const res = await fetch(`${BASE_URL}/users/${userId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete user');
+    }
   },
 
   // Rooms
@@ -381,6 +407,63 @@ export const api = {
     return data.task;
   },
 
+  async deleteTask(taskId: string): Promise<void> {
+    const res = await fetch(`${BASE_URL}/tasks/${taskId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete task');
+    }
+  },
+
+  // Pantry Requests
+  async getPantryRequests(): Promise<PantryRequest[]> {
+    const res = await fetch(`${BASE_URL}/pantry-requests`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.requests || [];
+  },
+
+  async createPantryRequest(payload: {
+    roomAreaId: string;
+    items: string[];
+    instructions: string;
+    priority?: 'URGENT' | 'HIGH' | 'NORMAL';
+  }): Promise<PantryRequest> {
+    const res = await fetch(`${BASE_URL}/pantry-requests`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create pantry request');
+    }
+    const data = await res.json();
+    return data.request;
+  },
+
+  async updatePantryRequestStatus(
+    requestId: string,
+    status: 'PENDING' | 'IN_PREPARATION' | 'SERVED' | 'CANCELLED'
+  ): Promise<PantryRequest> {
+    const res = await fetch(`${BASE_URL}/pantry-requests/${requestId}/status`, {
+      method: 'PATCH',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update pantry request status');
+    }
+    const data = await res.json();
+    return data.request;
+  },
+
   // Visitors
   async getVisitors(): Promise<VisitorEvent[]> {
     const res = await fetch(`${BASE_URL}/visitors`, {
@@ -533,6 +616,10 @@ export const api = {
         es.addEventListener('room:updated', handleMessage('room:updated'));
         es.addEventListener('task:updated', handleMessage('task:updated'));
         es.addEventListener('notification:new', handleMessage('notification:new'));
+        es.addEventListener('user:updated', handleMessage('user:updated'));
+        es.addEventListener('account:revoked', handleMessage('account:revoked'));
+        es.addEventListener('pantry_request:created', handleMessage('pantry_request:created'));
+        es.addEventListener('pantry_request:updated', handleMessage('pantry_request:updated'));
 
         es.onerror = () => {
           if (es) {

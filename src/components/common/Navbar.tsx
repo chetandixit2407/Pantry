@@ -8,7 +8,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => {
-  const { currentUser, allUsers, switchUser, logout, notifications, unreadNotifCount, markNotificationRead } = useAuth();
+  const { currentUser, allUsers, switchUser, logout, notifications, unreadNotifCount, markNotificationRead, hasDashboardAccess } = useAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -51,25 +51,25 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
 
         {/* Zone 2: Navigation Links for Management / Admin */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-          {isManagement && (
+          {hasDashboardAccess('management') && hasDashboardAccess('pantry') && (
             <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
               <button
                 type="button"
                 onClick={() => setActiveView('PANTRY')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                   activeView === 'PANTRY' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Pantry Boy Mobile View
+                Pantry Attendant View
               </button>
               <button
                 type="button"
                 onClick={() => setActiveView('MANAGEMENT')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                   activeView === 'MANAGEMENT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Operations Dashboard
+                Operations Command
               </button>
             </div>
           )}

@@ -21,6 +21,8 @@ import type {
   ChecklistItem,
   DailyReportSummary,
   WeeklyReportSummary,
+  PantryRequest,
+  UserPermissions,
 } from './src/types/index.ts';
 
 dotenv.config();
@@ -70,11 +72,116 @@ function broadcastRealtime(event: string, payload: any) {
   }
 }
 
+function getDefaultPermissions(role: Role): UserPermissions {
+  if (role === 'ADMIN') {
+    return {
+      dashboards: { pantry: true, management: true },
+      sidebarItems: {
+        dashboard: true,
+        myTasks: true,
+        roomSupport: true,
+        pantryRequests: true,
+        notifications: true,
+        taskHistory: true,
+        myProfile: true,
+        overview: true,
+        tasks: true,
+        rooms: true,
+        visitors: true,
+        reports: true,
+        users: true,
+        audit: true,
+        settings: true,
+      },
+      actions: {
+        tasks: { view: true, create: true, edit: true, delete: true },
+        rooms: { view: true, create: true, edit: true, delete: true },
+        visitors: { view: true, create: true, edit: true, delete: true },
+        users: { view: true, create: true, edit: true, delete: true },
+        reports: { view: true, export: true },
+      },
+      confidentialAccess: {
+        hrNotes: true,
+        resumes: true,
+        governmentIds: true,
+      },
+    };
+  }
+  if (role === 'KIMMY_MAM' || role === 'HR') {
+    return {
+      dashboards: { pantry: true, management: true },
+      sidebarItems: {
+        dashboard: true,
+        myTasks: true,
+        roomSupport: true,
+        pantryRequests: true,
+        notifications: true,
+        taskHistory: true,
+        myProfile: true,
+        overview: true,
+        tasks: true,
+        rooms: true,
+        visitors: true,
+        reports: true,
+        users: true,
+        audit: true,
+        settings: true,
+      },
+      actions: {
+        tasks: { view: true, create: true, edit: true, delete: true },
+        rooms: { view: true, create: true, edit: true, delete: false },
+        visitors: { view: true, create: true, edit: true, delete: true },
+        users: { view: true, create: true, edit: true, delete: false },
+        reports: { view: true, export: true },
+      },
+      confidentialAccess: {
+        hrNotes: true,
+        resumes: true,
+        governmentIds: true,
+      },
+    };
+  }
+  // PANTRY_BOY
+  return {
+    dashboards: { pantry: true, management: false },
+    sidebarItems: {
+      dashboard: true,
+      myTasks: true,
+      roomSupport: true,
+      pantryRequests: true,
+      notifications: true,
+      taskHistory: true,
+      myProfile: true,
+      overview: false,
+      tasks: false,
+      rooms: false,
+      visitors: false,
+      reports: false,
+      users: false,
+      audit: false,
+      settings: false,
+    },
+    actions: {
+      tasks: { view: true, create: false, edit: true, delete: false },
+      rooms: { view: true, create: false, edit: false, delete: false },
+      visitors: { view: true, create: false, edit: false, delete: false },
+      users: { view: false, create: false, edit: false, delete: false },
+      reports: { view: false, export: false },
+    },
+    confidentialAccess: {
+      hrNotes: false,
+      resumes: false,
+      governmentIds: false,
+    },
+  };
+}
+
 interface DatabaseState {
   users: UserAccount[];
   rooms: RoomArea[];
   tasks: Task[];
   visitors: VisitorEvent[];
+  pantryRequests: PantryRequest[];
   auditLogs: AuditLog[];
   notifications: AppNotification[];
   lastGeneratedDate: string;
@@ -341,6 +448,7 @@ const INITIAL_USERS: UserAccount[] = [
     avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43210',
     createdAt: '2026-01-15T09:00:00Z',
+    permissions: getDefaultPermissions('PANTRY_BOY'),
   },
   {
     id: 'user-hr-1',
@@ -352,6 +460,7 @@ const INITIAL_USERS: UserAccount[] = [
     avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43211',
     createdAt: '2026-01-10T09:00:00Z',
+    permissions: getDefaultPermissions('HR'),
   },
   {
     id: 'user-kimmy-1',
@@ -363,6 +472,7 @@ const INITIAL_USERS: UserAccount[] = [
     avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43212',
     createdAt: '2025-11-01T09:00:00Z',
+    permissions: getDefaultPermissions('KIMMY_MAM'),
   },
   {
     id: 'user-admin-1',
@@ -374,6 +484,49 @@ const INITIAL_USERS: UserAccount[] = [
     avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43214',
     createdAt: '2025-09-01T09:00:00Z',
+    isSuperAdmin: true,
+    permissions: getDefaultPermissions('ADMIN'),
+  },
+];
+
+const INITIAL_PANTRY_REQUESTS: PantryRequest[] = [
+  {
+    id: 'preq-1',
+    roomAreaId: 'room-6',
+    roomAreaName: 'The Skyline',
+    requesterName: 'Kimmi',
+    requesterRole: 'Co-Founder',
+    items: ['2x Tender Coconut Water', '4x Sealed Mineral Bottles', 'Dry Fruits Platter'],
+    instructions: 'Serve before Birla Estates delegation arrives. Use clean crystal glasses.',
+    priority: 'URGENT',
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'preq-2',
+    roomAreaId: 'room-5',
+    roomAreaName: 'Prestige Loft',
+    requesterName: 'Priya Sen',
+    requesterRole: 'HR',
+    items: ['Hot Masala Tea (2 cups)', 'Water Carafe with 2 glasses'],
+    instructions: 'Senior candidate interview in progress. Deliver promptly.',
+    priority: 'HIGH',
+    status: 'IN_PREPARATION',
+    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'preq-3',
+    roomAreaId: 'room-3',
+    roomAreaName: 'Executive Cabin',
+    requesterName: 'Operations Administrator',
+    requesterRole: 'Admin',
+    items: ['Black Coffee (1 cup)', 'Fresh Sealed Bottle'],
+    instructions: 'Place on side credenza table.',
+    priority: 'NORMAL',
+    status: 'SERVED',
+    createdAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+    servedAt: new Date(Date.now() - 75 * 60 * 1000).toISOString(),
+    servedBy: 'Raju Sharma',
   },
 ];
 
@@ -909,6 +1062,7 @@ let db: DatabaseState = {
       notes: 'High-priority executive interview. Ensure water glass and notebook ready.',
     },
   ],
+  pantryRequests: INITIAL_PANTRY_REQUESTS,
   auditLogs: [
     {
       id: 'audit-init-1',
@@ -943,6 +1097,9 @@ try {
     const parsed = JSON.parse(rawData);
     if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.rooms)) {
       db = parsed;
+      if (!Array.isArray(db.pantryRequests) || db.pantryRequests.length === 0) {
+        db.pantryRequests = INITIAL_PANTRY_REQUESTS;
+      }
       // Remove Lalit Sir profile from existing state
       db.users = (db.users || []).filter((u: any) => u.id !== 'user-lalit-1' && !u.name?.toLowerCase().includes('lalit'));
       // Update Kimmi's profile details
@@ -956,6 +1113,16 @@ try {
       if (!db.users.some((u) => u.role === 'ADMIN')) {
         db.users.push(INITIAL_USERS[3]);
       }
+      // Ensure all users have permissions and super admin flag
+      db.users.forEach((u: any) => {
+        if (!u.permissions) {
+          u.permissions = getDefaultPermissions(u.role);
+        }
+        if (u.id === 'user-admin-1' || u.email === 'admin.director@whitecollarrealty.com') {
+          u.isSuperAdmin = true;
+          u.permissions = getDefaultPermissions('ADMIN');
+        }
+      });
       // Migrate rooms to standard RoomStatus and strip floor
       db.rooms.forEach((r: any) => {
         delete r.floor;
@@ -1308,6 +1475,20 @@ app.post('/api/auth/switch-user', (req, res) => {
   res.json({ user, token });
 });
 
+function checkUserPermission(
+  actor: UserAccount | null,
+  module: 'tasks' | 'rooms' | 'visitors' | 'users' | 'reports',
+  action: 'view' | 'create' | 'edit' | 'delete' | 'export'
+): boolean {
+  if (!actor) return false;
+  if (actor.role === 'ADMIN' || actor.isSuperAdmin) return true;
+  const perms = actor.permissions || getDefaultPermissions(actor.role);
+  if (action === 'export') {
+    return Boolean((perms.actions as any)[module]?.export);
+  }
+  return Boolean((perms.actions as any)[module]?.[action]);
+}
+
 // 2. User Management
 app.get('/api/users', (req, res) => {
   res.json({ users: db.users });
@@ -1315,8 +1496,8 @@ app.get('/api/users', (req, res) => {
 
 app.post('/api/users/:id/toggle-status', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmi, or Admin can deactivate employee accounts.' });
+  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'edit'))) {
+    return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can change employee status.' });
   }
 
   const targetUser = db.users.find((u) => u.id === req.params.id);
@@ -1325,6 +1506,12 @@ app.post('/api/users/:id/toggle-status', (req, res) => {
   }
 
   const isNowActive = targetUser.status === 'inactive';
+
+  // Super Admin protection from deactivation
+  if (!isNowActive && (targetUser.isSuperAdmin || targetUser.id === 'user-admin-1' || targetUser.email.toLowerCase() === 'admin.director@whitecollarrealty.com')) {
+    return res.status(403).json({ error: 'Security policy: The primary Super Administrator account cannot be deactivated.' });
+  }
+
   targetUser.status = isNowActive ? 'active' : 'inactive';
 
   if (!isNowActive) {
@@ -1352,6 +1539,8 @@ app.post('/api/users/:id/toggle-status', (req, res) => {
       'ACCOUNT_STATUS',
       { email: targetUser.email }
     );
+
+    broadcastRealtime('account:revoked', { userId: targetUser.id, message: 'Account deactivated' });
   } else {
     targetUser.deactivatedAt = undefined;
     targetUser.deactivatedBy = undefined;
@@ -1366,16 +1555,17 @@ app.post('/api/users/:id/toggle-status', (req, res) => {
   }
 
   saveDb();
+  broadcastRealtime('user:updated', { user: targetUser, users: db.users });
   res.json({ success: true, user: targetUser });
 });
 
 app.post('/api/users', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only management or admin can register company accounts.' });
+  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'create'))) {
+    return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can register company accounts.' });
   }
 
-  const { name, email, role, department, phone } = req.body;
+  const { name, email, role, department, phone, permissions } = req.body;
   if (!name || !email) {
     return res.status(400).json({ error: 'Name and email are required' });
   }
@@ -1385,23 +1575,122 @@ app.post('/api/users', (req, res) => {
     return res.status(400).json({ error: 'A user with this company email already exists.' });
   }
 
+  const userRole: Role = role || 'PANTRY_BOY';
   const newUser: UserAccount = {
     id: `user-${Date.now()}`,
     name,
     email: cleanEmail,
-    role: role || 'PANTRY_BOY',
-    department: department || 'Hospitality',
+    role: userRole,
+    department: department || (userRole === 'PANTRY_BOY' ? 'Hospitality & Operations' : 'Administration'),
     status: 'active',
-    avatarUrl: '/src/assets/images/avatar_pantry_boy_1792843916880.jpg',
+    avatarUrl: '/assets/wcr_logo.png',
     phone: phone || '',
     createdAt: new Date().toISOString(),
+    permissions: permissions || getDefaultPermissions(userRole),
   };
 
   db.users.push(newUser);
   addAuditLog(actor, 'USER_CREATED', 'USER', newUser.id, `Created new company account for ${newUser.name} (${newUser.email}) as ${newUser.role}`);
   saveDb();
+  broadcastRealtime('user:updated', { user: newUser, users: db.users });
 
   res.json({ success: true, user: newUser });
+});
+
+app.put('/api/users/:id', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'edit'))) {
+    return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can edit user accounts.' });
+  }
+
+  const targetUser = db.users.find((u) => u.id === req.params.id);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const { name, email, role, department, phone, permissions } = req.body;
+
+  // Protect Super Admin role from demotion
+  if (targetUser.isSuperAdmin && role && role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Security policy: The Super Administrator role cannot be changed.' });
+  }
+
+  if (name) targetUser.name = name;
+  if (email && email.toLowerCase() !== targetUser.email.toLowerCase()) {
+    const cleanEmail = String(email).trim().toLowerCase();
+    if (db.users.some((u) => u.id !== targetUser.id && u.email.toLowerCase() === cleanEmail)) {
+      return res.status(400).json({ error: 'Another user with this email already exists.' });
+    }
+    targetUser.email = cleanEmail;
+  }
+  if (role) targetUser.role = role;
+  if (department !== undefined) targetUser.department = department;
+  if (phone !== undefined) targetUser.phone = phone;
+  if (permissions) {
+    targetUser.permissions = permissions;
+  }
+
+  addAuditLog(
+    actor,
+    'USER_UPDATED',
+    'USER',
+    targetUser.id,
+    `Updated details and permissions for ${targetUser.name} (${targetUser.email})`
+  );
+  saveDb();
+
+  // Broadcast immediate update so the user client applies permissions in real time
+  broadcastRealtime('user:updated', { user: targetUser, users: db.users });
+  res.json({ success: true, user: targetUser });
+});
+
+app.delete('/api/users/:id', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'delete'))) {
+    return res.status(403).json({ error: 'Permission denied: Only Admin can delete company accounts.' });
+  }
+
+  const targetIndex = db.users.findIndex((u) => u.id === req.params.id);
+  if (targetIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const targetUser = db.users[targetIndex];
+
+  // Super Admin protection from deletion
+  if (targetUser.isSuperAdmin || targetUser.id === 'user-admin-1' || targetUser.email.toLowerCase() === 'admin.director@whitecollarrealty.com') {
+    return res.status(403).json({ error: 'Security policy: The primary Super Administrator account cannot be deleted.' });
+  }
+
+  // Ensure at least one active Admin exists
+  if (targetUser.role === 'ADMIN') {
+    const otherAdmins = db.users.filter((u) => u.id !== targetUser.id && u.role === 'ADMIN' && u.status === 'active');
+    if (otherAdmins.length === 0) {
+      return res.status(400).json({ error: 'Cannot delete the only remaining Administrator. Please assign another Admin first.' });
+    }
+  }
+
+  // Immediately purge sessions
+  for (const [token, session] of activeSessions.entries()) {
+    if (session.userId === targetUser.id) {
+      activeSessions.delete(token);
+    }
+  }
+
+  broadcastRealtime('account:revoked', { userId: targetUser.id, message: 'Account deleted by Admin' });
+
+  db.users.splice(targetIndex, 1);
+  addAuditLog(
+    actor,
+    'USER_DELETED',
+    'USER',
+    targetUser.id,
+    `Permanently deleted user account for ${targetUser.name} (${targetUser.email})`
+  );
+  saveDb();
+
+  broadcastRealtime('user:updated', { deletedUserId: targetUser.id, users: db.users });
+  res.json({ success: true, message: 'User deleted successfully' });
 });
 
 // -----------------------------------------------------------------------------
@@ -2020,8 +2309,8 @@ app.get('/api/tasks', (req, res) => {
 
 app.post('/api/tasks', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmi, or Admin can assign new tasks.' });
+  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'tasks', 'create'))) {
+    return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can assign new tasks.' });
   }
 
   const { title, roomAreaId, priority, dueTime, description, checklist, isUrgent } = req.body;
@@ -2201,6 +2490,24 @@ app.patch('/api/tasks/:id/checklist', (req, res) => {
   saveDb();
   broadcastRealtime('task:updated', { task, tasks: db.tasks });
   res.json({ success: true, task });
+});
+
+app.delete('/api/tasks/:id', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'tasks', 'delete'))) {
+    return res.status(403).json({ error: 'Permission denied: You do not have permission to delete tasks.' });
+  }
+
+  const taskIndex = db.tasks.findIndex((t) => t.id === req.params.id);
+  if (taskIndex === -1) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  const [removedTask] = db.tasks.splice(taskIndex, 1);
+  addAuditLog(actor, 'TASK_DELETED', 'TASK', removedTask.id, `Deleted task "${removedTask.title}" in ${removedTask.roomAreaName}`);
+  saveDb();
+  broadcastRealtime('task:updated', { task: removedTask, tasks: db.tasks, deletedTaskId: removedTask.id });
+  res.json({ success: true, message: 'Task deleted successfully' });
 });
 
 // 5. Live Camera Photo Upload (Server-side storage, zero external cloud)
@@ -2438,7 +2745,102 @@ app.post('/api/tasks/:id/verify', (req, res) => {
 
 // 6. Visitor Arrival & Departure Automation
 app.get('/api/visitors', (req, res) => {
-  res.json({ visitors: db.visitors });
+  const actor = getCurrentUser(req);
+  const hasConfidential =
+    actor?.role === 'ADMIN' ||
+    actor?.role === 'HR' ||
+    actor?.role === 'KIMMY_MAM' ||
+    Boolean(actor?.permissions?.confidentialAccess?.hrNotes);
+
+  const sanitized = db.visitors.map((v) => {
+    if (!hasConfidential) {
+      // Restrict confidential HR notes/resumes/IDs unless authorized
+      return {
+        ...v,
+        notes: v.notes ? v.notes.replace(/\[CONFIDENTIAL.*$/i, '').trim() || 'Standard hospitality requirements' : undefined,
+      };
+    }
+    return v;
+  });
+
+  res.json({ visitors: sanitized });
+});
+
+// 6b. Pantry Requests API
+app.get('/api/pantry-requests', (req, res) => {
+  res.json({ requests: db.pantryRequests || [] });
+});
+
+app.post('/api/pantry-requests', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { roomAreaId, items, instructions, priority } = req.body;
+  if (!roomAreaId || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Room and items are required' });
+  }
+
+  const room = db.rooms.find((r) => r.id === roomAreaId);
+  const roomName = room ? room.name : 'Office Room';
+
+  const newRequest: PantryRequest = {
+    id: `preq-${Date.now()}`,
+    roomAreaId,
+    roomAreaName: roomName,
+    requesterName: actor.name,
+    requesterRole: actor.role === 'KIMMY_MAM' ? 'Co-Founder' : actor.role === 'ADMIN' ? 'Admin' : actor.role,
+    items,
+    instructions: instructions || 'Deliver to room as requested.',
+    priority: priority || 'NORMAL',
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!Array.isArray(db.pantryRequests)) db.pantryRequests = [];
+  db.pantryRequests.unshift(newRequest);
+
+  addAuditLog(actor, 'PANTRY_REQUEST_CREATED', 'TASK', newRequest.id, `Created pantry request for ${roomName}: ${items.join(', ')}`);
+  notify(
+    `☕ New Pantry Request: ${roomName}`,
+    `${actor.name} requested: ${items.join(', ')}. Priority: ${newRequest.priority}.`,
+    'TASK_ASSIGNED',
+    { role: 'PANTRY_BOY', roomId: roomAreaId, roomName }
+  );
+
+  saveDb();
+  broadcastRealtime('pantry_request:created', { request: newRequest, requests: db.pantryRequests });
+  res.json({ success: true, request: newRequest });
+});
+
+app.patch('/api/pantry-requests/:id/status', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { status } = req.body;
+  if (!['PENDING', 'IN_PREPARATION', 'SERVED', 'CANCELLED'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  const reqItem = db.pantryRequests?.find((p) => p.id === req.params.id);
+  if (!reqItem) return res.status(404).json({ error: 'Pantry request not found' });
+
+  const prevStatus = reqItem.status;
+  reqItem.status = status;
+  if (status === 'SERVED') {
+    reqItem.servedAt = new Date().toISOString();
+    reqItem.servedBy = actor.name;
+    notify(
+      `Pantry Request Served: ${reqItem.roomAreaName}`,
+      `Your request for ${reqItem.items.join(', ')} has been served by ${actor.name}.`,
+      'TASK_ASSIGNED',
+      { roomName: reqItem.roomAreaName }
+    );
+  }
+
+  addAuditLog(actor, 'PANTRY_REQUEST_STATUS', 'TASK', reqItem.id, `Status updated from ${prevStatus} to ${status}`);
+  saveDb();
+  broadcastRealtime('pantry_request:updated', { request: reqItem, requests: db.pantryRequests });
+  res.json({ success: true, request: reqItem });
 });
 
 app.post('/api/visitors/arrival', (req, res) => {
