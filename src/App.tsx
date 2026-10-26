@@ -86,7 +86,7 @@ const MainLayout: React.FC = () => {
                       onClick={() => switchUser(u.id)}
                       className="p-2 text-xs font-semibold bg-slate-700 hover:bg-slate-600 rounded-lg text-white truncate"
                     >
-                      {u.name} ({u.role === 'PANTRY_BOY' ? 'Pantry' : u.role === 'ADMIN' ? 'Admin' : u.role === 'KIMMY_MAM' ? 'Co-Founder' : 'HR'})
+                      {u.role === 'KIMMY_MAM' ? 'Kimmi' : u.name} ({u.role === 'PANTRY_BOY' ? 'Pantry' : u.role === 'ADMIN' ? 'Admin' : u.role === 'KIMMY_MAM' ? 'Co-Founder' : 'HR'})
                     </button>
                   ))}
               </div>
@@ -137,9 +137,6 @@ const MainLayout: React.FC = () => {
             </div>
             <h1 className="text-lg font-bold text-slate-900">White Collar Realty</h1>
             <p className="text-xs text-slate-500 mt-1">Smart Pantry Operations & Hospitality Portal</p>
-            <div className="mt-1 text-[11px] font-mono text-amber-700 bg-amber-50 py-0.5 px-2 rounded-full inline-block">
-              Shift: 9:00 AM – 8:00 PM (Asia/Kolkata)
-            </div>
           </div>
 
           <form onSubmit={handleLoginSubmit} className="space-y-4 mb-6">
@@ -222,7 +219,7 @@ const MainLayout: React.FC = () => {
                       />
                       <div>
                         <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                          <span>{u.name}</span>
+                          <span>{u.role === 'KIMMY_MAM' ? 'Kimmi' : u.name}</span>
                           {isUserInactive && (
                             <span className="text-[9px] font-mono text-rose-600 bg-rose-50 px-1 rounded">
                               Inactive
@@ -253,17 +250,17 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar
-        activeView={activeView}
-        setActiveView={setActiveView}
-      />
-
-      <main className="flex-1">
-        {/* If Pantry Boy, strictly render Pantry Boy interface */}
-        {currentUser.role === 'PANTRY_BOY' ? (
-          <PantryBoyView />
-        ) : activeView === 'PANTRY' ? (
-          <div>
+      {currentUser.role === 'PANTRY_BOY' ? (
+        <>
+          <Navbar activeView={activeView} setActiveView={setActiveView} />
+          <main className="flex-1">
+            <PantryBoyView />
+          </main>
+        </>
+      ) : activeView === 'PANTRY' ? (
+        <>
+          <Navbar activeView={activeView} setActiveView={setActiveView} />
+          <main className="flex-1">
             <div className="bg-amber-100 border-b border-amber-200 py-1.5 px-4 text-center text-xs text-amber-900 font-semibold">
               Management Simulation: Previewing Raju Sharma's Mobile Pantry Interface ·{' '}
               <button
@@ -275,11 +272,11 @@ const MainLayout: React.FC = () => {
               </button>
             </div>
             <PantryBoyView />
-          </div>
-        ) : (
-          <ManagementView />
-        )}
-      </main>
+          </main>
+        </>
+      ) : (
+        <ManagementView activeView={activeView} setActiveView={setActiveView} />
+      )}
     </div>
   );
 };

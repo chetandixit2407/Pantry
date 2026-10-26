@@ -29,7 +29,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Body parser with 20MB limit for camera photo uploads
 app.use(express.json({ limit: '20mb' }));
@@ -135,7 +135,7 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-4',
-    name: "Kimmi Mam's Cabin",
+    name: "Kimmi's Cabin",
     category: 'EXECUTIVE_CABIN',
     defaultPriority: 'P4',
     photoRequired: true,
@@ -233,7 +233,7 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-10',
-    name: 'Elegance Suite (Kimmi Mam Room)',
+    name: 'Elegance Suite (Kimmi Suite)',
     category: 'MEETING_SUITE',
     defaultPriority: 'P5',
     photoRequired: true,
@@ -356,7 +356,7 @@ const INITIAL_USERS: UserAccount[] = [
   {
     id: 'user-kimmy-1',
     email: 'kimmy.mam@whitecollarrealty.com',
-    name: 'Kimmi Mam',
+    name: 'Kimmi',
     role: 'KIMMY_MAM',
     department: 'Co-Founder',
     status: 'active',
@@ -500,13 +500,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 5. Kimmi Mam's Cabin (Priority 4)
+    // 5. Kimmi's Cabin (Priority 4)
     {
       id: `task-${today}-kimmi-cabin`,
-      title: "Kimmi Mam's Cabin Sanitization & Setup",
+      title: "Kimmi's Cabin Sanitization & Setup",
       description: 'Sanitize desk, arrange visitor chairs, replenish stationery and check room readiness.',
       roomAreaId: 'room-4',
-      roomAreaName: "Kimmi Mam's Cabin",
+      roomAreaName: "Kimmi's Cabin",
       priority: 'P4',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -685,13 +685,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 12. Elegance Suite (Kimmi Mam Room)
+    // 12. Elegance Suite (Kimmi Suite)
     {
       id: `task-${today}-elegance`,
-      title: 'Elegance Suite (Kimmi Mam Room) Confidential Room Sanitization',
+      title: 'Elegance Suite (Kimmi Suite) Confidential Room Sanitization',
       description: 'Sanitize confidential meeting table, align 6 ergonomic chairs, check blinds.',
       roomAreaId: 'room-10',
-      roomAreaName: 'Elegance Suite (Kimmi Mam Room)',
+      roomAreaName: 'Elegance Suite (Kimmi Suite)',
       priority: 'P5',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -863,8 +863,8 @@ function generateDailyTasks(): Task[] {
       checklist: [
         { id: 'c-1', text: 'Verify Reception is locked, tidy and welcome display turned off', completed: false },
         { id: 'c-2', text: 'Verify all Employee Desks are clean and chairs neatly tucked', completed: false },
-        { id: 'c-3', text: "Check Executive Cabins and Kimmi Mam's Cabin locked and sanitized", completed: false },
-        { id: 'c-4', text: 'Ensure all meeting rooms (The Skyline, The Summit, Prestige Loft, WCR Air, Elegance Suite (Kimmi Mam Room)) are reset', completed: false },
+        { id: 'c-3', text: "Check Executive Cabins and Kimmi's Cabin locked and sanitized", completed: false },
+        { id: 'c-4', text: 'Ensure all meeting rooms (The Skyline, The Summit, Prestige Loft, WCR Air, Elegance Suite (Kimmi Suite)) are reset', completed: false },
         { id: 'c-5', text: 'Confirm all dustbins emptied and trash bags deposited in municipal bin', completed: false },
         { id: 'c-6', text: 'Ensure pantry appliances turned off and water taps closed', completed: false },
         { id: 'c-7', text: 'Capture comprehensive closing panoramic photo', completed: false },
@@ -886,7 +886,7 @@ let db: DatabaseState = {
       id: 'vis-1',
       visitorName: 'Aditya Birla Group Delegation',
       companyName: 'Birla Estates',
-      hostName: 'Kimmi Mam',
+      hostName: 'Kimmi',
       roomAreaId: 'room-6',
       roomAreaName: 'The Skyline',
       purpose: 'CLIENT_MEETING',
@@ -899,7 +899,7 @@ let db: DatabaseState = {
       id: 'vis-2',
       visitorName: 'Sanjay Malhotra',
       companyName: 'Senior Sales Director Candidate',
-      hostName: 'Kimmi Mam',
+      hostName: 'Kimmi',
       roomAreaId: 'room-5',
       roomAreaName: 'Prestige Loft',
       purpose: 'CANDIDATE_INTERVIEW',
@@ -945,10 +945,10 @@ try {
       db = parsed;
       // Remove Lalit Sir profile from existing state
       db.users = (db.users || []).filter((u: any) => u.id !== 'user-lalit-1' && !u.name?.toLowerCase().includes('lalit'));
-      // Update Kimmi Mam's profile details
+      // Update Kimmi's profile details
       db.users.forEach((u: any) => {
         if (u.id === 'user-kimmy-1' || u.role === 'KIMMY_MAM' || u.name?.toLowerCase().includes('kimmy') || u.name?.toLowerCase().includes('kimmi')) {
-          u.name = 'Kimmi Mam';
+          u.name = 'Kimmi';
           u.department = 'Co-Founder';
         }
       });
@@ -960,11 +960,11 @@ try {
       db.rooms.forEach((r: any) => {
         delete r.floor;
         if (r.name === "Lalit Sir's Cabin") r.name = "Executive Cabin";
-        if (r.name === "Kimmy Mam's Cabin") r.name = "Kimmi Mam's Cabin";
+        if (r.name === "Kimmi's Cabin") r.name = "Kimmi's Cabin";
         if (r.name === "BCR Air" || r.name === "BCR AIR") r.name = "WCR Air";
         if (r.name === "Prime Block") r.name = "Prime Loft";
         if (r.name === "Residency" || r.name === "Redeincy") r.name = "Regency";
-        if (r.name === "Allegation Suite" || r.name === "Allegation") r.name = "Elegance Suite (Kimmi Mam Room)";
+        if (r.name === "Allegation Suite" || r.name === "Allegation") r.name = "Elegance Suite (Kimmi Suite)";
         if (r.name === "Skyline") r.name = "The Skyline";
         if (r.name.includes("Prestige Block")) r.name = "Prestige Loft";
         if ((r.status as string) === 'READY') r.status = 'AVAILABLE';
@@ -978,11 +978,11 @@ try {
       // Update tasks room names and titles
       db.tasks.forEach((t: any) => {
         if (t.roomAreaName === "Lalit Sir's Cabin") t.roomAreaName = "Executive Cabin";
-        if (t.roomAreaName === "Kimmy Mam's Cabin") t.roomAreaName = "Kimmi Mam's Cabin";
+        if (t.roomAreaName === "Kimmi's Cabin") t.roomAreaName = "Kimmi's Cabin";
         if (t.roomAreaName === "BCR Air") t.roomAreaName = "WCR Air";
         if (t.roomAreaName === "Prime Block") t.roomAreaName = "Prime Loft";
         if (t.roomAreaName === "Residency" || t.roomAreaName === "Redeincy") t.roomAreaName = "Regency";
-        if (t.roomAreaName === "Allegation Suite" || t.roomAreaName === "Allegation") t.roomAreaName = "Elegance Suite (Kimmi Mam Room)";
+        if (t.roomAreaName === "Allegation Suite" || t.roomAreaName === "Allegation") t.roomAreaName = "Elegance Suite (Kimmi Suite)";
         if (t.roomAreaName === "Skyline") t.roomAreaName = "The Skyline";
         if (t.roomAreaName.includes("Prestige Block")) t.roomAreaName = "Prestige Loft";
         if (t.title) {
@@ -993,7 +993,7 @@ try {
             .replace(/Prime Block/g, 'Prime Loft')
             .replace(/Residency/g, 'Regency')
             .replace(/Redeincy/g, 'Regency')
-            .replace(/Allegation Suite/g, 'Elegance Suite (Kimmi Mam Room)')
+            .replace(/Allegation Suite/g, 'Elegance Suite (Kimmi Suite)')
             .replace(/\bSkyline\b/g, 'The Skyline')
             .replace(/Prestige Block( – Waiting Room)?/g, 'Prestige Loft');
         }
@@ -1001,14 +1001,14 @@ try {
           t.checklist.forEach((c: any) => {
             if (c.text) {
               c.text = c.text
-                .replace(/Lalit Sir's and Kimmy Mam's Cabins/g, "Executive Cabins and Kimmi Mam's Cabin")
+                .replace(/Lalit Sir's and Kimmi's Cabins/g, "Executive Cabins and Kimmi's Cabin")
                 .replace(/Kimmy/g, 'Kimmi')
                 .replace(/BCR Air/g, 'WCR Air')
                 .replace(/Prime Block/g, 'Prime Loft')
                 .replace(/Residency/g, 'Regency')
                 .replace(/Redeincy/g, 'Regency')
-                .replace(/Allegation Suite/g, 'Elegance Suite (Kimmi Mam Room)')
-                .replace(/Allegation/g, 'Elegance Suite (Kimmi Mam Room)')
+                .replace(/Allegation Suite/g, 'Elegance Suite (Kimmi Suite)')
+                .replace(/Allegation/g, 'Elegance Suite (Kimmi Suite)')
                 .replace(/\bSkyline\b/g, 'The Skyline')
                 .replace(/Prestige Block( – Waiting Room)?/g, 'Prestige Loft')
                 .replace(/\bPrestige\b/g, 'Prestige Loft');
@@ -1220,7 +1220,7 @@ app.post('/api/auth/login', (req, res) => {
 
   if (user.status === 'inactive') {
     return res.status(403).json({
-      error: 'Account deactivated: This employee account has been deactivated. Please contact HR or Kimmi Mam.',
+      error: 'Account deactivated: This employee account has been deactivated. Please contact HR or Kimmi.',
       code: 'ACCOUNT_DEACTIVATED',
     });
   }
@@ -1316,7 +1316,7 @@ app.get('/api/users', (req, res) => {
 app.post('/api/users/:id/toggle-status', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmi Mam, or Admin can deactivate employee accounts.' });
+    return res.status(403).json({ error: 'Only HR, Kimmi, or Admin can deactivate employee accounts.' });
   }
 
   const targetUser = db.users.find((u) => u.id === req.params.id);
@@ -2021,7 +2021,7 @@ app.get('/api/tasks', (req, res) => {
 app.post('/api/tasks', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmi Mam, or Admin can assign new tasks.' });
+    return res.status(403).json({ error: 'Only HR, Kimmi, or Admin can assign new tasks.' });
   }
 
   const { title, roomAreaId, priority, dueTime, description, checklist, isUrgent } = req.body;
@@ -2307,7 +2307,7 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
 
   notify(
     `Photo Evidence Submitted: ${task.roomAreaName}`,
-    `${actor.name} uploaded photo for "${task.title}". Pending verification by HR / Kimmi Mam.`,
+    `${actor.name} uploaded photo for "${task.title}". Under review by HR / Kimmi.`,
     'PHOTO_SUBMITTED',
     { role: 'HR', taskId: task.id, roomName: task.roomAreaName }
   );
@@ -2317,11 +2317,11 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
   res.json({ success: true, photoEvidence, task });
 });
 
-// Verify / Approve / Reject photo evidence (HR & Kimmi Mam & Admin)
+// Verify / Approve / Reject photo evidence (HR & Kimmi & Admin)
 app.post('/api/tasks/:id/verify', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmi Mam, or Admin can verify photo evidence.' });
+    return res.status(403).json({ error: 'Only HR, Kimmi, or Admin can verify photo evidence.' });
   }
 
   const { decision, reason } = req.body;
@@ -2691,7 +2691,7 @@ app.get('/api/reports/weekly', (req, res) => {
     ],
     frequentlyBlockedRooms: frequentlyBlockedRooms.length > 0 ? frequentlyBlockedRooms : [
       { room: 'Prestige Loft', count: 4, primaryReason: 'Candidate interviews running over schedule' },
-      { room: 'Elegance Suite (Kimmi Mam Room)', count: 2, primaryReason: 'Confidential client dispute negotiation' },
+      { room: 'Elegance Suite (Kimmi Suite)', count: 2, primaryReason: 'Confidential client dispute negotiation' },
     ],
     photoVerificationScorePercent: totalPhotos > 0 ? Math.round((verifiedPhotos / totalPhotos) * 100) : 96,
     visitorPrepAverageMinutes: 8.4,

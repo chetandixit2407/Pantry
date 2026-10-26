@@ -233,7 +233,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
                           />
                           <div>
                             <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                              <span>{user.name}</span>
+                              <span>{user.role === 'KIMMY_MAM' ? 'Kimmi' : user.name}</span>
                               {isUserDeactivated && (
                                 <span className="text-[9px] font-mono text-rose-600 bg-rose-50 px-1 rounded">
                                   Inactive

@@ -184,7 +184,7 @@ export const PantryBoyView: React.FC = () => {
       case 'BLOCKED':
         return <span className="text-rose-600 font-semibold text-xs">Blocked</span>;
       case 'PENDING_VERIFICATION':
-        return <span className="text-sky-700 font-semibold text-xs">Pending Verification</span>;
+        return <span className="text-sky-700 font-semibold text-xs">Under Review</span>;
       case 'COMPLETED':
         return <span className="text-emerald-700 font-semibold text-xs">Completed</span>;
       case 'REJECTED':
@@ -277,7 +277,7 @@ export const PantryBoyView: React.FC = () => {
           <div className="flex items-center justify-between px-1">
             <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Visitor & Candidate Room Prep Queue</span>
+              <span>Candidate & Client Room Prep Queue</span>
             </h3>
             <span className="text-[11px] text-slate-500 font-mono">Priority Order</span>
           </div>
@@ -287,7 +287,7 @@ export const PantryBoyView: React.FC = () => {
               <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
               <div className="text-xs font-bold text-slate-900">No Pending Room Preparation Tasks</div>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                All assigned visitor and candidate rooms are currently prepared or completed.
+                All assigned candidate and client rooms are currently prepared or completed.
               </p>
             </div>
           ) : (
@@ -686,7 +686,7 @@ export const PantryBoyView: React.FC = () => {
 
               {selectedTask.status === 'PENDING_VERIFICATION' && (
                 <div className="w-full text-center py-2 text-xs font-semibold text-sky-700 bg-sky-50 rounded-lg border border-sky-200">
-                  Evidence Submitted · Awaiting Verification from HR / Kimmi Mam (Co-Founder)
+                  Evidence Submitted · Under Review by HR / Kimmi (Co-Founder)
                 </div>
               )}
 

@@ -46,13 +46,49 @@ import {
   UserPlus,
   RefreshCw,
   LogOut,
+  Search,
+  BarChart3,
+  ListTodo,
+  CheckCheck,
+  AlertCircle,
+  LayoutDashboard,
+  Coffee,
+  Move,
+  Settings,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  Bell,
+  Menu,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
 
-export const ManagementView: React.FC = () => {
-  const { currentUser, allUsers, refreshUsers } = useAuth();
+export interface ManagementViewProps {
+  activeView?: 'PANTRY' | 'MANAGEMENT';
+  setActiveView?: (view: 'PANTRY' | 'MANAGEMENT') => void;
+}
+
+export type ManagementTab =
+  | 'DASHBOARD'
+  | 'PANTRY_TASKS'
+  | 'CLEANING_TASKS'
+  | 'REARRANGEMENT_TASKS'
+  | 'REPORTS'
+  | 'SETTINGS'
+  | 'TASKS'
+  | 'VISITORS'
+  | 'ROOMS'
+  | 'USERS'
+  | 'AUDIT';
+
+export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setActiveView }) => {
+  const { currentUser, allUsers, refreshUsers, logout } = useAuth();
 
   // Active navigation sub-tab
-  const [subTab, setSubTab] = useState<'TASKS' | 'VISITORS' | 'ROOMS' | 'REPORTS' | 'USERS' | 'AUDIT'>('TASKS');
+  const [subTab, setSubTab] = useState<ManagementTab>('DASHBOARD');
+  const [settingsTab, setSettingsTab] = useState<'ROOMS' | 'USERS' | 'AUDIT'>('ROOMS');
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   // Operational Data States
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -101,7 +137,7 @@ export const ManagementView: React.FC = () => {
   const [visitorForm, setVisitorForm] = useState({
     visitorName: '',
     companyName: '',
-    hostName: currentUser?.name || 'Kimmi Mam',
+    hostName: currentUser?.role === 'KIMMY_MAM' ? 'Kimmi' : currentUser?.name || 'Kimmi',
     roomAreaId: '',
     guestCount: 2,
     notes: 'Require fresh water bottles and dry fruits setup.',
@@ -180,6 +216,24 @@ export const ManagementView: React.FC = () => {
   const [roomFilterStatus, setRoomFilterStatus] = useState<string>('ALL');
   const [roomFilterCategory, setRoomFilterCategory] = useState<string>('ALL');
   const [roomSearchQuery, setRoomSearchQuery] = useState<string>('');
+
+  // Interactive Dashboard Modals
+  type DashboardModalType = 'TOTAL_TASKS' | 'PENDING_TASKS' | 'OVERDUE_TASKS' | 'TOTAL_REPORTS' | 'COMPLETED_TASKS' | 'ROOMS_READY' | null;
+  const [activeDashboardModal, setActiveDashboardModal] = useState<DashboardModalType>(null);
+  const [modalSearchQuery, setModalSearchQuery] = useState<string>('');
+  const [modalStatusFilter, setModalStatusFilter] = useState<string>('ALL');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveDashboardModal(null);
+      }
+    };
+    if (activeDashboardModal) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [activeDashboardModal]);
 
   const loadData = useCallback(async () => {
     try {
@@ -287,7 +341,7 @@ export const ManagementView: React.FC = () => {
       setVisitorForm({
         visitorName: '',
         companyName: '',
-        hostName: currentUser?.name || 'Kimmi Mam',
+        hostName: currentUser?.role === 'KIMMY_MAM' ? 'Kimmi' : currentUser?.name || 'Kimmi',
         roomAreaId: rooms[4]?.id || rooms[0]?.id || '',
         guestCount: 2,
         notes: '',
@@ -472,17 +526,97 @@ export const ManagementView: React.FC = () => {
       case 'CLEANING_IN_PROGRESS':
         return { label: 'Cleaning in Progress', bg: 'bg-orange-50 text-orange-800 border-orange-200', color: 'bg-orange-50 text-orange-800 border-orange-200', dot: 'bg-orange-500' };
       case 'PENDING_VERIFICATION':
-        return { label: 'Pending Verification', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200', color: 'bg-indigo-50 text-indigo-800 border-indigo-200', dot: 'bg-indigo-500' };
+        return { label: 'Under Review', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200', color: 'bg-indigo-50 text-indigo-800 border-indigo-200', dot: 'bg-indigo-500' };
       default:
         return { label: status, bg: 'bg-slate-100 text-slate-800 border-slate-200', color: 'bg-slate-100 text-slate-800 border-slate-200', dot: 'bg-slate-400' };
     }
   };
 
-  // Filtered tasks
+  // Task Status Badge Styling Helper
+  const getTaskStatusBadge = (status: TaskStatus) => {
+    switch (status) {
+      case 'COMPLETED':
+        return { label: 'Completed', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+      case 'IN_PROGRESS':
+        return { label: 'In Progress', bg: 'bg-amber-50 text-amber-800 border-amber-200' };
+      case 'PENDING_VERIFICATION':
+        return { label: 'Under Review', bg: 'bg-sky-50 text-sky-800 border-sky-200' };
+      case 'OVERDUE':
+        return { label: 'Overdue', bg: 'bg-rose-50 text-rose-800 border-rose-200' };
+      case 'BLOCKED':
+        return { label: 'Blocked', bg: 'bg-red-50 text-red-800 border-red-200' };
+      case 'SCHEDULED':
+        return { label: 'Scheduled', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200' };
+      default:
+        return { label: 'Available', bg: 'bg-slate-50 text-slate-700 border-slate-200' };
+    }
+  };
+
+  // Counts for sidebar badges
+  const pantryTasksCount = tasks.filter((t) => {
+    const text = (t.title + " " + t.description + " " + t.roomAreaName).toLowerCase();
+    return (
+      text.includes("water") ||
+      text.includes("pantry") ||
+      text.includes("coffee") ||
+      text.includes("tea") ||
+      text.includes("beverage") ||
+      text.includes("snack") ||
+      text.includes("refill") ||
+      text.includes("bottle")
+    );
+  }).length;
+
+  const cleaningTasksCount = tasks.filter((t) => {
+    const text = (t.title + " " + t.description + " " + t.roomAreaName).toLowerCase();
+    return (
+      text.includes("clean") ||
+      text.includes("sanitize") ||
+      text.includes("mop") ||
+      text.includes("dust") ||
+      text.includes("washroom") ||
+      text.includes("bin") ||
+      text.includes("hygiene") ||
+      text.includes("trash")
+    );
+  }).length;
+
+  const rearrangementTasksCount = tasks.filter((t) => {
+    const text = (t.title + " " + t.description + " " + t.roomAreaName).toLowerCase();
+    return (
+      text.includes("chair") ||
+      text.includes("align") ||
+      text.includes("table") ||
+      text.includes("rearrange") ||
+      text.includes("setup") ||
+      text.includes("prep") ||
+      text.includes("presentation") ||
+      text.includes("interview")
+    );
+  }).length;
+
+  // Filtered tasks considering subTab category
   const filteredTasks = tasks.filter((t) => {
-    if (filterRoom !== 'ALL' && t.roomAreaId !== filterRoom) return false;
-    if (filterPriority !== 'ALL' && t.priority !== filterPriority) return false;
-    if (filterStatus !== 'ALL' && t.status !== filterStatus) return false;
+    if (subTab === "PANTRY_TASKS") {
+      const text = (t.title + " " + t.description + " " + t.roomAreaName).toLowerCase();
+      if (!text.includes("water") && !text.includes("pantry") && !text.includes("coffee") && !text.includes("tea") && !text.includes("beverage") && !text.includes("snack") && !text.includes("refill") && !text.includes("bottle")) {
+        return false;
+      }
+    } else if (subTab === "CLEANING_TASKS") {
+      const text = (t.title + " " + t.description + " " + t.roomAreaName).toLowerCase();
+      if (!text.includes("clean") && !text.includes("sanitize") && !text.includes("mop") && !text.includes("dust") && !text.includes("washroom") && !text.includes("bin") && !text.includes("hygiene") && !text.includes("trash")) {
+        return false;
+      }
+    } else if (subTab === "REARRANGEMENT_TASKS") {
+      const text = (t.title + " " + t.description + " " + t.roomAreaName).toLowerCase();
+      if (!text.includes("chair") && !text.includes("align") && !text.includes("table") && !text.includes("rearrange") && !text.includes("setup") && !text.includes("prep") && !text.includes("presentation") && !text.includes("interview")) {
+        return false;
+      }
+    }
+
+    if (filterRoom !== "ALL" && t.roomAreaId !== filterRoom) return false;
+    if (filterPriority !== "ALL" && t.priority !== filterPriority) return false;
+    if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
@@ -494,164 +628,789 @@ export const ManagementView: React.FC = () => {
     return true;
   });
 
-  const readyRoomsCount = rooms.filter((r) => r.status === 'AVAILABLE' || r.status === 'READY_FOR_VISITOR').length;
+  const readyRoomsCount = rooms.filter((r) => r.status === "AVAILABLE" || r.status === "READY_FOR_VISITOR").length;
   const preparingRoomsCount = rooms.filter(
     (r) =>
-      r.status === 'PREPARATION_REQUIRED' ||
-      r.status === 'CLEANING_REQUIRED' ||
-      r.status === 'CLEANING_IN_PROGRESS' ||
-      r.status === 'PENDING_VERIFICATION' ||
-      r.status === 'ASSIGNED' ||
-      r.status === 'OCCUPIED'
+      r.status === "PREPARATION_REQUIRED" ||
+      r.status === "CLEANING_REQUIRED" ||
+      r.status === "CLEANING_IN_PROGRESS" ||
+      r.status === "PENDING_VERIFICATION" ||
+      r.status === "ASSIGNED" ||
+      r.status === "OCCUPIED"
   ).length;
 
+  const completedTasks = tasks.filter((t) => t.status === "COMPLETED");
+  const pendingTasks = tasks.filter(
+    (t) =>
+      t.status === "AVAILABLE" ||
+      t.status === "IN_PROGRESS" ||
+      t.status === "PENDING_VERIFICATION" ||
+      t.status === "BLOCKED" ||
+      t.status === "SCHEDULED"
+  );
+  const inProgressTasks = tasks.filter((t) => t.status === "IN_PROGRESS");
+  const overdueTasks = tasks.filter((t) => t.status === "OVERDUE");
+
+  const todayFormatted = (() => {
+    try {
+      const now = new Date();
+      const day = now.toLocaleDateString("en-GB", { day: "2-digit" });
+      const month = now.toLocaleDateString("en-GB", { month: "short" });
+      const year = now.toLocaleDateString("en-GB", { year: "numeric" });
+      const weekday = now.toLocaleDateString("en-GB", { weekday: "short" });
+      return `${day} ${month} ${year} (${weekday})`;
+    } catch {
+      return "26 Oct 2026 (Mon)";
+    }
+  })();
+
+  const dashboardRooms = [
+    {
+      id: rooms.find((r) => r.name.toLowerCase().includes("reception"))?.id || "room-1",
+      name: "Reception",
+      category: "Front Desk & Guest Welcome",
+      status: rooms.find((r) => r.name.toLowerCase().includes("reception"))?.status || "AVAILABLE",
+      pendingCount: tasks.filter(
+        (t) => t.roomAreaName.toLowerCase().includes("reception") && t.status !== "COMPLETED"
+      ).length,
+    },
+    {
+      id: rooms.find((r) => r.category === "MEETING_SUITE")?.id || "room-5",
+      name: "Conference Room",
+      category: "Client Presentation Suite",
+      status: rooms.find((r) => r.category === "MEETING_SUITE")?.status || "AVAILABLE",
+      pendingCount: tasks.filter(
+        (t) => (t.roomAreaName.toLowerCase().includes("skyline") || t.roomAreaName.toLowerCase().includes("summit") || t.roomAreaName.toLowerCase().includes("loft")) && t.status !== "COMPLETED"
+      ).length,
+    },
+    {
+      id: rooms.find((r) => r.name.toLowerCase().includes("desks") || r.category === "WORKSTATION")?.id || "room-2",
+      name: "Office Area",
+      category: "Open Workstations & Cabins",
+      status: rooms.find((r) => r.name.toLowerCase().includes("desks"))?.status || "AVAILABLE",
+      pendingCount: tasks.filter(
+        (t) => (t.roomAreaName.toLowerCase().includes("desk") || t.roomAreaName.toLowerCase().includes("workstation")) && t.status !== "COMPLETED"
+      ).length,
+    },
+    {
+      id: rooms.find((r) => r.name.toLowerCase().includes("community") || r.category === "COMMON_AREA")?.id || "room-7",
+      name: "Lobby",
+      category: "Executive Waiting Lounge",
+      status: rooms.find((r) => r.name.toLowerCase().includes("community"))?.status || "AVAILABLE",
+      pendingCount: tasks.filter(
+        (t) => (t.roomAreaName.toLowerCase().includes("community") || t.roomAreaName.toLowerCase().includes("regency") || t.roomAreaName.toLowerCase().includes("outer")) && t.status !== "COMPLETED"
+      ).length,
+    },
+    {
+      id: rooms.find((r) => r.name.toLowerCase().includes("pantry"))?.id || "room-1",
+      name: "Pantry",
+      category: "Beverages & Water Hub",
+      status: "AVAILABLE" as RoomStatus,
+      pendingCount: tasks.filter(
+        (t) => (t.title.toLowerCase().includes("water") || t.title.toLowerCase().includes("pantry") || t.title.toLowerCase().includes("coffee")) && t.status !== "COMPLETED"
+      ).length,
+    },
+    {
+      id: rooms.find((r) => r.name.toLowerCase().includes("dustbin") || r.category === "FACILITIES")?.id || "room-13",
+      name: "Washroom",
+      category: "Hygiene & Facilities",
+      status: "AVAILABLE" as RoomStatus,
+      pendingCount: tasks.filter(
+        (t) => (t.title.toLowerCase().includes("dustbin") || t.title.toLowerCase().includes("clean") || t.title.toLowerCase().includes("restroom")) && t.status !== "COMPLETED"
+      ).length,
+    },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24">
-      {/* Executive Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-200">
-        <div className="flex items-start gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-xs p-1.5 flex items-center justify-center shrink-0 overflow-hidden">
-            <img
-              src="/assets/wcr_logo.png"
-              alt="White Collar Realty Official Logo"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-0.5">
-              <span className="font-semibold text-slate-700">White Collar Realty</span>
-              <span aria-hidden="true">·</span>
-              <span>Operations & Hospitality Console</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-semibold text-slate-800">
-                {currentUser?.name} ({currentUser?.role === 'KIMMY_MAM' ? 'Co-Founder' : 'HR Operations'})
-              </span>
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-900 antialiased font-sans">
+      {/* Mobile Sidebar Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/70 z-40 md:hidden backdrop-blur-xs"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Dark Sidebar (Fixed desktop / drawer mobile) */}
+      <aside
+        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-[#0b1329] text-white flex flex-col z-50 transition-transform duration-300 ease-in-out shrink-0 border-r border-slate-800 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        {/* Brand Header */}
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+              <img
+                src="/assets/wcr_logo.png"
+                alt="White Collar Realty Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Smart Pantry Operations & Hospitality Command
-            </h1>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white tracking-wide uppercase truncate">
+                White Collar Realty
+              </div>
+              <div className="text-[10px] text-amber-400 font-medium tracking-tight">
+                A Tradition Of Trust
+              </div>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+        {/* Navigation Items */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           <button
             type="button"
             onClick={() => {
-              setNewTaskForm((prev) => ({ ...prev, isUrgent: true, priority: 'URGENT' }));
-              setShowNewTaskModal(true);
+              setSubTab("DASHBOARD");
+              setSidebarOpen(false);
             }}
-            className="px-3.5 py-2 text-xs font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition-colors flex items-center gap-1.5 shadow-sm"
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Create Urgent Task
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: 'P2' }));
-              setShowNewTaskModal(true);
-            }}
-            className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Assign Routine Task
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowVisitorModal(true)}
-            className="px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5"
-          >
-            <Users className="w-3.5 h-3.5 text-amber-600" />
-            Register Visitor
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Metric Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Today's Tasks</div>
-          <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">{tasks.length}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Automated 9:00 AM – 8:00 PM schedule</div>
-        </div>
-
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Completed</div>
-          <div className="text-2xl font-bold text-emerald-600 font-mono tabular-nums mt-1">
-            {tasks.filter((t) => t.status === 'COMPLETED').length}
-          </div>
-          <div className="text-[10px] text-emerald-600/80 mt-0.5">
-            {dailyReport ? `${dailyReport.completionRatePercent}% completion rate` : 'Verified'}
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-[11px] font-semibold text-sky-700 uppercase tracking-wider">Verification Pending</div>
-          <div className="text-2xl font-bold text-sky-600 font-mono tabular-nums mt-1">
-            {tasks.filter((t) => t.status === 'PENDING_VERIFICATION').length}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Photos uploaded by Raju</div>
-        </div>
-
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">In Progress</div>
-          <div className="text-2xl font-bold text-amber-600 font-mono tabular-nums mt-1">
-            {tasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'AVAILABLE').length}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Active queue</div>
-        </div>
-
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-[11px] font-semibold text-rose-700 uppercase tracking-wider">Blocked Rooms</div>
-          <div className="text-2xl font-bold text-rose-600 font-mono tabular-nums mt-1">
-            {tasks.filter((t) => t.status === 'BLOCKED').length}
-          </div>
-          <div className="text-[10px] text-rose-600/80 mt-0.5">Interviews / Occupied</div>
-        </div>
-
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Rooms Ready</div>
-          <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
-            {readyRoomsCount} <span className="text-xs font-normal text-slate-400">/ {rooms.length}</span>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
-            {preparingRoomsCount > 0 ? `${preparingRoomsCount} need attention` : 'All 15 areas ready'}
-          </div>
-        </div>
-      </div>
-
-      {/* Sub Navigation Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 mb-6 overflow-x-auto">
-        {[
-          { key: 'TASKS', label: 'Tasks & Live Photos', count: tasks.length },
-          { key: 'VISITORS', label: 'Visitor Hospitality', count: visitors.length },
-          { key: 'ROOMS', label: '15 Office Areas & Config', count: rooms.length },
-          { key: 'REPORTS', label: 'Daily & Weekly Reports' },
-          { key: 'USERS', label: 'Account Access & Security', count: allUsers.length },
-          { key: 'AUDIT', label: 'Audit Trail', count: auditLogs.length },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setSubTab(tab.key as any)}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-              subTab === tab.key
-                ? 'border-slate-900 text-slate-900 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              subTab === "DASHBOARD"
+                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
+                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
             }`}
           >
-            <span>{tab.label}</span>
-            {tab.count !== undefined && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 font-mono text-slate-600">
-                {tab.count}
-              </span>
-            )}
+            <div className="flex items-center gap-2.5">
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Dashboard</span>
+            </div>
           </button>
-        ))}
-      </div>
 
-      {/* SUB-TAB 1: TASKS & OPERATIONS */}
-      {subTab === 'TASKS' && (
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab("PANTRY_TASKS");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              subTab === "PANTRY_TASKS"
+                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
+                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Coffee className="w-4 h-4" />
+              <span>Pantry Tasks</span>
+            </div>
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                subTab === "PANTRY_TASKS"
+                  ? "bg-slate-950 text-amber-400 font-bold"
+                  : "bg-slate-800 text-slate-300"
+              }`}
+            >
+              {pantryTasksCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab("CLEANING_TASKS");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              subTab === "CLEANING_TASKS"
+                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
+                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4" />
+              <span>Cleaning Tasks</span>
+            </div>
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                subTab === "CLEANING_TASKS"
+                  ? "bg-slate-950 text-amber-400 font-bold"
+                  : "bg-slate-800 text-slate-300"
+              }`}
+            >
+              {cleaningTasksCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab("REARRANGEMENT_TASKS");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              subTab === "REARRANGEMENT_TASKS"
+                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
+                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Move className="w-4 h-4" />
+              <span>Rearrangement Tasks</span>
+            </div>
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                subTab === "REARRANGEMENT_TASKS"
+                  ? "bg-slate-950 text-amber-400 font-bold"
+                  : "bg-slate-800 text-slate-300"
+              }`}
+            >
+              {rearrangementTasksCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab("REPORTS");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              subTab === "REPORTS"
+                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
+                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <FileText className="w-4 h-4" />
+              <span>Reports</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab("SETTINGS");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              subTab === "SETTINGS"
+                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
+                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Settings className="w-4 h-4" />
+              <span>Settings</span>
+            </div>
+          </button>
+        </nav>
+
+        {/* Profile Card at Sidebar Bottom */}
+        <div className="p-3.5 border-t border-slate-800 bg-slate-950/60">
+          <div className="flex items-center gap-3">
+            <img
+              src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
+              alt="Kimmi"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-white truncate">
+                Kimmi
+              </div>
+              <div className="text-[10px] text-amber-400 font-semibold truncate">
+                Co-Founder
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => logout()}
+              title="Sign Out"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Layout Area */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+        {/* Dark Top Header Bar */}
+        <header className="bg-[#0b1329] border-b border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                  White Collar Realty
+                </h1>
+                <span className="hidden sm:inline-block text-[10px] text-amber-400 font-mono font-medium border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                  Operations & Hospitality Console
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 hidden sm:block">
+                SmartPantry & Real-Time Facility Management
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            {/* Live Status indicator */}
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-[10px] font-mono text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Live System Online</span>
+            </div>
+
+            {/* Switch to Pantry Mode Simulator button for management testing */}
+            {setActiveView && (
+              <button
+                type="button"
+                onClick={() => setActiveView("PANTRY")}
+                className="px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Preview Raju Sharma's mobile attendant view"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Pantry Boy View</span>
+              </button>
+            )}
+
+            {/* Fast Task Creation */}
+            <button
+              type="button"
+              onClick={() => {
+                setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: "P2" }));
+                setShowNewTaskModal(true);
+              }}
+              className="px-3 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Task</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Content Body */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {/* TAB 1: REDESIGNED DASHBOARD */}
+          {subTab === "DASHBOARD" && (
+            <div className="space-y-6">
+              {/* Header: Welcome Back, Team + Date Card */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                    Welcome Back, Team 👋
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    Here's what's happening with your tasks today.
+                  </p>
+                </div>
+                <div className="bg-white border border-slate-200/90 shadow-xs px-4 py-2.5 rounded-xl flex items-center gap-3 self-start sm:self-auto">
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Today</div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-800 font-mono">
+                      {todayFormatted}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 Clickable Summary Cards (Total Tasks, Pending Tasks, Overdue Tasks, Total Reports) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: Total Tasks */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSearchQuery("");
+                    setModalStatusFilter("ALL");
+                    setActiveDashboardModal("TOTAL_TASKS");
+                  }}
+                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-slate-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-slate-900/10 flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-slate-900 transition-colors">
+                      Total Tasks
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                      <ArrowUpRight className="w-3 h-3 text-emerald-600" />
+                      12%
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight my-1">
+                    {tasks.length}
+                  </div>
+                  <div className="text-xs text-slate-400 truncate mt-1">
+                    {completedTasks.length} completed · Click for details
+                  </div>
+                </button>
+
+                {/* Card 2: Pending Tasks */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSearchQuery("");
+                    setModalStatusFilter("ALL");
+                    setActiveDashboardModal("PENDING_TASKS");
+                  }}
+                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-amber-500/20 flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider group-hover:text-amber-900 transition-colors">
+                      Pending Tasks
+                    </span>
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                      <ArrowUpRight className="w-3 h-3 text-amber-600" />
+                      5%
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-amber-600 font-mono tracking-tight my-1">
+                    {pendingTasks.length}
+                  </div>
+                  <div className="text-xs text-slate-400 truncate mt-1">
+                    {inProgressTasks.length} in progress · Click for details
+                  </div>
+                </button>
+
+                {/* Card 3: Overdue Tasks */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSearchQuery("");
+                    setModalStatusFilter("ALL");
+                    setActiveDashboardModal("OVERDUE_TASKS");
+                  }}
+                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-rose-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-rose-500/20 flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-rose-700 uppercase tracking-wider group-hover:text-rose-900 transition-colors">
+                      Overdue Tasks
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                      <ArrowDownRight className="w-3 h-3 text-emerald-600" />
+                      100%
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-rose-600 font-mono tracking-tight my-1">
+                    {overdueTasks.length}
+                  </div>
+                  <div className="text-xs text-slate-400 truncate mt-1">
+                    {overdueTasks.length > 0 ? "Requires attention" : "All running on schedule"}
+                  </div>
+                </button>
+
+                {/* Card 4: Total Reports */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDashboardModal("TOTAL_REPORTS");
+                  }}
+                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider group-hover:text-indigo-900 transition-colors">
+                      Total Reports
+                    </span>
+                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                      <ArrowUpRight className="w-3 h-3 text-indigo-600" />
+                      20%
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-indigo-600 font-mono tracking-tight my-1">
+                    12
+                  </div>
+                  <div className="text-xs text-slate-400 truncate mt-1">
+                    Daily shift & weekly analytics
+                  </div>
+                </button>
+              </div>
+
+              {/* Rooms Section (6 Room Cards from reference image) */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Rooms</h3>
+                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      6 Active Areas
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsTab("ROOMS");
+                      setSubTab("SETTINGS");
+                    }}
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <span>View All 15 Areas</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {dashboardRooms.map((room) => {
+                    const isReady = room.status === "AVAILABLE" || room.status === "READY_FOR_VISITOR";
+                    return (
+                      <button
+                        key={room.name}
+                        type="button"
+                        onClick={() => {
+                          const realRoom = rooms.find((r) => r.id === room.id);
+                          if (realRoom) {
+                            handleViewHistory(realRoom);
+                          } else {
+                            setSettingsTab("ROOMS");
+                            setSubTab("SETTINGS");
+                          }
+                        }}
+                        className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs hover:border-slate-400 hover:shadow-md transition-all text-left flex items-center justify-between group active:scale-[0.99] cursor-pointer"
+                      >
+                        <div className="min-w-0 flex-1 pr-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
+                              {room.name}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                isReady
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}
+                            >
+                              {isReady ? "Ready" : "In Progress"}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 truncate">
+                            {room.pendingCount === 0
+                              ? "0 pending tasks"
+                              : `${room.pendingCount} pending task${room.pendingCount > 1 ? "s" : ""}`}
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-lg bg-slate-50 group-hover:bg-amber-50 group-hover:text-amber-700 text-slate-400 flex items-center justify-center shrink-0 transition-colors">
+                          <ChevronRight className="w-4 h-4" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bottom Row: Recent Activity (left) + Active Shift Operations & Quick Actions (right) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left: Recent Activity (lg:col-span-7) */}
+                <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 tracking-tight">Recent Activity</h3>
+                      <p className="text-xs text-slate-500">Live task logs, attendant updates, and photo audits</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSubTab("TASKS")}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>All Tasks</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {tasks.slice(0, 5).map((task) => {
+                      const badge = getTaskStatusBadge(task.status);
+                      return (
+                        <div
+                          key={task.id}
+                          className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-800">
+                                {task.priority}
+                              </span>
+                              <span className="text-xs font-bold text-slate-900 truncate">{task.roomAreaName}</span>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.bg}`}>
+                                {badge.label}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-700 font-medium truncate">{task.title}</div>
+                            <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-2">
+                              <span>Assigned: {task.assignedToName}</span>
+                              <span>•</span>
+                              <span>Due: {task.dueTime}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {task.photoEvidence && (
+                              <button
+                                type="button"
+                                onClick={() => setInspectPhotoTask(task)}
+                                className="p-1.5 text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
+                                title="Inspect Photo Evidence"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right: Active Shift Operations & Quick Actions (lg:col-span-5) */}
+                <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                          Shift Operations & Attendant
+                        </h3>
+                        <p className="text-xs text-slate-500">Live attendance and deterministic schedule</p>
+                      </div>
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Active
+                      </span>
+                    </div>
+
+                    {/* Attendant profile card */}
+                    <div className="p-3.5 bg-slate-900 text-white rounded-xl mb-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+                          alt="Raju Sharma"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-white">Ramesh Kumar (Pantry Attendant)</div>
+                          <div className="text-[10px] text-amber-300 font-mono mt-0.5">
+                            Shift: 9:00 AM – 8:00 PM (Asia/Kolkata)
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-slate-800">
+                        <div className="flex items-center justify-between text-[11px] text-slate-300 mb-1">
+                          <span>Today's Task Completion</span>
+                          <span className="font-mono font-bold text-amber-400">
+                            {completedTasks.length} / {tasks.length}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-amber-400 h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${tasks.length > 0 ? (completedTasks.length / tasks.length) * 100 : 0}%`,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Schedule Milestones fast triggers */}
+                    <div className="mb-4">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        Schedule Milestones
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleTriggerMilestone("9AM_START")}
+                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
+                        >
+                          <div className="font-bold text-slate-900">9:00 AM</div>
+                          <div className="text-[10px] text-slate-500">Morning Setup</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTriggerMilestone("10AM_WATER")}
+                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
+                        >
+                          <div className="font-bold text-slate-900">10:00 AM</div>
+                          <div className="text-[10px] text-slate-500">Water Distribution</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTriggerMilestone("3PM_WATER")}
+                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
+                        >
+                          <div className="font-bold text-slate-900">3:00 PM</div>
+                          <div className="text-[10px] text-slate-500">Water Recheck</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTriggerMilestone("8PM_CLOSING")}
+                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
+                        >
+                          <div className="font-bold text-slate-900">8:00 PM</div>
+                          <div className="text-[10px] text-slate-500">Closing Audit</div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Dispatch Action */}
+                  <div className="pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: "P2" }));
+                        setShowNewTaskModal(true);
+                      }}
+                      className="w-full py-2 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Assign New Task</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SETTINGS SUB-NAV BAR (When in SETTINGS tab) */}
+          {subTab === "SETTINGS" && (
+            <div className="mb-6 bg-white border border-slate-200 rounded-xl p-2.5 flex items-center gap-2 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setSettingsTab("ROOMS")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  settingsTab === "ROOMS" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                15 Office Areas & Room Config ({rooms.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsTab("USERS")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  settingsTab === "USERS" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Account Access & Security ({allUsers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsTab("AUDIT")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  settingsTab === "AUDIT" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Audit Trail ({auditLogs.length})
+              </button>
+            </div>
+          )}
+
+          {/* TAB 2: TASKS VIEW (Pantry Tasks, Cleaning Tasks, Rearrangement Tasks, All Tasks) */}
+          {(subTab === "TASKS" ||
+            subTab === "PANTRY_TASKS" ||
+            subTab === "CLEANING_TASKS" ||
+            subTab === "REARRANGEMENT_TASKS") && (
         <div className="space-y-4">
           {/* Quick Schedule Milestone Simulation Bar */}
           <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -730,7 +1489,7 @@ export const ManagementView: React.FC = () => {
                 <option value="P1">P1 (Reception)</option>
                 <option value="P2">P2 (Desks)</option>
                 <option value="P3">P3 (Executive Cabin)</option>
-                <option value="P4">P4 (Kimmi Mam - Co-Founder)</option>
+                <option value="P4">P4 (Kimmi - Co-Founder)</option>
                 <option value="P5">P5 (Meeting Rooms/Bins)</option>
               </select>
 
@@ -742,7 +1501,7 @@ export const ManagementView: React.FC = () => {
                 <option value="ALL">All Statuses</option>
                 <option value="AVAILABLE">Available</option>
                 <option value="IN_PROGRESS">In Progress</option>
-                <option value="PENDING_VERIFICATION">Pending Verification</option>
+                <option value="PENDING_VERIFICATION">Under Review</option>
                 <option value="BLOCKED">Blocked</option>
                 <option value="COMPLETED">Completed</option>
                 <option value="OVERDUE">Overdue</option>
@@ -801,7 +1560,7 @@ export const ManagementView: React.FC = () => {
                               : 'text-slate-600'
                           }`}
                         >
-                          {task.status.replace(/_/g, ' ')}
+                          {task.status === 'PENDING_VERIFICATION' ? 'Under Review' : task.status.replace(/_/g, ' ')}
                         </span>
                       </div>
 
@@ -886,95 +1645,9 @@ export const ManagementView: React.FC = () => {
         </div>
       )}
 
-      {/* SUB-TAB 2: VISITOR HOSPITALITY AUTOMATION */}
-      {subTab === 'VISITORS' && (
-        <div className="space-y-5">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Scheduled Guests & Candidate Interviews</h3>
-                <p className="text-xs text-slate-500">
-                  Guest arrivals automatically generate high-priority room preparation tasks for Raju Sharma.
-                  Departures trigger room resets.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowVisitorModal(true)}
-                className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Register Guest Arrival
-              </button>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {visitors.map((v) => (
-                <div key={v.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-slate-900">{v.visitorName}</span>
-                      <span className="text-xs text-slate-400">· {v.companyName}</span>
-                      <span
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
-                          v.status === 'ARRIVED'
-                            ? 'bg-amber-100 text-amber-800'
-                            : v.status === 'DEPARTED'
-                            ? 'bg-slate-100 text-slate-600'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        {v.status}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs text-slate-500">
-                      <span>Room: <strong className="text-slate-700">{v.roomAreaName}</strong></span>
-                      <span aria-hidden="true">·</span>
-                      <span>Host: {v.hostName}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{v.guestCount} Guests</span>
-                    </div>
-
-                    {v.notes && <p className="text-xs text-slate-600 mt-1 italic leading-relaxed">{v.notes}</p>}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {v.status === 'EXPECTED' && (
-                      <button
-                        type="button"
-                        onClick={() => api.registerVisitorArrival({ visitorId: v.id }).then(loadData)}
-                        className="px-3 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-xs"
-                      >
-                        Mark Guest Arrived
-                      </button>
-                    )}
-
-                    {v.status === 'ARRIVED' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRegisterDeparture(v.id)}
-                        className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
-                      >
-                        Register Departure (Reset Room)
-                      </button>
-                    )}
-
-                    {v.status === 'DEPARTED' && (
-                      <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Meeting Concluded
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* SUB-TAB 3: DEDICATED REAL-TIME ROOM MANAGEMENT */}
-      {subTab === 'ROOMS' && (
+      {(subTab === 'ROOMS' || (subTab === 'SETTINGS' && settingsTab === 'ROOMS')) && (
         <div className="space-y-5">
           {/* Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200">
@@ -1120,7 +1793,7 @@ export const ManagementView: React.FC = () => {
                   : 'bg-indigo-50/60 text-indigo-900 border-indigo-200 hover:bg-indigo-100/60'
               }`}
             >
-              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Verification</div>
+              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Under Review</div>
               <div className="text-lg font-bold font-mono tabular-nums mt-0.5">
                 {rooms.filter((r) => r.status === 'PENDING_VERIFICATION').length}
               </div>
@@ -1313,7 +1986,7 @@ export const ManagementView: React.FC = () => {
                           </button>
                         )}
 
-                        {/* 2. Mark Ready for Visitor (if PREPARATION_REQUIRED) */}
+                        {/* 2. Mark Ready for Occupancy (if PREPARATION_REQUIRED) */}
                         {room.status === 'PREPARATION_REQUIRED' && (
                           <button
                             type="button"
@@ -1321,7 +1994,7 @@ export const ManagementView: React.FC = () => {
                             className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex items-center justify-center gap-1"
                           >
                             <CheckCircle2 className="w-3 h-3 text-blue-600" />
-                            Ready for Visitor
+                            Ready for Occupancy
                           </button>
                         )}
 
@@ -1500,7 +2173,7 @@ export const ManagementView: React.FC = () => {
                       Photo Evidence Verification Score: <strong className="font-mono text-emerald-600">{weeklyReport.photoVerificationScorePercent}%</strong>
                     </div>
                     <div>
-                      Average Visitor Room Prep Time: <strong className="font-mono">{weeklyReport.visitorPrepAverageMinutes} mins</strong> (Target: &lt;10 mins)
+                      Average Room Prep Time: <strong className="font-mono">{weeklyReport.visitorPrepAverageMinutes} mins</strong> (Target: &lt;10 mins)
                     </div>
                     <div>
                       Desk Water Distribution Reliability: <strong className="font-mono">99.2%</strong>
@@ -1513,7 +2186,7 @@ export const ManagementView: React.FC = () => {
               <div className="p-4 bg-amber-50/60 border border-amber-200 rounded-xl text-xs">
                 <div className="font-bold text-amber-900 flex items-center gap-1.5 mb-2">
                   <Sparkles className="w-4 h-4 text-amber-700" />
-                  Automated Operational Synthesis for Kimmi Mam (Co-Founder) & HR:
+                  Automated Operational Synthesis for Kimmi (Co-Founder) & HR:
                 </div>
                 <ul className="space-y-1.5 text-amber-800">
                   {(weeklyReport.keyRecommendations || (weeklyReport as any).aiKeyRecommendations || []).map((rec: string, i: number) => (
@@ -1529,7 +2202,7 @@ export const ManagementView: React.FC = () => {
       )}
 
       {/* SUB-TAB 5: ACCOUNT ACCESS & SECURITY */}
-      {subTab === 'USERS' && (
+      {(subTab === 'USERS' || (subTab === 'SETTINGS' && settingsTab === 'USERS')) && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -1609,7 +2282,7 @@ export const ManagementView: React.FC = () => {
       )}
 
       {/* SUB-TAB 6: AUDIT TRAIL */}
-      {subTab === 'AUDIT' && (
+      {(subTab === 'AUDIT' || (subTab === 'SETTINGS' && settingsTab === 'AUDIT')) && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -1652,6 +2325,8 @@ export const ManagementView: React.FC = () => {
           </div>
         </div>
       )}
+        </main>
+      </div>
 
       {/* MODAL 1: Create New Task / Urgent Request with AI Natural Language Assist */}
       {showNewTaskModal && (
@@ -1660,7 +2335,7 @@ export const ManagementView: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  {newTaskForm.isUrgent ? '⚠️ Create Urgent Priority Task' : 'Assign New Operational Task'}
+                  Assign New Operational Task
                 </h3>
                 <p className="text-xs text-slate-500">
                   Immediately dispatches to Raju Sharma's mobile dashboard and recalculates his queue.
@@ -1679,7 +2354,7 @@ export const ManagementView: React.FC = () => {
             <div className="mb-5 p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl">
               <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 mb-1.5">
                 <Sparkles className="w-4 h-4 text-amber-600" />
-                Kimmi Mam (Co-Founder) & HR Natural Language Command Parser
+                Kimmi (Co-Founder) & HR Natural Language Command Parser
               </div>
               <div className="flex gap-2">
                 <input
@@ -1708,7 +2383,7 @@ export const ManagementView: React.FC = () => {
                   required
                   value={newTaskForm.title}
                   onChange={(e) => setNewTaskForm({ ...newTaskForm, title: e.target.value })}
-                  placeholder="e.g. Emergency hospitality setup for Kimmi Mam"
+                  placeholder="e.g. Emergency hospitality setup for Kimmi"
                   className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900"
                 />
               </div>
@@ -1785,9 +2460,7 @@ export const ManagementView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className={`px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors shadow-sm ${
-                    newTaskForm.isUrgent ? 'bg-rose-600 hover:bg-rose-700' : 'bg-slate-900 hover:bg-slate-800'
-                  }`}
+                  className="px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors shadow-sm bg-slate-900 hover:bg-slate-800"
                 >
                   Confirm & Dispatch Task
                 </button>
@@ -1797,106 +2470,6 @@ export const ManagementView: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 2: Register Visitor Arrival */}
-      {showVisitorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5 border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Register Visitor Arrival</h3>
-                <p className="text-xs text-slate-500">Auto-triggers high-priority room preparation task.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowVisitorModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleRegisterArrival} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Visitor / Client Name</label>
-                <input
-                  type="text"
-                  required
-                  value={visitorForm.visitorName}
-                  onChange={(e) => setVisitorForm({ ...visitorForm, visitorName: e.target.value })}
-                  placeholder="e.g. Anand Mahindra / DLF Delegation"
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Company / Organization</label>
-                  <input
-                    type="text"
-                    value={visitorForm.companyName}
-                    onChange={(e) => setVisitorForm({ ...visitorForm, companyName: e.target.value })}
-                    placeholder="e.g. Partner Group"
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Guest Count</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={visitorForm.guestCount}
-                    onChange={(e) => setVisitorForm({ ...visitorForm, guestCount: Number(e.target.value) })}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Meeting Room</label>
-                <select
-                  value={visitorForm.roomAreaId}
-                  onChange={(e) => setVisitorForm({ ...visitorForm, roomAreaId: e.target.value })}
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
-                >
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} ({r.status})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Host Executive</label>
-                <input
-                  type="text"
-                  value={visitorForm.hostName}
-                  onChange={(e) => setVisitorForm({ ...visitorForm, hostName: e.target.value })}
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowVisitorModal(false)}
-                  className="px-3 py-2 text-xs text-slate-600 hover:text-slate-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors shadow-sm"
-                >
-                  Confirm Arrival & Alert Pantry
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL 3: Configure Room */}
       {showRoomModal && (
@@ -2028,7 +2601,7 @@ export const ManagementView: React.FC = () => {
                   >
                     <option value="PANTRY_BOY">Pantry Boy</option>
                     <option value="HR">HR Operations</option>
-                    <option value="KIMMY_MAM">Kimmi Mam (Co-Founder)</option>
+                    <option value="KIMMY_MAM">Kimmi (Co-Founder)</option>
                     <option value="ADMIN">Administrator</option>
                   </select>
                 </div>
@@ -2173,7 +2746,7 @@ export const ManagementView: React.FC = () => {
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <DoorOpen className="w-5 h-5 text-amber-600" />
-                  <span>Assign Room to Candidate or Visitor</span>
+                  <span>Assign Room to Candidate or Client</span>
                 </h3>
                 <p className="text-xs text-slate-500">
                   Select a room, set expected arrival and hospitality requirements. Auto-creates preparation task.
@@ -2232,10 +2805,10 @@ export const ManagementView: React.FC = () => {
             )}
 
             <form onSubmit={handleAssignSubmit} className="space-y-4">
-              {/* Visitor / Candidate Name */}
+              {/* Candidate / Client Name */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Candidate / Visitor Name <span className="text-rose-500">*</span>
+                  Candidate / Client Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -2437,7 +3010,7 @@ export const ManagementView: React.FC = () => {
                   <h3 className="text-base font-bold text-slate-900">{historyRoom.name}</h3>
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
-                  Complete audit log of room status changes, visitor assignments, and verified live camera photos.
+                  Complete audit log of room status changes, room assignments, and verified live camera photos.
                 </div>
               </div>
               <button
@@ -2496,9 +3069,9 @@ export const ManagementView: React.FC = () => {
                   )}
                 </div>
 
-                {/* Historical Visitor Assignments */}
+                {/* Historical Room Assignments */}
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">Past Visitor Assignments</h4>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">Past Room Assignments</h4>
                   {roomHistoryData?.assignmentHistory.length === 0 ? (
                     <div className="text-xs text-slate-400 italic">No completed past assignments logged.</div>
                   ) : (
@@ -2537,6 +3110,813 @@ export const ManagementView: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Interactive Dashboard Summary Card Popups */}
+      {activeDashboardModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setActiveDashboardModal(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] my-auto animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between gap-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    activeDashboardModal === 'TOTAL_TASKS'
+                      ? 'bg-slate-900 text-white'
+                      : activeDashboardModal === 'PENDING_TASKS'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : activeDashboardModal === 'OVERDUE_TASKS'
+                      ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                      : activeDashboardModal === 'TOTAL_REPORTS'
+                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+                      : activeDashboardModal === 'COMPLETED_TASKS'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-slate-100 text-slate-800 border border-slate-300'
+                  }`}
+                >
+                  {activeDashboardModal === 'TOTAL_TASKS' && <ListTodo className="w-5 h-5" />}
+                  {activeDashboardModal === 'PENDING_TASKS' && <Clock className="w-5 h-5" />}
+                  {activeDashboardModal === 'OVERDUE_TASKS' && <AlertTriangle className="w-5 h-5" />}
+                  {activeDashboardModal === 'TOTAL_REPORTS' && <BarChart3 className="w-5 h-5" />}
+                  {activeDashboardModal === 'COMPLETED_TASKS' && <CheckCircle2 className="w-5 h-5" />}
+                  {activeDashboardModal === 'ROOMS_READY' && <Building className="w-5 h-5" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900">
+                      {activeDashboardModal === 'TOTAL_TASKS' && 'Total Tasks — Operational Roster'}
+                      {activeDashboardModal === 'PENDING_TASKS' && 'Pending Tasks — Active Queue'}
+                      {activeDashboardModal === 'OVERDUE_TASKS' && 'Overdue Tasks Audit'}
+                      {activeDashboardModal === 'TOTAL_REPORTS' && 'Executive Reports & Operations Analytics'}
+                      {activeDashboardModal === 'COMPLETED_TASKS' && 'Completed Tasks — Verified Records'}
+                      {activeDashboardModal === 'ROOMS_READY' && 'Office Rooms Readiness & Status'}
+                    </h3>
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800">
+                      {activeDashboardModal === 'TOTAL_TASKS' && `${tasks.length} Total`}
+                      {activeDashboardModal === 'PENDING_TASKS' && `${pendingTasks.length} Pending`}
+                      {activeDashboardModal === 'OVERDUE_TASKS' && `${overdueTasks.length} Overdue`}
+                      {activeDashboardModal === 'TOTAL_REPORTS' && '2 Reports Available'}
+                      {activeDashboardModal === 'COMPLETED_TASKS' && `${completedTasks.length} Completed`}
+                      {activeDashboardModal === 'ROOMS_READY' && `${readyRoomsCount}/${rooms.length} Ready`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {activeDashboardModal === 'TOTAL_TASKS' && 'Complete list of all scheduled routines, water distributions, and closing tasks.'}
+                    {activeDashboardModal === 'PENDING_TASKS' && 'Tasks currently in progress, available for pickup, or awaiting review.'}
+                    {activeDashboardModal === 'OVERDUE_TASKS' && 'Tasks that have exceeded their target shift completion time.'}
+                    {activeDashboardModal === 'TOTAL_REPORTS' && 'Live shift breakdown, weekly turnaround analytics, and official CSV exports.'}
+                    {activeDashboardModal === 'COMPLETED_TASKS' && 'All finished tasks verified with timestamps and photo evidence.'}
+                    {activeDashboardModal === 'ROOMS_READY' && 'Live status overview of all 15 executive cabins, meeting suites, and common areas.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveDashboardModal(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              {/* Search & Filter Bar (for task modals) */}
+              {(activeDashboardModal === 'TOTAL_TASKS' ||
+                activeDashboardModal === 'PENDING_TASKS' ||
+                activeDashboardModal === 'COMPLETED_TASKS' ||
+                activeDashboardModal === 'OVERDUE_TASKS') && (
+                <div className="flex flex-col sm:flex-row gap-2.5 pb-2 border-b border-slate-100">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={modalSearchQuery}
+                      onChange={(e) => setModalSearchQuery(e.target.value)}
+                      placeholder="Search by task title, room name, or assignee..."
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-slate-900 bg-slate-50/50"
+                    />
+                    {modalSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setModalSearchQuery('')}
+                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {activeDashboardModal === 'TOTAL_TASKS' && (
+                    <div className="flex items-center gap-1 overflow-x-auto text-xs">
+                      {['ALL', 'AVAILABLE', 'IN_PROGRESS', 'PENDING_VERIFICATION', 'COMPLETED', 'BLOCKED', 'OVERDUE'].map(
+                        (statusKey) => (
+                          <button
+                            key={statusKey}
+                            type="button"
+                            onClick={() => setModalStatusFilter(statusKey)}
+                            className={`px-2.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                              modalStatusFilter === statusKey
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {statusKey === 'ALL'
+                              ? 'All'
+                              : statusKey === 'PENDING_VERIFICATION'
+                              ? 'Under Review'
+                              : statusKey.replace(/_/g, ' ')}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 1. TOTAL TASKS CONTENT */}
+              {activeDashboardModal === 'TOTAL_TASKS' && (() => {
+                const list = tasks.filter((t) => {
+                  if (modalStatusFilter !== 'ALL' && t.status !== modalStatusFilter) return false;
+                  if (modalSearchQuery.trim()) {
+                    const q = modalSearchQuery.toLowerCase();
+                    return (
+                      t.title.toLowerCase().includes(q) ||
+                      t.roomAreaName.toLowerCase().includes(q) ||
+                      t.assignedToName.toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                });
+
+                return (
+                  <div className="space-y-2.5">
+                    <div className="text-xs text-slate-500 font-mono">
+                      Showing {list.length} of {tasks.length} total tasks
+                    </div>
+
+                    {list.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        No tasks match the filter query.
+                      </div>
+                    ) : (
+                      list.map((task) => (
+                        <div
+                          key={task.id}
+                          className="p-3.5 bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                {task.priority}
+                              </span>
+                              <span className="text-xs font-bold text-slate-900">{task.roomAreaName}</span>
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                  task.status === 'COMPLETED'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : task.status === 'OVERDUE'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : task.status === 'BLOCKED'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : task.status === 'IN_PROGRESS'
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : task.status === 'PENDING_VERIFICATION'
+                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                {task.status === 'PENDING_VERIFICATION' ? 'Under Review' : task.status.replace(/_/g, ' ')}
+                              </span>
+                              {task.isUrgent && (
+                                <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded">
+                                  URGENT
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs font-bold text-slate-900">{task.title}</div>
+                            {task.description && (
+                              <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{task.description}</p>
+                            )}
+                            <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1.5 flex-wrap">
+                              <span>
+                                Assignee: <strong className="text-slate-700">{task.assignedToName}</strong>
+                              </span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 font-mono">
+                                <Clock className="w-3 h-3 text-slate-400" /> Due: {task.dueTime}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                Checklist: {task.checklist?.filter((c) => c.completed).length || 0}/
+                                {task.checklist?.length || 0}
+                              </span>
+                              {task.completedAt && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-emerald-700">
+                                    Done: {new Date(task.completedAt).toLocaleTimeString()}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {task.photoEvidence && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDashboardModal(null);
+                                  setInspectPhotoTask(task);
+                                }}
+                                className="px-2.5 py-1 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1"
+                              >
+                                <Camera className="w-3 h-3" />
+                                <span>Evidence</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveDashboardModal(null);
+                                setSubTab('TASKS');
+                                setSearchQuery(task.title);
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                            >
+                              View in Grid
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* 2. PENDING TASKS CONTENT */}
+              {activeDashboardModal === 'PENDING_TASKS' && (() => {
+                const list = pendingTasks.filter((t) => {
+                  if (modalSearchQuery.trim()) {
+                    const q = modalSearchQuery.toLowerCase();
+                    return (
+                      t.title.toLowerCase().includes(q) ||
+                      t.roomAreaName.toLowerCase().includes(q) ||
+                      t.assignedToName.toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                });
+
+                return (
+                  <div className="space-y-4">
+                    {/* Stat Breakdown Strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                        <div className="text-[10px] uppercase font-bold text-amber-800">In Progress</div>
+                        <div className="text-xl font-bold font-mono text-amber-900 mt-0.5">
+                          {inProgressTasks.length}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="text-[10px] uppercase font-bold text-slate-700">Available / Next</div>
+                        <div className="text-xl font-bold font-mono text-slate-900 mt-0.5">
+                          {tasks.filter((t) => t.status === 'AVAILABLE').length}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
+                        <div className="text-[10px] uppercase font-bold text-indigo-800">Under Review</div>
+                        <div className="text-xl font-bold font-mono text-indigo-900 mt-0.5">
+                          {tasks.filter((t) => t.status === 'PENDING_VERIFICATION').length}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
+                        <div className="text-[10px] uppercase font-bold text-rose-800">Blocked</div>
+                        <div className="text-xl font-bold font-mono text-rose-900 mt-0.5">
+                          {tasks.filter((t) => t.status === 'BLOCKED').length}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-500 font-mono">
+                      Showing {list.length} pending tasks
+                    </div>
+
+                    {list.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col items-center justify-center">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-600 mb-2" />
+                        <span className="font-bold">No Pending Tasks!</span>
+                        <span className="text-slate-600 mt-0.5">All scheduled routines have been completed.</span>
+                      </div>
+                    ) : (
+                      list.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`p-3.5 rounded-xl border transition-all ${
+                            task.status === 'BLOCKED'
+                              ? 'bg-rose-50/40 border-rose-300'
+                              : task.status === 'IN_PROGRESS'
+                              ? 'bg-amber-50/30 border-amber-300'
+                              : 'bg-white border-slate-200'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                {task.priority}
+                              </span>
+                              <span className="text-xs font-bold text-slate-900">{task.roomAreaName}</span>
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                  task.status === 'BLOCKED'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : task.status === 'IN_PROGRESS'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : task.status === 'PENDING_VERIFICATION'
+                                    ? 'bg-indigo-100 text-indigo-800'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {task.status === 'PENDING_VERIFICATION' ? 'Under Review' : task.status.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                            <div className="text-xs font-mono text-slate-500 flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Due: {task.dueTime}</span>
+                            </div>
+                          </div>
+
+                          <div className="text-xs font-bold text-slate-900 mb-1">{task.title}</div>
+                          {task.description && (
+                            <p className="text-[11px] text-slate-600 leading-relaxed mb-2">{task.description}</p>
+                          )}
+
+                          {task.status === 'BLOCKED' && task.blockedReason && (
+                            <div className="p-2.5 bg-rose-100/70 border border-rose-300 rounded-lg text-xs text-rose-800 mb-2">
+                              <div className="font-bold flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Reported Blocker:</span>
+                              </div>
+                              <div className="mt-0.5">{task.blockedReason}</div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                            <div>
+                              Assigned to: <strong className="text-slate-700">{task.assignedToName}</strong> (
+                              {task.checklist?.filter((c) => c.completed).length || 0}/{task.checklist?.length || 0} items)
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {task.photoEvidence && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDashboardModal(null);
+                                    setInspectPhotoTask(task);
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                  <Camera className="w-3 h-3" />
+                                  <span>Evidence</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDashboardModal(null);
+                                  setSubTab('TASKS');
+                                  setSearchQuery(task.title);
+                                }}
+                                className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                              >
+                                View in Grid
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* 3. OVERDUE TASKS CONTENT */}
+              {activeDashboardModal === 'OVERDUE_TASKS' && (() => {
+                const list = overdueTasks.filter((t) => {
+                  if (modalSearchQuery.trim()) {
+                    const q = modalSearchQuery.toLowerCase();
+                    return (
+                      t.title.toLowerCase().includes(q) ||
+                      t.roomAreaName.toLowerCase().includes(q) ||
+                      t.assignedToName.toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                });
+
+                return (
+                  <div className="space-y-4">
+                    {list.length === 0 ? (
+                      <div className="p-8 text-center rounded-2xl bg-emerald-50/60 border border-emerald-200 flex flex-col items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3">
+                          <CheckCircle2 className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-900">No Overdue Tasks Right Now</h4>
+                        <p className="text-xs text-slate-600 mt-1 max-w-md text-center leading-relaxed">
+                          All operational cleaning tasks, executive preparations, and hospitality water rounds are
+                          operating on schedule.
+                        </p>
+                        <div className="mt-4 p-3 bg-white rounded-xl border border-emerald-200 text-xs text-slate-600 font-mono">
+                          Shift Status: Running on time ({completedTasks.length} / {tasks.length} tasks completed)
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>
+                            The following {list.length} task(s) have not been completed before their target due time and
+                            require immediate attention.
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {list.map((task) => (
+                            <div
+                              key={task.id}
+                              className="p-4 bg-white rounded-xl border border-rose-300 shadow-xs flex flex-col justify-between"
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300">
+                                    {task.priority}
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-900">{task.roomAreaName}</span>
+                                </div>
+                                <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                                  OVERDUE
+                                </span>
+                              </div>
+
+                              <div className="text-xs font-bold text-slate-900 mb-1">{task.title}</div>
+                              {task.description && (
+                                <p className="text-[11px] text-slate-600 mb-2">{task.description}</p>
+                              )}
+
+                              <div className="p-2.5 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 space-y-1 mb-2">
+                                <div>
+                                  Scheduled Due: <strong className="text-rose-700">{task.dueTime}</strong>
+                                </div>
+                                <div>Assigned Staff: {task.assignedToName}</div>
+                                <div>
+                                  Checklist Status:{' '}
+                                  {task.checklist?.filter((c) => c.completed).length || 0}/{task.checklist?.length || 0} completed
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end gap-2">
+                                {task.photoEvidence && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveDashboardModal(null);
+                                      setInspectPhotoTask(task);
+                                    }}
+                                    className="px-3 py-1.5 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1"
+                                  >
+                                    <Camera className="w-3.5 h-3.5" />
+                                    <span>Photo Evidence</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDashboardModal(null);
+                                    setSubTab('TASKS');
+                                    setSearchQuery(task.title);
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+                                >
+                                  Open Task in Grid
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* 4. TOTAL REPORTS CONTENT */}
+              {activeDashboardModal === 'TOTAL_REPORTS' && (
+                <div className="space-y-6">
+                  {/* Daily Report Card */}
+                  <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-slate-700" />
+                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                          Report 1: Daily Shift Performance Report
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-600">
+                        {dailyReport ? dailyReport.date : 'Today'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="p-3 bg-white rounded-xl border border-slate-200">
+                        <div className="text-[10px] text-slate-400 font-mono uppercase">Completion Rate</div>
+                        <div className="text-xl font-bold font-mono text-emerald-600 mt-0.5">
+                          {dailyReport ? `${dailyReport.completionRatePercent}%` : '94%'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {completedTasks.length} of {tasks.length} tasks
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-slate-200">
+                        <div className="text-[10px] text-slate-400 font-mono uppercase">On-Time Execution</div>
+                        <div className="text-xl font-bold font-mono text-indigo-600 mt-0.5">
+                          {dailyReport ? `${dailyReport.onTimeCompletionRatePercent}%` : '92%'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Target adherence</div>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-slate-200">
+                        <div className="text-[10px] text-slate-400 font-mono uppercase">Photo Evidence Score</div>
+                        <div className="text-xl font-bold font-mono text-sky-600 mt-0.5">
+                          {weeklyReport ? `${weeklyReport.photoVerificationScorePercent}%` : '96%'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Verified authenticity</div>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-slate-200">
+                        <div className="text-[10px] text-slate-400 font-mono uppercase">Pending / Active</div>
+                        <div className="text-xl font-bold font-mono text-amber-600 mt-0.5">
+                          {pendingTasks.length}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">In queue</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weekly Management Analytics Card */}
+                  <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-indigo-700" />
+                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                          Report 2: Weekly Operations & Hospitality Analytics
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-600">
+                        {weeklyReport ? weeklyReport.weekPeriod : 'Current Week'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                        <div className="font-bold text-slate-800">Frequently Blocked Rooms</div>
+                        {weeklyReport?.frequentlyBlockedRooms && weeklyReport.frequentlyBlockedRooms.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {weeklyReport.frequentlyBlockedRooms.map((b, idx) => (
+                              <div key={idx} className="p-2 bg-slate-50 rounded-lg flex items-center justify-between">
+                                <div>
+                                  <div className="font-semibold text-slate-900">{b.room}</div>
+                                  <div className="text-[10px] text-slate-500">{b.primaryReason}</div>
+                                </div>
+                                <span className="font-mono text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                  {b.count} times
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 italic">No recurring blockers detected.</div>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                        <div className="font-bold text-slate-800">Hospitality Recommendations</div>
+                        {weeklyReport?.keyRecommendations && weeklyReport.keyRecommendations.length > 0 ? (
+                          <ul className="space-y-1 text-[11px] text-slate-600 list-disc pl-4 leading-relaxed">
+                            {weeklyReport.keyRecommendations.map((rec, i) => (
+                              <li key={i}>{rec}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="text-slate-400 italic">Operating smoothly within expected parameters.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions & CSV Export */}
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200">
+                    <div className="text-xs text-slate-500 font-mono">
+                      Export permanent CSV snapshot of all {tasks.length} task records & audit timestamps
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveDashboardModal(null);
+                          setSubTab('REPORTS');
+                        }}
+                        className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                      >
+                        Open Full Reports Tab
+                      </button>
+                      <a
+                        href={api.getReportExportUrl()}
+                        download
+                        className="px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download CSV Report
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. COMPLETED TASKS CONTENT */}
+              {activeDashboardModal === 'COMPLETED_TASKS' && (() => {
+                const list = completedTasks.filter((t) => {
+                  if (modalSearchQuery.trim()) {
+                    const q = modalSearchQuery.toLowerCase();
+                    return (
+                      t.title.toLowerCase().includes(q) ||
+                      t.roomAreaName.toLowerCase().includes(q) ||
+                      t.assignedToName.toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                });
+
+                return (
+                  <div className="space-y-3">
+                    <div className="text-xs text-slate-500 font-mono">
+                      Showing {list.length} completed tasks
+                    </div>
+
+                    {list.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        No completed tasks match query.
+                      </div>
+                    ) : (
+                      list.map((task) => (
+                        <div
+                          key={task.id}
+                          className="p-3.5 bg-white rounded-xl border border-emerald-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                {task.priority}
+                              </span>
+                              <span className="text-xs font-bold text-slate-900">{task.roomAreaName}</span>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Completed & Verified
+                              </span>
+                            </div>
+
+                            <div className="text-xs font-bold text-slate-900">{task.title}</div>
+                            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+                              <span>
+                                Completed by: <strong className="text-slate-700">{task.assignedToName}</strong>
+                              </span>
+                              <span>•</span>
+                              <span>
+                                Time:{' '}
+                                {task.completedAt
+                                  ? new Date(task.completedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })
+                                  : 'Done'}
+                              </span>
+                              <span>•</span>
+                              <span>Checklist: {task.checklist?.length || 0}/{task.checklist?.length || 0} passed</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {task.photoEvidence && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDashboardModal(null);
+                                  setInspectPhotoTask(task);
+                                }}
+                                className="px-3 py-1.5 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>Inspect Photo</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* 6. ROOMS READY CONTENT */}
+              {activeDashboardModal === 'ROOMS_READY' && (
+                <div className="space-y-4">
+                  <div className="text-xs text-slate-500 font-mono">
+                    Showing status for all {rooms.length} configured office areas
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {rooms.map((room) => {
+                      const badge = getRoomStatusBadge(room.status);
+                      const isReady = room.status === 'AVAILABLE' || room.status === 'READY_FOR_VISITOR';
+
+                      return (
+                        <div
+                          key={room.id}
+                          className={`p-3.5 rounded-xl border transition-all ${
+                            isReady
+                              ? 'bg-white border-slate-200 hover:border-emerald-300'
+                              : 'bg-slate-50/60 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1.5">
+                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                              {room.category.replace(/_/g, ' ')}
+                            </span>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.bg}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+
+                          <h5 className="text-xs font-bold text-slate-900 mb-1">{room.name}</h5>
+
+                          {room.currentAssignment ? (
+                            <div className="p-2 bg-amber-50/70 border border-amber-200 rounded-lg text-[11px] text-amber-900 mt-2">
+                              <div className="font-bold truncate">Visitor: {room.currentAssignment.visitorName}</div>
+                              <div className="text-slate-500 text-[10px]">
+                                Expected: {room.currentAssignment.expectedArrival} ({room.currentAssignment.expectedDuration})
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-slate-400 mt-2">
+                              {isReady ? 'Ready for immediate use' : 'Under preparation or sanitization'}
+                            </div>
+                          )}
+
+                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 font-mono">Priority: {room.defaultPriority}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveDashboardModal(null);
+                                setSubTab('ROOMS');
+                              }}
+                              className="text-slate-700 hover:text-slate-900 font-semibold"
+                            >
+                              Manage Area →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-slate-400 font-mono">Press Escape or click outside to dismiss</span>
+              <button
+                type="button"
+                onClick={() => setActiveDashboardModal(null)}
+                className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
