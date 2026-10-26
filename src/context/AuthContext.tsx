@@ -164,7 +164,11 @@ interface AuthContextType {
   isDeactivated: boolean;
   notifications: AppNotification[];
   unreadNotifCount: number;
-  login: (email: string, password?: string) => Promise<void>;
+  login: (
+    email: string,
+    password?: string,
+    onSuccess?: (user: UserAccount) => Promise<void> | void
+  ) => Promise<void>;
   logout: () => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
   refreshUsers: () => Promise<void>;
@@ -350,7 +354,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [currentUser, refreshUsers, refreshNotifications]);
 
-  const login = async (email: string, password?: string) => {
+  const login = async (
+    email: string,
+    password?: string,
+    onSuccess?: (user: UserAccount) => Promise<void> | void
+  ) => {
     setIsLoading(true);
     try {
       // Privacy Guard: High-accuracy GPS verification is ONLY requested for Pantry Attendants
@@ -362,6 +370,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const { user, attendance } = await api.login(email, password, locationPayload);
+
+      // Allow UI components to display smooth transition / success micro-interactions
+      if (onSuccess) {
+        await onSuccess(user);
+      }
+
       setCurrentUser(user);
       setIsDeactivated(user.status === 'inactive');
       if (attendance) {

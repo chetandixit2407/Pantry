@@ -95,6 +95,7 @@ export const PantryBoyView: React.FC = () => {
   // Task list filter
   const [taskFilterStatus, setTaskFilterStatus] = useState<'ALL' | 'AVAILABLE' | 'IN_PROGRESS' | 'PENDING' | 'COMPLETED'>('ALL');
   const [taskSearch, setTaskSearch] = useState<string>('');
+  const [hoveredSidebarTab, setHoveredSidebarTab] = useState<string | null>(null);
 
   // Live IST Clock
   const [currentTime, setCurrentTime] = useState<string>(() =>
@@ -412,49 +413,64 @@ export const PantryBoyView: React.FC = () => {
           </button>
         </div>
 
-        {/* Sidebar Nav Items with Sliding Active Pill */}
-        <nav className="p-3 space-y-1.5 flex-1 overflow-y-auto overflow-x-hidden">
+        {/* Sidebar Nav Items with Apple-Style Gliding Hover & Active Pill */}
+        <nav
+          className="p-3 space-y-1.5 flex-1 overflow-y-auto overflow-x-hidden"
+          onMouseLeave={() => setHoveredSidebarTab(null)}
+        >
           {authorizedNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const isHovered = hoveredSidebarTab === item.id;
 
             return (
               <div key={item.id} className="relative group">
                 <button
                   type="button"
                   onClick={() => setActiveTab(item.id)}
+                  onMouseEnter={() => setHoveredSidebarTab(item.id)}
                   className={`w-full relative flex items-center ${
                     sidebarCollapsed ? 'justify-center' : 'justify-between'
-                  } px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer overflow-hidden ${
-                    isActive ? 'text-white' : 'text-slate-600 hover:text-slate-900'
+                  } px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer overflow-hidden select-none ${
+                    isActive ? 'text-white font-bold' : isHovered ? 'text-slate-900' : 'text-slate-600'
                   }`}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  {/* Sliding Active Pill Animation */}
+                  {/* Apple-Style Sliding Active Pill */}
                   {isActive && (
                     <motion.div
                       layoutId="pantryActiveNavPill"
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                       className="absolute inset-0 bg-slate-900 rounded-xl shadow-md z-0"
+                      style={{
+                        boxShadow: '0 4px 14px -2px rgba(15, 23, 42, 0.35)',
+                      }}
                     />
                   )}
 
-                  {/* Soft Inactive Hover Glow */}
-                  {!isActive && (
-                    <div className="absolute inset-0 rounded-xl transition-colors duration-200 group-hover:bg-slate-100/90 z-0" />
+                  {/* Apple-Style Gliding Hover Pill */}
+                  {!isActive && isHovered && (
+                    <motion.div
+                      layoutId="pantryHoverNavPill"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      className="absolute inset-0 bg-slate-100/90 border border-slate-200/80 rounded-xl shadow-2xs z-0"
+                    />
                   )}
 
-                  {/* Icon & Label */}
-                  <div className="relative z-10 flex items-center gap-3 min-w-0">
+                  {/* Icon & Label with Fluid Lift */}
+                  <motion.div
+                    className="relative z-10 flex items-center gap-3 min-w-0"
+                    whileHover={{ y: -1.5, x: sidebarCollapsed ? 0 : 2 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  >
                     <motion.div
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      whileHover={{ scale: 1.15, rotate: [0, -3, 3, 0] }}
+                      transition={{ type: 'spring', stiffness: 450, damping: 20 }}
                       className="shrink-0 flex items-center justify-center"
                     >
                       <Icon
-                        className={`w-4 h-4 transition-colors ${
-                          isActive ? 'text-amber-400' : 'text-slate-500 group-hover:text-amber-500'
+                        className={`w-4 h-4 transition-colors duration-200 ${
+                          isActive ? 'text-amber-400' : isHovered ? 'text-amber-600' : 'text-slate-500'
                         }`}
                       />
                     </motion.div>
@@ -472,13 +488,17 @@ export const PantryBoyView: React.FC = () => {
                         </motion.span>
                       )}
                     </AnimatePresence>
-                  </div>
+                  </motion.div>
 
                   {/* Badge Counter (When Expanded) */}
                   {!sidebarCollapsed && Boolean(item.badge) && item.badge! > 0 && (
                     <span
-                      className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold tabular-nums transition-colors ${
-                        isActive ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
+                      className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold tabular-nums transition-colors duration-200 ${
+                        isActive
+                          ? 'bg-amber-400 text-slate-950 shadow-xs'
+                          : isHovered
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-slate-200 text-slate-700'
                       }`}
                     >
                       {item.badge}
@@ -601,16 +621,23 @@ export const PantryBoyView: React.FC = () => {
                         setActiveTab(item.id);
                         setMobileDrawerOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all relative ${
-                        isActive ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-200 relative cursor-pointer select-none ${
+                        isActive ? 'text-white font-bold' : 'text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      {isActive && (
+                        <motion.div
+                          layoutId="pantryMobileNavPill"
+                          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                          className="absolute inset-0 bg-slate-900 rounded-xl shadow-xs z-0"
+                        />
+                      )}
+                      <div className="relative z-10 flex items-center gap-3">
                         <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-500'}`} />
                         <span>{item.label}</span>
                       </div>
                       {Boolean(item.badge) && item.badge! > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-950">
+                        <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-950">
                           {item.badge}
                         </span>
                       )}
@@ -946,27 +973,35 @@ export const PantryBoyView: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
                     {[
                       { key: 'ALL', label: `All (${tasks.length})` },
                       { key: 'AVAILABLE', label: 'Available' },
                       { key: 'IN_PROGRESS', label: 'In Progress' },
                       { key: 'PENDING', label: 'Review' },
                       { key: 'COMPLETED', label: 'Completed' },
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setTaskFilterStatus(tab.key as any)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${
-                          taskFilterStatus === tab.key
-                            ? 'bg-slate-900 text-white'
-                            : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                    ].map((tab) => {
+                      const isActive = taskFilterStatus === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => setTaskFilterStatus(tab.key as any)}
+                          className={`relative px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors select-none cursor-pointer ${
+                            isActive ? 'text-white font-bold' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {isActive && (
+                            <motion.div
+                              layoutId="taskFilterActivePill"
+                              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                              className="absolute inset-0 bg-slate-900 rounded-lg shadow-xs z-0"
+                            />
+                          )}
+                          <span className="relative z-10">{tab.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

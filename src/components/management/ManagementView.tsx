@@ -103,6 +103,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [settingsTab, setSettingsTab] = useState<'ROOMS' | 'USERS' | 'AUDIT'>('ROOMS');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [hoveredSidebarTab, setHoveredSidebarTab] = useState<ManagementTab | null>(null);
 
   // Operational Data States
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -983,8 +984,11 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
           </div>
         </div>
 
-        {/* Navigation Items with Sliding Active Pill */}
-        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden">
+        {/* Navigation Items with Apple-Style Gliding Hover & Active Pill */}
+        <nav
+          className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden"
+          onMouseLeave={() => setHoveredSidebarTab(null)}
+        >
           {[
             { id: "DASHBOARD" as ManagementTab, label: "Dashboard", icon: LayoutDashboard },
             { id: "PANTRY_TASKS" as ManagementTab, label: "Pantry Tasks", icon: Coffee, count: pantryTasksCount },
@@ -997,6 +1001,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
             const isItemActive =
               subTab === item.id ||
               (item.id === "SETTINGS" && (subTab === "ROOMS" || subTab === "USERS" || subTab === "AUDIT"));
+            const isItemHovered = hoveredSidebarTab === item.id;
 
             return (
               <div key={item.id} className="relative group">
@@ -1006,42 +1011,57 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                     setSubTab(item.id);
                     setSidebarOpen(false);
                   }}
+                  onMouseEnter={() => setHoveredSidebarTab(item.id)}
                   className={`w-full relative flex items-center ${
                     sidebarCollapsed ? "md:justify-center" : "justify-between"
-                  } px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer overflow-hidden ${
+                  } px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer overflow-hidden select-none ${
                     isItemActive
                       ? "text-slate-950 font-bold"
-                      : "text-slate-300 hover:text-white"
+                      : isItemHovered
+                      ? "text-white"
+                      : "text-slate-300"
                   }`}
                   aria-current={isItemActive ? "page" : undefined}
                 >
-                  {/* Sliding Active Pill Animation */}
+                  {/* Apple-Style Sliding Active Pill with Gold Glow */}
                   {isItemActive && (
                     <motion.div
                       layoutId="managementActiveNavPill"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      className="absolute inset-0 bg-amber-400 rounded-xl shadow-lg shadow-amber-500/25 z-0"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-400 to-amber-500 rounded-xl shadow-lg shadow-amber-500/25 z-0"
+                      style={{
+                        boxShadow: "0 4px 16px -2px rgba(245, 158, 11, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.5)",
+                      }}
                     />
                   )}
 
-                  {/* Soft Inactive Hover Glow */}
-                  {!isItemActive && (
-                    <div className="absolute inset-0 rounded-xl transition-colors duration-200 group-hover:bg-slate-800/60 z-0" />
+                  {/* Apple-Style Gliding Hover Pill */}
+                  {!isItemActive && isItemHovered && (
+                    <motion.div
+                      layoutId="managementHoverNavPill"
+                      transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                      className="absolute inset-0 bg-white/[0.09] border border-white/10 rounded-xl backdrop-blur-md shadow-xs z-0"
+                    />
                   )}
 
-                  {/* Icon & Label Content */}
-                  <div className="relative z-10 flex items-center gap-3 min-w-0">
+                  {/* Icon & Label Content with Tactile Spring Lift */}
+                  <motion.div
+                    className="relative z-10 flex items-center gap-3 min-w-0"
+                    whileHover={{ y: -1.5, x: sidebarCollapsed ? 0 : 2 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                  >
                     <motion.div
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      whileHover={{ scale: 1.15, rotate: [0, -3, 3, 0] }}
+                      transition={{ type: "spring", stiffness: 450, damping: 20 }}
                       className="shrink-0 flex items-center justify-center"
                     >
                       <Icon
-                        className={`w-4 h-4 transition-colors ${
+                        className={`w-4 h-4 transition-colors duration-200 ${
                           isItemActive
                             ? "text-slate-950"
-                            : "text-slate-400 group-hover:text-amber-400"
+                            : isItemHovered
+                            ? "text-amber-300"
+                            : "text-slate-400"
                         }`}
                       />
                     </motion.div>
@@ -1059,15 +1079,17 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         </motion.span>
                       )}
                     </AnimatePresence>
-                  </div>
+                  </motion.div>
 
                   {/* Badge Counter (When Expanded) */}
                   {!sidebarCollapsed && item.count !== undefined && item.count > 0 && (
                     <span
-                      className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold tabular-nums transition-colors ${
+                      className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold tabular-nums transition-colors duration-200 ${
                         isItemActive
-                          ? "bg-slate-950 text-amber-400"
-                          : "bg-slate-800 text-slate-300 group-hover:bg-slate-700"
+                          ? "bg-slate-950 text-amber-400 shadow-xs"
+                          : isItemHovered
+                          ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
+                          : "bg-slate-800 text-slate-300"
                       }`}
                     >
                       {item.count}
@@ -1202,29 +1224,33 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
 
             {/* Switch to Pantry Mode Simulator button for management testing */}
             {setActiveView && (
-              <button
+              <motion.button
+                whileHover={{ y: -1.5, scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => setActiveView("PANTRY")}
-                className="px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/90 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                 title="Preview Raju Sharma's mobile attendant view"
               >
                 <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
                 <span className="hidden sm:inline">Pantry Boy View</span>
-              </button>
+              </motion.button>
             )}
 
             {/* Fast Task Creation */}
-            <button
+            <motion.button
+              whileHover={{ y: -1.5, scale: 1.04 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={() => {
                 setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: "P2" }));
                 setShowNewTaskModal(true);
               }}
-              className="px-3 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-full transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/25 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span className="hidden sm:inline">New Task</span>
-            </button>
+            </motion.button>
           </div>
         </header>
 

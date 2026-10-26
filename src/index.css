@@ -10,3 +10,30 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* Shimmer & Glow Effects */
+@keyframes cardGlow {
+  0%, 100% {
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 40px 0 rgba(245, 158, 11, 0.08);
+  }
+  50% {
+    box-shadow: 0 30px 75px -15px rgba(0, 0, 0, 0.5), 0 0 60px 0 rgba(245, 158, 11, 0.16);
+  }
+}
+
+@keyframes shimmerSweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+.animate-card-glow {
+  animation: cardGlow 8s ease-in-out infinite;
+}
+
+
+
+
