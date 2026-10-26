@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import type {
   Task,
   RoomArea,
@@ -61,6 +62,7 @@ import {
   Coffee,
   Move,
   Settings,
+  ChevronLeft,
   ChevronRight,
   TrendingUp,
   TrendingDown,
@@ -95,6 +97,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [subTab, setSubTab] = useState<ManagementTab>('DASHBOARD');
   const [settingsTab, setSettingsTab] = useState<'ROOMS' | 'USERS' | 'AUDIT'>('ROOMS');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
   // Operational Data States
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -820,203 +823,264 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         />
       )}
 
-      {/* Dark Sidebar (Fixed desktop / drawer mobile) */}
+      {/* Dark Animated Sidebar (Expandable / Collapsible desktop rail / Mobile drawer) */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-[#0b1329] text-white flex flex-col z-50 transition-transform duration-300 ease-in-out shrink-0 border-r border-slate-800 ${
+        className={`fixed md:sticky top-0 left-0 h-screen bg-[#0b1329] text-white flex flex-col z-50 transition-[width,transform] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shrink-0 border-r border-slate-800 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
+        } ${sidebarCollapsed ? "w-72 md:w-20" : "w-72 md:w-64"}`}
       >
-        {/* Brand Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+        {/* Brand Header with Expand/Collapse Animation */}
+        <div
+          className={`p-3.5 border-b border-slate-800/90 flex items-center transition-all duration-300 ${
+            sidebarCollapsed ? "md:justify-center md:flex-col md:gap-2.5 justify-between" : "justify-between"
+          }`}
+        >
+          <div className="flex items-center gap-3 overflow-hidden min-w-0">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.96 }}
+              className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow-md border border-slate-200/90 overflow-hidden cursor-pointer"
+              onClick={() => {
+                if (sidebarCollapsed) setSidebarCollapsed(false);
+              }}
+              title={sidebarCollapsed ? "Click to expand" : undefined}
+            >
               <img
                 src="/assets/wcr_logo.png"
                 alt="White Collar Realty Logo"
                 className="w-full h-full object-contain"
               />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-white tracking-wide uppercase truncate">
-                White Collar Realty
-              </div>
-              <div className="text-[10px] text-amber-400 font-medium tracking-tight">
-                A Tradition Of Trust
-              </div>
-            </div>
+            </motion.div>
+
+            <AnimatePresence mode="wait">
+              {!sidebarCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.2 }}
+                  className="min-w-0"
+                >
+                  <div className="text-xs font-bold text-white tracking-wide uppercase truncate">
+                    White Collar Realty
+                  </div>
+                  <div className="text-[10px] text-amber-400 font-medium tracking-tight">
+                    A Tradition Of Trust
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="md:hidden p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Mobile close button */}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Desktop Expand/Collapse Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <motion.div
+                animate={{ rotate: sidebarCollapsed ? 180 : 0 }}
+                transition={{ type: "spring", stiffness: 320, damping: 24 }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </motion.div>
+            </button>
+          </div>
         </div>
 
-        {/* Navigation Items */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => {
-              setSubTab("DASHBOARD");
-              setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              subTab === "DASHBOARD"
-                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Dashboard</span>
-            </div>
-          </button>
+        {/* Navigation Items with Sliding Active Pill */}
+        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden">
+          {[
+            { id: "DASHBOARD" as ManagementTab, label: "Dashboard", icon: LayoutDashboard },
+            { id: "PANTRY_TASKS" as ManagementTab, label: "Pantry Tasks", icon: Coffee, count: pantryTasksCount },
+            { id: "CLEANING_TASKS" as ManagementTab, label: "Cleaning Tasks", icon: Sparkles, count: cleaningTasksCount },
+            { id: "REARRANGEMENT_TASKS" as ManagementTab, label: "Rearrangement Tasks", icon: Move, count: rearrangementTasksCount },
+            { id: "REPORTS" as ManagementTab, label: "Reports", icon: FileText },
+            { id: "SETTINGS" as ManagementTab, label: "Settings", icon: Settings },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isItemActive =
+              subTab === item.id ||
+              (item.id === "SETTINGS" && (subTab === "ROOMS" || subTab === "USERS" || subTab === "AUDIT"));
 
-          <button
-            type="button"
-            onClick={() => {
-              setSubTab("PANTRY_TASKS");
-              setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              subTab === "PANTRY_TASKS"
-                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Coffee className="w-4 h-4" />
-              <span>Pantry Tasks</span>
-            </div>
-            <span
-              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                subTab === "PANTRY_TASKS"
-                  ? "bg-slate-950 text-amber-400 font-bold"
-                  : "bg-slate-800 text-slate-300"
-              }`}
-            >
-              {pantryTasksCount}
-            </span>
-          </button>
+            return (
+              <div key={item.id} className="relative group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubTab(item.id);
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full relative flex items-center ${
+                    sidebarCollapsed ? "md:justify-center" : "justify-between"
+                  } px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer overflow-hidden ${
+                    isItemActive
+                      ? "text-slate-950 font-bold"
+                      : "text-slate-300 hover:text-white"
+                  }`}
+                  aria-current={isItemActive ? "page" : undefined}
+                >
+                  {/* Sliding Active Pill Animation */}
+                  {isItemActive && (
+                    <motion.div
+                      layoutId="managementActiveNavPill"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      className="absolute inset-0 bg-amber-400 rounded-xl shadow-lg shadow-amber-500/25 z-0"
+                    />
+                  )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setSubTab("CLEANING_TASKS");
-              setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              subTab === "CLEANING_TASKS"
-                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4" />
-              <span>Cleaning Tasks</span>
-            </div>
-            <span
-              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                subTab === "CLEANING_TASKS"
-                  ? "bg-slate-950 text-amber-400 font-bold"
-                  : "bg-slate-800 text-slate-300"
-              }`}
-            >
-              {cleaningTasksCount}
-            </span>
-          </button>
+                  {/* Soft Inactive Hover Glow */}
+                  {!isItemActive && (
+                    <div className="absolute inset-0 rounded-xl transition-colors duration-200 group-hover:bg-slate-800/60 z-0" />
+                  )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setSubTab("REARRANGEMENT_TASKS");
-              setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              subTab === "REARRANGEMENT_TASKS"
-                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Move className="w-4 h-4" />
-              <span>Rearrangement Tasks</span>
-            </div>
-            <span
-              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                subTab === "REARRANGEMENT_TASKS"
-                  ? "bg-slate-950 text-amber-400 font-bold"
-                  : "bg-slate-800 text-slate-300"
-              }`}
-            >
-              {rearrangementTasksCount}
-            </span>
-          </button>
+                  {/* Icon & Label Content */}
+                  <div className="relative z-10 flex items-center gap-3 min-w-0">
+                    <motion.div
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      className="shrink-0 flex items-center justify-center"
+                    >
+                      <Icon
+                        className={`w-4 h-4 transition-colors ${
+                          isItemActive
+                            ? "text-slate-950"
+                            : "text-slate-400 group-hover:text-amber-400"
+                        }`}
+                      />
+                    </motion.div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setSubTab("REPORTS");
-              setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              subTab === "REPORTS"
-                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <FileText className="w-4 h-4" />
-              <span>Reports</span>
-            </div>
-          </button>
+                    <AnimatePresence mode="wait">
+                      {!sidebarCollapsed && (
+                        <motion.span
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -8 }}
+                          transition={{ duration: 0.18 }}
+                          className="truncate text-left whitespace-nowrap"
+                        >
+                          {item.label}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setSubTab("SETTINGS");
-              setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              subTab === "SETTINGS"
-                ? "bg-amber-400 text-slate-950 shadow-md font-bold"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/80"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
-            </div>
-          </button>
+                  {/* Badge Counter (When Expanded) */}
+                  {!sidebarCollapsed && item.count !== undefined && item.count > 0 && (
+                    <span
+                      className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold tabular-nums transition-colors ${
+                        isItemActive
+                          ? "bg-slate-950 text-amber-400"
+                          : "bg-slate-800 text-slate-300 group-hover:bg-slate-700"
+                      }`}
+                    >
+                      {item.count}
+                    </span>
+                  )}
+
+                  {/* Collapsed Mode Indicator Dot */}
+                  {sidebarCollapsed && item.count !== undefined && item.count > 0 && (
+                    <span className="hidden md:block absolute top-2 right-2.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-[#0b1329] z-20" />
+                  )}
+                </button>
+
+                {/* Collapsed Floating Tooltip with Arrow (Dribbble Signature) */}
+                {sidebarCollapsed && (
+                  <div className="hidden md:flex absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700 pointer-events-none whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-2">
+                    <span>{item.label}</span>
+                    {item.count !== undefined && item.count > 0 && (
+                      <span className="bg-amber-400 text-slate-950 text-[10px] font-bold px-1.5 py-0.2 rounded-full tabular-nums">
+                        {item.count}
+                      </span>
+                    )}
+                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900/95" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Profile Card at Sidebar Bottom */}
-        <div className="p-3.5 border-t border-slate-800 bg-slate-950/60">
-          <div className="flex items-center gap-3">
-            <img
+        <div className="p-3 border-t border-slate-800 bg-slate-950/70 relative group">
+          <div
+            className={`flex items-center transition-all duration-300 ${
+              sidebarCollapsed ? "md:justify-center" : "gap-3"
+            }`}
+          >
+            <motion.img
+              whileHover={{ scale: 1.08 }}
               src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
               alt="Kimmi"
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-amber-400 shrink-0 cursor-pointer shadow-md"
+              title={sidebarCollapsed ? "Kimmi · Co-Founder" : undefined}
             />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold text-white truncate">
-                Kimmi
-              </div>
-              <div className="text-[10px] text-amber-400 font-semibold truncate">
-                Co-Founder
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => logout()}
-              title="Sign Out"
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+
+            <AnimatePresence mode="wait">
+              {!sidebarCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="min-w-0 flex-1"
+                >
+                  <div className="text-xs font-bold text-white truncate">
+                    Kimmi
+                  </div>
+                  <div className="text-[10px] text-amber-400 font-semibold truncate">
+                    Co-Founder
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {!sidebarCollapsed && (
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => logout()}
+                title="Sign Out"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </motion.button>
+            )}
           </div>
+
+          {/* Collapsed Tooltip for Profile & Logout */}
+          {sidebarCollapsed && (
+            <div className="hidden md:flex absolute left-full ml-3 bottom-2 p-3 bg-slate-900/95 backdrop-blur-md text-white rounded-xl shadow-2xl border border-slate-700 pointer-events-auto whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-3">
+              <div>
+                <div className="text-xs font-bold text-white">Kimmi</div>
+                <div className="text-[10px] text-amber-400 font-semibold">Co-Founder</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg transition-colors cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900/95" />
+            </div>
+          )}
         </div>
       </aside>
 

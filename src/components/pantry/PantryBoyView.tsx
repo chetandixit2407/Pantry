@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import type { Task, TaskStatus, RoomArea, PantryRequest, AppNotification, TaskPriority } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
@@ -304,152 +305,285 @@ export const PantryBoyView: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row antialiased text-slate-800">
       {/* ----------------------------------------------------------------------- */}
-      {/* Collapsible Sidebar (Desktop & Tablet)                                  */}
+      {/* Collapsible Animated Sidebar (Desktop & Tablet)                         */}
       {/* ----------------------------------------------------------------------- */}
       <aside
-        className={`hidden md:flex flex-col bg-white border-r border-slate-200 transition-all duration-300 z-30 ${
+        className={`hidden md:flex flex-col bg-white border-r border-slate-200 transition-[width] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-30 shrink-0 ${
           sidebarCollapsed ? 'w-20' : 'w-64'
         }`}
       >
         {/* Brand Wordmark & Collapse Button */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+        <div
+          className={`h-16 px-4 flex items-center border-b border-slate-200 shrink-0 transition-all duration-300 ${
+            sidebarCollapsed ? 'justify-center' : 'justify-between'
+          }`}
+        >
+          <div className="flex items-center gap-3 overflow-hidden min-w-0">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.96 }}
+              className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs cursor-pointer"
+              onClick={() => {
+                if (sidebarCollapsed) setSidebarCollapsed(false);
+              }}
+              title={sidebarCollapsed ? 'Click to expand' : undefined}
+            >
               <img src="/assets/wcr_logo.png" alt="WCR" className="w-full h-full object-contain" />
-            </div>
-            {!sidebarCollapsed && (
-              <div className="truncate">
-                <div className="font-bold text-slate-900 text-sm leading-tight truncate">White Collar Realty</div>
-                <div className="text-[10px] text-slate-500 font-medium">SmartPantry Attendant</div>
-              </div>
-            )}
+            </motion.div>
+
+            <AnimatePresence mode="wait">
+              {!sidebarCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="min-w-0"
+                >
+                  <div className="font-bold text-slate-900 text-sm leading-tight truncate">White Collar Realty</div>
+                  <div className="text-[10px] text-slate-500 font-medium tracking-tight">SmartPantry Attendant</div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
           <button
             type="button"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            <motion.div
+              animate={{ rotate: sidebarCollapsed ? 180 : 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </motion.div>
           </button>
         </div>
 
-        {/* Sidebar Nav Items */}
-        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+        {/* Sidebar Nav Items with Sliding Active Pill */}
+        <nav className="p-3 space-y-1.5 flex-1 overflow-y-auto overflow-x-hidden">
           {authorizedNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+
             return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all relative ${
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-amber-400' : 'text-slate-500'}`} />
-                {!sidebarCollapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
-                {Boolean(item.badge) && item.badge! > 0 && (
-                  <span
-                    className={`ml-auto px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      isActive ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
+              <div key={item.id} className="relative group">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full relative flex items-center ${
+                    sidebarCollapsed ? 'justify-center' : 'justify-between'
+                  } px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer overflow-hidden ${
+                    isActive ? 'text-white' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  {/* Sliding Active Pill Animation */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="pantryActiveNavPill"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      className="absolute inset-0 bg-slate-900 rounded-xl shadow-md z-0"
+                    />
+                  )}
+
+                  {/* Soft Inactive Hover Glow */}
+                  {!isActive && (
+                    <div className="absolute inset-0 rounded-xl transition-colors duration-200 group-hover:bg-slate-100/90 z-0" />
+                  )}
+
+                  {/* Icon & Label */}
+                  <div className="relative z-10 flex items-center gap-3 min-w-0">
+                    <motion.div
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      className="shrink-0 flex items-center justify-center"
+                    >
+                      <Icon
+                        className={`w-4 h-4 transition-colors ${
+                          isActive ? 'text-amber-400' : 'text-slate-500 group-hover:text-amber-500'
+                        }`}
+                      />
+                    </motion.div>
+
+                    <AnimatePresence mode="wait">
+                      {!sidebarCollapsed && (
+                        <motion.span
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -8 }}
+                          transition={{ duration: 0.18 }}
+                          className="truncate text-left whitespace-nowrap"
+                        >
+                          {item.label}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Badge Counter (When Expanded) */}
+                  {!sidebarCollapsed && Boolean(item.badge) && item.badge! > 0 && (
+                    <span
+                      className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold tabular-nums transition-colors ${
+                        isActive ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+
+                  {/* Collapsed Mode Indicator Dot */}
+                  {sidebarCollapsed && Boolean(item.badge) && item.badge! > 0 && (
+                    <span className="hidden md:block absolute top-2 right-2.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white z-20" />
+                  )}
+                </button>
+
+                {/* Collapsed Floating Tooltip with Arrow (Dribbble Signature) */}
+                {sidebarCollapsed && (
+                  <div className="hidden md:flex absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xl pointer-events-none whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-2">
+                    <span>{item.label}</span>
+                    {Boolean(item.badge) && item.badge! > 0 && (
+                      <span className="bg-amber-400 text-slate-950 text-[10px] font-bold px-1.5 py-0.2 rounded-full tabular-nums">
+                        {item.badge}
+                      </span>
+                    )}
+                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900" />
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </nav>
 
         {/* Sidebar Footer Logout */}
-        <div className="p-3 border-t border-slate-200 shrink-0">
+        <div className="p-3 border-t border-slate-200 shrink-0 relative group">
           <button
             type="button"
             onClick={() => logout()}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+            className={`w-full flex items-center ${
+              sidebarCollapsed ? 'justify-center' : 'gap-3'
+            } px-3 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer`}
             title={sidebarCollapsed ? 'Log Out' : undefined}
           >
-            <LogOut className="w-4 h-4 shrink-0 text-rose-500" />
-            {!sidebarCollapsed && <span>Sign Out</span>}
+            <motion.div whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}>
+              <LogOut className="w-4 h-4 shrink-0 text-rose-500" />
+            </motion.div>
+            <AnimatePresence mode="wait">
+              {!sidebarCollapsed && (
+                <motion.span
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.18 }}
+                  className="truncate"
+                >
+                  Sign Out
+                </motion.span>
+              )}
+            </AnimatePresence>
           </button>
+
+          {/* Collapsed Tooltip for Sign Out */}
+          {sidebarCollapsed && (
+            <div className="hidden md:flex absolute left-full ml-3 bottom-2 px-3 py-1.5 bg-rose-900 text-rose-100 text-xs font-semibold rounded-xl shadow-xl pointer-events-none whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-2">
+              <span>Sign Out</span>
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-rose-900" />
+            </div>
+          )}
         </div>
       </aside>
 
       {/* ----------------------------------------------------------------------- */}
-      {/* Mobile Drawer (Small Screens)                                           */}
+      {/* Mobile Drawer (Small Screens with Smooth Backdrop & Slide-In Animation) */}
       {/* ----------------------------------------------------------------------- */}
-      {mobileDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden bg-slate-950/60 backdrop-blur-xs">
-          <div className="w-72 bg-white h-full flex flex-col p-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
-                  <img src="/assets/wcr_logo.png" alt="WCR" className="w-full h-full object-contain" />
+      <AnimatePresence>
+        {mobileDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex md:hidden">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              onClick={() => setMobileDrawerOpen(false)}
+            />
+
+            {/* Slide-out Panel */}
+            <motion.div
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 280 }}
+              className="relative w-72 bg-white h-full flex flex-col p-4 shadow-2xl z-10"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
+                    <img src="/assets/wcr_logo.png" alt="WCR" className="w-full h-full object-contain" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs">White Collar Realty</div>
+                    <div className="text-[10px] text-slate-500">Pantry Attendant Portal</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-bold text-slate-900 text-xs">White Collar Realty</div>
-                  <div className="text-[10px] text-slate-500">Pantry Attendant Portal</div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <nav className="space-y-1 flex-1 overflow-y-auto">
-              {authorizedNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setMobileDrawerOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                      isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-500'}`} />
-                      <span>{item.label}</span>
-                    </div>
-                    {Boolean(item.badge) && item.badge! > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-950">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
+              <nav className="space-y-1 flex-1 overflow-y-auto">
+                {authorizedNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all relative ${
+                        isActive ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-500'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {Boolean(item.badge) && item.badge! > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-950">
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
 
-            <div className="pt-3 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => logout()}
-                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl"
-              >
-                <LogOut className="w-4 h-4 text-rose-500" />
-                <span>Sign Out</span>
-              </button>
-            </div>
+              <div className="pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                >
+                  <LogOut className="w-4 h-4 text-rose-500" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </motion.div>
           </div>
-          <div className="flex-1" onClick={() => setMobileDrawerOpen(false)} />
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* ----------------------------------------------------------------------- */}
       {/* Main Content Area                                                       */}
