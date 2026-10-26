@@ -346,9 +346,12 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex justify-between text-white/60 text-[10px] font-mono">
+                  <div className="flex justify-between text-white/70 text-[10px] font-mono items-center">
                     <span>{roomName}</span>
-                    <span>WCR HOSPITALITY OS</span>
+                    <span className="flex items-center gap-1.5">
+                      <img src="/assets/wcr_logo.png" alt="" className="w-3.5 h-3.5 object-contain bg-white rounded-xs p-0.5" />
+                      WHITE COLLAR REALTY HOSPITALITY OS
+                    </span>
                   </div>
                 </div>
               )}

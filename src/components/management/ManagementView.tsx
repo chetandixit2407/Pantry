@@ -101,7 +101,7 @@ export const ManagementView: React.FC = () => {
   const [visitorForm, setVisitorForm] = useState({
     visitorName: '',
     companyName: '',
-    hostName: currentUser?.name || 'Kimmy Mam',
+    hostName: currentUser?.name || 'Kimmi Mam',
     roomAreaId: '',
     guestCount: 2,
     notes: 'Require fresh water bottles and dry fruits setup.',
@@ -112,14 +112,12 @@ export const ManagementView: React.FC = () => {
     id?: string;
     name: string;
     category: any;
-    floor: string;
     defaultPriority: TaskPriority;
     photoRequired: boolean;
     recurrence: any;
   }>({
     name: '',
     category: 'MEETING_SUITE',
-    floor: 'Floor 1',
     defaultPriority: 'P5',
     photoRequired: true,
     recurrence: 'DAILY',
@@ -186,18 +184,18 @@ export const ManagementView: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       const [tData, rData, vData, dData, wData, aData] = await Promise.all([
-        api.getTasks(),
-        api.getRooms(),
-        api.getVisitors(),
-        api.getDailyReport(),
-        api.getWeeklyReport(),
-        api.getAuditLogs(),
+        api.getTasks().catch(() => []),
+        api.getRooms().catch(() => []),
+        api.getVisitors().catch(() => []),
+        api.getDailyReport().catch(() => null),
+        api.getWeeklyReport().catch(() => null),
+        api.getAuditLogs().catch(() => []),
       ]);
       setTasks(tData);
       setRooms(rData);
       setVisitors(vData);
-      setDailyReport(dData.summary);
-      setWeeklyReport(wData.weeklySummary);
+      if (dData?.summary) setDailyReport(dData.summary);
+      if (wData?.weeklySummary) setWeeklyReport(wData.weeklySummary);
       setAuditLogs(aData);
 
       if (!newTaskForm.roomAreaId && rData.length > 0) {
@@ -289,7 +287,7 @@ export const ManagementView: React.FC = () => {
       setVisitorForm({
         visitorName: '',
         companyName: '',
-        hostName: currentUser?.name || 'Kimmy Mam',
+        hostName: currentUser?.name || 'Kimmi Mam',
         roomAreaId: rooms[4]?.id || rooms[0]?.id || '',
         guestCount: 2,
         notes: '',
@@ -435,7 +433,6 @@ export const ManagementView: React.FC = () => {
       setRoomForm({
         name: '',
         category: 'MEETING_SUITE',
-        floor: 'Floor 1',
         defaultPriority: 'P5',
         photoRequired: true,
         recurrence: 'DAILY',
@@ -512,19 +509,28 @@ export const ManagementView: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24">
       {/* Executive Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-200">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-            <span>White Collar Realty</span>
-            <span aria-hidden="true">·</span>
-            <span>Operations & Hospitality Console</span>
-            <span aria-hidden="true">·</span>
-            <span className="font-semibold text-slate-800">
-              Logged as: {currentUser?.name} ({currentUser?.role === 'KIMMY_MAM' ? 'Executive Director' : 'HR Operations'})
-            </span>
+        <div className="flex items-start gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-xs p-1.5 flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              src="/assets/wcr_logo.png"
+              alt="White Collar Realty Official Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Smart Pantry Operations & Hospitality Command
-          </h1>
+          <div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 mb-0.5">
+              <span className="font-semibold text-slate-700">White Collar Realty</span>
+              <span aria-hidden="true">·</span>
+              <span>Operations & Hospitality Console</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-semibold text-slate-800">
+                {currentUser?.name} ({currentUser?.role === 'KIMMY_MAM' ? 'Co-Founder' : 'HR Operations'})
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              Smart Pantry Operations & Hospitality Command
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
@@ -723,8 +729,8 @@ export const ManagementView: React.FC = () => {
                 <option value="URGENT">URGENT</option>
                 <option value="P1">P1 (Reception)</option>
                 <option value="P2">P2 (Desks)</option>
-                <option value="P3">P3 (Lalit Sir)</option>
-                <option value="P4">P4 (Kimmy Mam)</option>
+                <option value="P3">P3 (Executive Cabin)</option>
+                <option value="P4">P4 (Kimmi Mam - Co-Founder)</option>
                 <option value="P5">P5 (Meeting Rooms/Bins)</option>
               </select>
 
@@ -1001,7 +1007,6 @@ export const ManagementView: React.FC = () => {
                   setRoomForm({
                     name: '',
                     category: 'MEETING_SUITE',
-                    floor: 'Floor 1',
                     defaultPriority: 'P5',
                     photoRequired: true,
                     recurrence: 'DAILY',
@@ -1198,7 +1203,6 @@ export const ManagementView: React.FC = () => {
                           <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                             {room.defaultPriority}
                           </span>
-                          <span className="text-[11px] text-slate-400 font-mono">{room.floor}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.color}`}>
@@ -1375,7 +1379,6 @@ export const ManagementView: React.FC = () => {
                               id: room.id,
                               name: room.name,
                               category: room.category,
-                              floor: room.floor,
                               defaultPriority: room.defaultPriority,
                               photoRequired: room.photoRequired,
                               recurrence: room.recurrence,
@@ -1510,7 +1513,7 @@ export const ManagementView: React.FC = () => {
               <div className="p-4 bg-amber-50/60 border border-amber-200 rounded-xl text-xs">
                 <div className="font-bold text-amber-900 flex items-center gap-1.5 mb-2">
                   <Sparkles className="w-4 h-4 text-amber-700" />
-                  Automated Operational Synthesis for Kimmy Mam & HR:
+                  Automated Operational Synthesis for Kimmi Mam (Co-Founder) & HR:
                 </div>
                 <ul className="space-y-1.5 text-amber-800">
                   {(weeklyReport.keyRecommendations || (weeklyReport as any).aiKeyRecommendations || []).map((rec: string, i: number) => (
@@ -1676,12 +1679,12 @@ export const ManagementView: React.FC = () => {
             <div className="mb-5 p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl">
               <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 mb-1.5">
                 <Sparkles className="w-4 h-4 text-amber-600" />
-                Kimmy Mam & HR Natural Language Command Parser
+                Kimmi Mam (Co-Founder) & HR Natural Language Command Parser
               </div>
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder='e.g. "Prepare Skyline immediately for 2:30 PM client meet with water & whiteboard"'
+                  placeholder='e.g. "Prepare The Skyline immediately for 2:30 PM client meet with water & whiteboard"'
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
                   className="flex-1 text-xs px-3 py-2 bg-white border border-amber-300 rounded-lg focus:ring-1 focus:ring-slate-900"
@@ -1705,7 +1708,7 @@ export const ManagementView: React.FC = () => {
                   required
                   value={newTaskForm.title}
                   onChange={(e) => setNewTaskForm({ ...newTaskForm, title: e.target.value })}
-                  placeholder="e.g. Emergency hospitality setup for Lalit Sir"
+                  placeholder="e.g. Emergency hospitality setup for Kimmi Mam"
                   className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900"
                 />
               </div>
@@ -1918,36 +1921,24 @@ export const ManagementView: React.FC = () => {
                   required
                   value={roomForm.name}
                   onChange={(e) => setRoomForm({ ...roomForm, name: e.target.value })}
-                  placeholder="e.g. Skyline Boardroom"
+                  placeholder="e.g. The Skyline Boardroom"
                   className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Floor / Wing</label>
-                  <input
-                    type="text"
-                    value={roomForm.floor}
-                    onChange={(e) => setRoomForm({ ...roomForm, floor: e.target.value })}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Default Priority</label>
-                  <select
-                    value={roomForm.defaultPriority}
-                    onChange={(e) => setRoomForm({ ...roomForm, defaultPriority: e.target.value as any })}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
-                  >
-                    <option value="P1">P1</option>
-                    <option value="P2">P2</option>
-                    <option value="P3">P3</option>
-                    <option value="P4">P4</option>
-                    <option value="P5">P5</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Default Priority</label>
+                <select
+                  value={roomForm.defaultPriority}
+                  onChange={(e) => setRoomForm({ ...roomForm, defaultPriority: e.target.value as any })}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="P1">P1</option>
+                  <option value="P2">P2</option>
+                  <option value="P3">P3</option>
+                  <option value="P4">P4</option>
+                  <option value="P5">P5</option>
+                </select>
               </div>
 
               <div>
@@ -2037,7 +2028,7 @@ export const ManagementView: React.FC = () => {
                   >
                     <option value="PANTRY_BOY">Pantry Boy</option>
                     <option value="HR">HR Operations</option>
-                    <option value="KIMMY_MAM">Kimmy Mam (Executive)</option>
+                    <option value="KIMMY_MAM">Kimmi Mam (Co-Founder)</option>
                     <option value="ADMIN">Administrator</option>
                   </select>
                 </div>
@@ -2219,7 +2210,7 @@ export const ManagementView: React.FC = () => {
                           }}
                           className="px-2.5 py-1 bg-white hover:bg-rose-100 border border-rose-300 rounded font-bold text-rose-900"
                         >
-                          Switch to {av.name} ({av.floor})
+                          Switch to {av.name}
                         </button>
                       ))}
                     </div>
@@ -2276,7 +2267,7 @@ export const ManagementView: React.FC = () => {
                       const badge = getRoomStatusBadge(r.status);
                       return (
                         <option key={r.id} value={r.id}>
-                          {r.name} ({r.floor}) — Status: [{badge.label}]
+                          {r.name} — Status: [{badge.label}]
                         </option>
                       );
                     })}
@@ -2444,7 +2435,6 @@ export const ManagementView: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-slate-900">{historyRoom.name}</h3>
-                  <span className="text-xs text-slate-500">· {historyRoom.floor}</span>
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
                   Complete audit log of room status changes, visitor assignments, and verified live camera photos.

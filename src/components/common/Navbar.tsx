@@ -34,8 +34,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4 h-16">
         {/* Zone 1: Brand Wordmark */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center font-bold text-sm tracking-tighter shadow-sm">
-            WCR
+          <div className="w-10 h-10 rounded-lg bg-white border border-slate-200/90 shadow-xs p-1 flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              src="/assets/wcr_logo.png"
+              alt="White Collar Realty Official Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <div className="font-bold text-slate-900 tracking-tight text-base leading-tight whitespace-nowrap">
@@ -168,7 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
                   {currentUser?.role === 'PANTRY_BOY'
                     ? 'Pantry Attendant'
                     : currentUser?.role === 'KIMMY_MAM'
-                    ? 'Kimmy Mam (Exec)'
+                    ? 'Co-Founder'
                     : currentUser?.role === 'ADMIN'
                     ? 'System Admin'
                     : 'HR Facilities'}
@@ -184,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
                     Current Account
                   </div>
                   <div className="text-xs font-bold text-slate-900 mt-1">
-                    {currentUser?.name} ({currentUser?.role})
+                    {currentUser?.name} ({currentUser?.role === 'KIMMY_MAM' ? 'Co-Founder' : currentUser?.role})
                   </div>
                   <div className="text-[10px] text-slate-500 font-mono truncate">{currentUser?.email}</div>
                 </div>
@@ -223,6 +227,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
                             src={user.avatarUrl}
                             alt={user.name}
                             className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
                           />
                           <div>
                             <div className="font-semibold text-slate-900 flex items-center gap-1.5">
@@ -234,7 +241,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
                               )}
                             </div>
                             <div className="text-[10px] text-slate-500 font-mono">
-                              {user.role} · {user.email}
+                              {user.role === 'KIMMY_MAM' ? 'Co-Founder' : user.role} · {user.email}
                             </div>
                           </div>
                         </div>

@@ -28,8 +28,12 @@ const MainLayout: React.FC = () => {
   if (isLoading && !currentUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-white">
-        <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 text-amber-400 font-bold flex items-center justify-center mb-4 text-lg">
-          WCR
+        <div className="w-20 h-20 rounded-2xl bg-white border border-slate-800 p-2 flex items-center justify-center mb-4 shadow-xl overflow-hidden">
+          <img
+            src="/assets/wcr_logo.png"
+            alt="White Collar Realty Official Logo"
+            className="w-full h-full object-contain"
+          />
         </div>
         <Loader2 className="w-6 h-6 animate-spin text-amber-400 mb-2" />
         <div className="text-xs text-slate-400 font-mono">Authenticating session...</div>
@@ -82,7 +86,7 @@ const MainLayout: React.FC = () => {
                       onClick={() => switchUser(u.id)}
                       className="p-2 text-xs font-semibold bg-slate-700 hover:bg-slate-600 rounded-lg text-white truncate"
                     >
-                      {u.name} ({u.role === 'PANTRY_BOY' ? 'Pantry' : u.role === 'ADMIN' ? 'Admin' : u.role === 'KIMMY_MAM' ? 'Kimmy' : 'HR'})
+                      {u.name} ({u.role === 'PANTRY_BOY' ? 'Pantry' : u.role === 'ADMIN' ? 'Admin' : u.role === 'KIMMY_MAM' ? 'Co-Founder' : 'HR'})
                     </button>
                   ))}
               </div>
@@ -124,8 +128,12 @@ const MainLayout: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white rounded-2xl p-6 sm:p-8 shadow-2xl">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-xl bg-slate-900 text-amber-400 font-bold flex items-center justify-center mx-auto mb-3 text-lg shadow-sm">
-              WCR
+            <div className="w-24 h-24 rounded-2xl bg-white border border-slate-200/90 p-2 shadow-xs flex items-center justify-center mx-auto mb-3 overflow-hidden">
+              <img
+                src="/assets/wcr_logo.png"
+                alt="White Collar Realty Official Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
             <h1 className="text-lg font-bold text-slate-900">White Collar Realty</h1>
             <p className="text-xs text-slate-500 mt-1">Smart Pantry Operations & Hospitality Portal</p>
@@ -204,7 +212,14 @@ const MainLayout: React.FC = () => {
                     className="w-full p-2 text-left rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs disabled:opacity-50"
                   >
                     <div className="flex items-center gap-2">
-                      <img src={u.avatarUrl} alt={u.name} className="w-6 h-6 rounded-full object-cover" />
+                      <img
+                        src={u.avatarUrl}
+                        alt={u.name}
+                        className="w-6 h-6 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
                       <div>
                         <div className="font-semibold text-slate-900 flex items-center gap-1.5">
                           <span>{u.name}</span>
@@ -221,7 +236,7 @@ const MainLayout: React.FC = () => {
                       {u.role === 'PANTRY_BOY'
                         ? 'Pantry Boy'
                         : u.role === 'KIMMY_MAM'
-                        ? 'Kimmy Mam'
+                        ? 'Co-Founder'
                         : u.role === 'ADMIN'
                         ? 'Admin'
                         : 'HR'}

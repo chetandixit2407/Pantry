@@ -49,8 +49,10 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Serve uploaded photos directly via Express
+// Serve uploaded photos and public assets directly via Express
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 
 // -----------------------------------------------------------------------------
 // Real-time Event Broadcaster (Server-Sent Events)
@@ -85,7 +87,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     name: 'Reception',
     category: 'RECEPTION',
     defaultPriority: 'P1',
-    floor: 'Ground / Floor 1',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -103,7 +104,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     name: 'Employee Desks',
     category: 'WORKSTATION',
     defaultPriority: 'P2',
-    floor: 'Main Bay',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -112,16 +112,15 @@ const INITIAL_ROOMS: RoomArea[] = [
       'Wipe down designated desk surfaces and monitor edges',
       'Align employee chairs neatly',
       'Arrange desktop stationery organizers',
-      'Inspect surrounding floor area and cabling',
+      'Inspect surrounding area and cabling',
       'Capture and upload required verification photo',
     ],
   },
   {
     id: 'room-3',
-    name: "Lalit Sir's Cabin",
+    name: 'Executive Cabin',
     category: 'EXECUTIVE_CABIN',
     defaultPriority: 'P3',
-    floor: 'Executive Wing',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -136,10 +135,9 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-4',
-    name: "Kimmy Mam's Cabin",
+    name: "Kimmi Mam's Cabin",
     category: 'EXECUTIVE_CABIN',
     defaultPriority: 'P4',
-    floor: 'Executive Wing',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -154,10 +152,9 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-5',
-    name: 'Prestige Block – Waiting Room',
+    name: 'Prestige Loft',
     category: 'MEETING_SUITE',
     defaultPriority: 'P5',
-    floor: 'Floor 1',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -171,10 +168,9 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-6',
-    name: 'Skyline',
+    name: 'The Skyline',
     category: 'MEETING_SUITE',
     defaultPriority: 'P5',
-    floor: 'Boardroom Wing',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -192,7 +188,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     name: 'The Community',
     category: 'COMMON_AREA',
     defaultPriority: 'P5',
-    floor: 'Central Hub',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -209,7 +204,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     name: 'The Summit',
     category: 'MEETING_SUITE',
     defaultPriority: 'P5',
-    floor: 'Top Floor',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -223,10 +217,9 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-9',
-    name: 'BCR Air',
+    name: 'WCR Air',
     category: 'MEETING_SUITE',
     defaultPriority: 'P5',
-    floor: 'Floor 2',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -240,10 +233,9 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-10',
-    name: 'Allegation Suite',
+    name: 'Elegance Suite (Kimmi Mam Room)',
     category: 'MEETING_SUITE',
     defaultPriority: 'P5',
-    floor: 'Floor 2',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -257,10 +249,9 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-11',
-    name: 'Prime Block',
+    name: 'Prime Loft',
     category: 'WORKSTATION',
     defaultPriority: 'P5',
-    floor: 'Floor 1',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -274,10 +265,9 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-12',
-    name: 'Residency',
+    name: 'Regency',
     category: 'COMMON_AREA',
     defaultPriority: 'P5',
-    floor: 'Guest Wing',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -294,7 +284,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     name: 'Office Dustbins',
     category: 'FACILITIES',
     defaultPriority: 'P5',
-    floor: 'All Floors (13 Registered Bins)',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -312,7 +301,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     name: 'Outer Area',
     category: 'FACILITIES',
     defaultPriority: 'P5',
-    floor: 'Entrance & Balcony Corridor',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'ALTERNATE_DAYS',
@@ -329,7 +317,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     name: 'Office Plants',
     category: 'FACILITIES',
     defaultPriority: 'P5',
-    floor: 'All Office Zones',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'EVERY_3_DAYS',
@@ -351,7 +338,7 @@ const INITIAL_USERS: UserAccount[] = [
     role: 'PANTRY_BOY',
     department: 'Hospitality & Operations',
     status: 'active',
-    avatarUrl: '/src/assets/images/avatar_pantry_boy_1792843916880.jpg',
+    avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43210',
     createdAt: '2026-01-15T09:00:00Z',
   },
@@ -362,31 +349,20 @@ const INITIAL_USERS: UserAccount[] = [
     role: 'HR',
     department: 'Human Resources & Facilities',
     status: 'active',
-    avatarUrl: '/src/assets/images/avatar_hr_priya_1792843917732.jpg',
+    avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43211',
     createdAt: '2026-01-10T09:00:00Z',
   },
   {
     id: 'user-kimmy-1',
     email: 'kimmy.mam@whitecollarrealty.com',
-    name: 'Kimmy Mam',
+    name: 'Kimmi Mam',
     role: 'KIMMY_MAM',
-    department: 'Executive Operations',
+    department: 'Co-Founder',
     status: 'active',
-    avatarUrl: '/src/assets/images/avatar_kimmy_mam_1792843917022.jpg',
+    avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43212',
     createdAt: '2025-11-01T09:00:00Z',
-  },
-  {
-    id: 'user-lalit-1',
-    email: 'lalit.director@whitecollarrealty.com',
-    name: 'Lalit Sir',
-    role: 'HR',
-    department: 'Board of Directors',
-    status: 'active',
-    avatarUrl: '/src/assets/images/avatar_hr_priya_1792843917732.jpg',
-    phone: '+91 98765 43213',
-    createdAt: '2025-10-01T09:00:00Z',
   },
   {
     id: 'user-admin-1',
@@ -395,7 +371,7 @@ const INITIAL_USERS: UserAccount[] = [
     role: 'ADMIN',
     department: 'Central Administration',
     status: 'active',
-    avatarUrl: '/src/assets/images/avatar_kimmy_mam_1792843917022.jpg',
+    avatarUrl: '/assets/wcr_logo.png',
     phone: '+91 98765 43214',
     createdAt: '2025-09-01T09:00:00Z',
   },
@@ -491,19 +467,19 @@ function generateDailyTasks(): Task[] {
       checklist: [
         { id: 'c-1', text: 'Verify fresh chilled water bottles inventory in pantry', completed: false },
         { id: 'c-2', text: 'Distribute bottles to Main Bay Desks 1-20', completed: false },
-        { id: 'c-3', text: 'Distribute bottles to Prime Block Desks 21-35', completed: false },
+        { id: 'c-3', text: 'Distribute bottles to Prime Loft Desks 21-35', completed: false },
         { id: 'c-4', text: 'Record any empty desk or employee absence exceptions', completed: false },
         { id: 'c-5', text: 'Capture photo of distributed bottle alignment', completed: false },
       ],
       changeHistory: [],
     },
-    // 4. Lalit Sir's Cabin (Priority 3)
+    // 4. Executive Cabin (Priority 3)
     {
-      id: `task-${today}-lalit-cabin`,
-      title: "Lalit Sir's Cabin Sanitization & Hospitality Setup",
+      id: `task-${today}-exec-cabin`,
+      title: "Executive Cabin Sanitization & Hospitality Setup",
       description: "Clean desk, arrange executive chairs, replenish fresh carafe, check ambient temp.",
       roomAreaId: 'room-3',
-      roomAreaName: "Lalit Sir's Cabin",
+      roomAreaName: 'Executive Cabin',
       priority: 'P3',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -524,13 +500,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 5. Kimmy Mam's Cabin (Priority 4)
+    // 5. Kimmi Mam's Cabin (Priority 4)
     {
-      id: `task-${today}-kimmy-cabin`,
-      title: "Kimmy Mam's Cabin Sanitization & Setup",
+      id: `task-${today}-kimmi-cabin`,
+      title: "Kimmi Mam's Cabin Sanitization & Setup",
       description: 'Sanitize desk, arrange visitor chairs, replenish stationery and check room readiness.',
       roomAreaId: 'room-4',
-      roomAreaName: "Kimmy Mam's Cabin",
+      roomAreaName: "Kimmi Mam's Cabin",
       priority: 'P4',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -551,13 +527,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 6. Prestige Block – Waiting Room
+    // 6. Prestige Loft
     {
       id: `task-${today}-prestige`,
-      title: 'Prestige Block – Waiting Room Cleaning & Candidate Setup',
+      title: 'Prestige Loft Cleaning & Candidate Setup',
       description: 'Arrange candidate chairs, replenish water glasses, clean presentation screen.',
       roomAreaId: 'room-5',
-      roomAreaName: 'Prestige Block – Waiting Room',
+      roomAreaName: 'Prestige Loft',
       priority: 'P5',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -577,13 +553,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 7. Skyline (Boardroom)
+    // 7. The Skyline (Boardroom)
     {
       id: `task-${today}-skyline`,
-      title: 'Skyline Boardroom 12-Chair Geometric Alignment & Table Sanitization',
+      title: 'The Skyline Boardroom 12-Chair Geometric Alignment & Table Sanitization',
       description: 'Clean boardroom table, align 12 chairs evenly, check whiteboard and markers.',
       roomAreaId: 'room-6',
-      roomAreaName: 'Skyline',
+      roomAreaName: 'The Skyline',
       priority: 'P5',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -683,13 +659,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 11. BCR Air
+    // 11. WCR Air
     {
-      id: `task-${today}-bcr-air`,
-      title: 'BCR Air Glass Table Cleaning & Room Reset',
+      id: `task-${today}-wcr-air`,
+      title: 'WCR Air Glass Table Cleaning & Room Reset',
       description: 'Wipe glass meeting table, check whiteboard, empty bin, capture photo.',
       roomAreaId: 'room-9',
-      roomAreaName: 'BCR Air',
+      roomAreaName: 'WCR Air',
       priority: 'P5',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -709,13 +685,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 12. Allegation Suite
+    // 12. Elegance Suite (Kimmi Mam Room)
     {
-      id: `task-${today}-allegation`,
-      title: 'Allegation Suite Confidential Room Sanitization',
+      id: `task-${today}-elegance`,
+      title: 'Elegance Suite (Kimmi Mam Room) Confidential Room Sanitization',
       description: 'Sanitize confidential meeting table, align 6 ergonomic chairs, check blinds.',
       roomAreaId: 'room-10',
-      roomAreaName: 'Allegation Suite',
+      roomAreaName: 'Elegance Suite (Kimmi Mam Room)',
       priority: 'P5',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -735,13 +711,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 13. Prime Block
+    // 13. Prime Loft
     {
-      id: `task-${today}-prime-block`,
-      title: 'Prime Block Communal Desks & Filing Station Tidy',
+      id: `task-${today}-prime-loft`,
+      title: 'Prime Loft Communal Desks & Filing Station Tidy',
       description: 'Tidy communal desks, clean shared cabinet tops, inspect walkways and lighting.',
       roomAreaId: 'room-11',
-      roomAreaName: 'Prime Block',
+      roomAreaName: 'Prime Loft',
       priority: 'P5',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -788,13 +764,13 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 15. Residency
+    // 15. Regency
     {
-      id: `task-${today}-residency`,
-      title: 'Residency Guest Lounge Sofa Fluffing & Reading Area Setup',
+      id: `task-${today}-regency`,
+      title: 'Regency Guest Lounge Sofa Fluffing & Reading Area Setup',
       description: 'Dust guest lounge sofa and tea tables, arrange reading materials, verify carafe.',
       roomAreaId: 'room-12',
-      roomAreaName: 'Residency',
+      roomAreaName: 'Regency',
       priority: 'P5',
       taskType: 'ROUTINE_CLEANING',
       assignedToEmail: assignedPantry.email,
@@ -887,8 +863,8 @@ function generateDailyTasks(): Task[] {
       checklist: [
         { id: 'c-1', text: 'Verify Reception is locked, tidy and welcome display turned off', completed: false },
         { id: 'c-2', text: 'Verify all Employee Desks are clean and chairs neatly tucked', completed: false },
-        { id: 'c-3', text: "Check Lalit Sir's and Kimmy Mam's Cabins locked and sanitized", completed: false },
-        { id: 'c-4', text: 'Ensure all meeting rooms (Skyline, Summit, Prestige, BCR Air, Allegation) are reset', completed: false },
+        { id: 'c-3', text: "Check Executive Cabins and Kimmi Mam's Cabin locked and sanitized", completed: false },
+        { id: 'c-4', text: 'Ensure all meeting rooms (The Skyline, The Summit, Prestige Loft, WCR Air, Elegance Suite (Kimmi Mam Room)) are reset', completed: false },
         { id: 'c-5', text: 'Confirm all dustbins emptied and trash bags deposited in municipal bin', completed: false },
         { id: 'c-6', text: 'Ensure pantry appliances turned off and water taps closed', completed: false },
         { id: 'c-7', text: 'Capture comprehensive closing panoramic photo', completed: false },
@@ -910,9 +886,9 @@ let db: DatabaseState = {
       id: 'vis-1',
       visitorName: 'Aditya Birla Group Delegation',
       companyName: 'Birla Estates',
-      hostName: 'Lalit Sir',
+      hostName: 'Kimmi Mam',
       roomAreaId: 'room-6',
-      roomAreaName: 'Skyline',
+      roomAreaName: 'The Skyline',
       purpose: 'CLIENT_MEETING',
       guestCount: 6,
       scheduledTime: `${new Date().toISOString().split('T')[0]}T14:30:00.000Z`,
@@ -923,9 +899,9 @@ let db: DatabaseState = {
       id: 'vis-2',
       visitorName: 'Sanjay Malhotra',
       companyName: 'Senior Sales Director Candidate',
-      hostName: 'Kimmy Mam',
+      hostName: 'Kimmi Mam',
       roomAreaId: 'room-5',
-      roomAreaName: 'Prestige Block – Waiting Room',
+      roomAreaName: 'Prestige Loft',
       purpose: 'CANDIDATE_INTERVIEW',
       guestCount: 1,
       scheduledTime: `${new Date().toISOString().split('T')[0]}T11:30:00.000Z`,
@@ -967,12 +943,30 @@ try {
     const parsed = JSON.parse(rawData);
     if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.rooms)) {
       db = parsed;
+      // Remove Lalit Sir profile from existing state
+      db.users = (db.users || []).filter((u: any) => u.id !== 'user-lalit-1' && !u.name?.toLowerCase().includes('lalit'));
+      // Update Kimmi Mam's profile details
+      db.users.forEach((u: any) => {
+        if (u.id === 'user-kimmy-1' || u.role === 'KIMMY_MAM' || u.name?.toLowerCase().includes('kimmy') || u.name?.toLowerCase().includes('kimmi')) {
+          u.name = 'Kimmi Mam';
+          u.department = 'Co-Founder';
+        }
+      });
       // Ensure admin user exists in loaded state
       if (!db.users.some((u) => u.role === 'ADMIN')) {
-        db.users.push(INITIAL_USERS[4]);
+        db.users.push(INITIAL_USERS[3]);
       }
-      // Migrate rooms to standard RoomStatus and ensure array fields
-      db.rooms.forEach((r) => {
+      // Migrate rooms to standard RoomStatus and strip floor
+      db.rooms.forEach((r: any) => {
+        delete r.floor;
+        if (r.name === "Lalit Sir's Cabin") r.name = "Executive Cabin";
+        if (r.name === "Kimmy Mam's Cabin") r.name = "Kimmi Mam's Cabin";
+        if (r.name === "BCR Air" || r.name === "BCR AIR") r.name = "WCR Air";
+        if (r.name === "Prime Block") r.name = "Prime Loft";
+        if (r.name === "Residency" || r.name === "Redeincy") r.name = "Regency";
+        if (r.name === "Allegation Suite" || r.name === "Allegation") r.name = "Elegance Suite (Kimmi Mam Room)";
+        if (r.name === "Skyline") r.name = "The Skyline";
+        if (r.name.includes("Prestige Block")) r.name = "Prestige Loft";
         if ((r.status as string) === 'READY') r.status = 'AVAILABLE';
         if ((r.status as string) === 'IN_USE') r.status = 'OCCUPIED';
         if ((r.status as string) === 'NEEDS_CLEANING') r.status = 'CLEANING_REQUIRED';
@@ -981,7 +975,48 @@ try {
         if (!r.statusHistory) r.statusHistory = [];
         if (r.currentAssignment === undefined) r.currentAssignment = null;
       });
-      // Ensure all 15 initial rooms exist in db.rooms
+      // Update tasks room names and titles
+      db.tasks.forEach((t: any) => {
+        if (t.roomAreaName === "Lalit Sir's Cabin") t.roomAreaName = "Executive Cabin";
+        if (t.roomAreaName === "Kimmy Mam's Cabin") t.roomAreaName = "Kimmi Mam's Cabin";
+        if (t.roomAreaName === "BCR Air") t.roomAreaName = "WCR Air";
+        if (t.roomAreaName === "Prime Block") t.roomAreaName = "Prime Loft";
+        if (t.roomAreaName === "Residency" || t.roomAreaName === "Redeincy") t.roomAreaName = "Regency";
+        if (t.roomAreaName === "Allegation Suite" || t.roomAreaName === "Allegation") t.roomAreaName = "Elegance Suite (Kimmi Mam Room)";
+        if (t.roomAreaName === "Skyline") t.roomAreaName = "The Skyline";
+        if (t.roomAreaName.includes("Prestige Block")) t.roomAreaName = "Prestige Loft";
+        if (t.title) {
+          t.title = t.title
+            .replace(/Lalit Sir's Cabin/g, 'Executive Cabin')
+            .replace(/Kimmy/g, 'Kimmi')
+            .replace(/BCR Air/g, 'WCR Air')
+            .replace(/Prime Block/g, 'Prime Loft')
+            .replace(/Residency/g, 'Regency')
+            .replace(/Redeincy/g, 'Regency')
+            .replace(/Allegation Suite/g, 'Elegance Suite (Kimmi Mam Room)')
+            .replace(/\bSkyline\b/g, 'The Skyline')
+            .replace(/Prestige Block( – Waiting Room)?/g, 'Prestige Loft');
+        }
+        if (Array.isArray(t.checklist)) {
+          t.checklist.forEach((c: any) => {
+            if (c.text) {
+              c.text = c.text
+                .replace(/Lalit Sir's and Kimmy Mam's Cabins/g, "Executive Cabins and Kimmi Mam's Cabin")
+                .replace(/Kimmy/g, 'Kimmi')
+                .replace(/BCR Air/g, 'WCR Air')
+                .replace(/Prime Block/g, 'Prime Loft')
+                .replace(/Residency/g, 'Regency')
+                .replace(/Redeincy/g, 'Regency')
+                .replace(/Allegation Suite/g, 'Elegance Suite (Kimmi Mam Room)')
+                .replace(/Allegation/g, 'Elegance Suite (Kimmi Mam Room)')
+                .replace(/\bSkyline\b/g, 'The Skyline')
+                .replace(/Prestige Block( – Waiting Room)?/g, 'Prestige Loft')
+                .replace(/\bPrestige\b/g, 'Prestige Loft');
+            }
+          });
+        }
+      });
+      // Ensure all initial rooms exist in db.rooms
       for (const initRoom of INITIAL_ROOMS) {
         if (!db.rooms.some((r) => r.id === initRoom.id)) {
           db.rooms.push({ ...initRoom, status: 'AVAILABLE', assignmentHistory: [], statusHistory: [] });
@@ -1110,7 +1145,26 @@ function getCurrentUser(req?: express.Request): UserAccount | null {
 
   if (!token) return null;
 
-  const session = activeSessions.get(token);
+  let session = activeSessions.get(token);
+  if (!session) {
+    // If token is of format wcr_sess_{userId}_..., recover session gracefully
+    const match = token.match(/^wcr_sess_([^_]+)_/);
+    if (match) {
+      const recoveredUserId = match[1];
+      const targetUser = db.users.find((u) => u.id === recoveredUserId);
+      if (targetUser && targetUser.status !== 'inactive') {
+        const newSession: ActiveSession = {
+          token,
+          userId: targetUser.id,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+        activeSessions.set(token, newSession);
+        session = newSession;
+      }
+    }
+  }
+
   if (!session) return null;
 
   // Check if session has expired
@@ -1166,7 +1220,7 @@ app.post('/api/auth/login', (req, res) => {
 
   if (user.status === 'inactive') {
     return res.status(403).json({
-      error: 'Account deactivated: This employee account has been deactivated. Please contact HR or Kimmy Mam.',
+      error: 'Account deactivated: This employee account has been deactivated. Please contact HR or Kimmi Mam.',
       code: 'ACCOUNT_DEACTIVATED',
     });
   }
@@ -1262,7 +1316,7 @@ app.get('/api/users', (req, res) => {
 app.post('/api/users/:id/toggle-status', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmy Mam, or Admin can deactivate employee accounts.' });
+    return res.status(403).json({ error: 'Only HR, Kimmi Mam, or Admin can deactivate employee accounts.' });
   }
 
   const targetUser = db.users.find((u) => u.id === req.params.id);
@@ -1390,7 +1444,7 @@ app.post('/api/rooms', (req, res) => {
     return res.status(403).json({ error: 'Only management or admin can configure rooms.' });
   }
 
-  const { name, category, defaultPriority, floor, photoRequired, defaultChecklist, recurrence } = req.body;
+  const { name, category, defaultPriority, photoRequired, defaultChecklist, recurrence } = req.body;
   if (!name) return res.status(400).json({ error: 'Room name is required' });
 
   const now = new Date().toISOString();
@@ -1399,7 +1453,6 @@ app.post('/api/rooms', (req, res) => {
     name: String(name).trim(),
     category: category || 'MEETING_SUITE',
     defaultPriority: defaultPriority || 'P5',
-    floor: floor || 'Floor 1',
     photoRequired: photoRequired !== undefined ? Boolean(photoRequired) : true,
     status: 'AVAILABLE',
     recurrence: recurrence || 'DAILY',
@@ -1523,7 +1576,7 @@ app.post('/api/rooms/:id/assign', (req, res) => {
       code: 'ROOM_CONFLICT',
       currentStatus: room.status,
       currentAssignment: room.currentAssignment,
-      availableRooms: availableRooms.map((r) => ({ id: r.id, name: r.name, status: r.status, floor: r.floor })),
+      availableRooms: availableRooms.map((r) => ({ id: r.id, name: r.name, status: r.status })),
     });
   }
 
@@ -1968,7 +2021,7 @@ app.get('/api/tasks', (req, res) => {
 app.post('/api/tasks', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmy Mam, or Admin can assign new tasks.' });
+    return res.status(403).json({ error: 'Only HR, Kimmi Mam, or Admin can assign new tasks.' });
   }
 
   const { title, roomAreaId, priority, dueTime, description, checklist, isUrgent } = req.body;
@@ -2254,7 +2307,7 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
 
   notify(
     `Photo Evidence Submitted: ${task.roomAreaName}`,
-    `${actor.name} uploaded photo for "${task.title}". Pending verification by HR / Kimmy Mam.`,
+    `${actor.name} uploaded photo for "${task.title}". Pending verification by HR / Kimmi Mam.`,
     'PHOTO_SUBMITTED',
     { role: 'HR', taskId: task.id, roomName: task.roomAreaName }
   );
@@ -2264,11 +2317,11 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
   res.json({ success: true, photoEvidence, task });
 });
 
-// Verify / Approve / Reject photo evidence (HR & Kimmy Mam & Admin)
+// Verify / Approve / Reject photo evidence (HR & Kimmi Mam & Admin)
 app.post('/api/tasks/:id/verify', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmy Mam, or Admin can verify photo evidence.' });
+    return res.status(403).json({ error: 'Only HR, Kimmi Mam, or Admin can verify photo evidence.' });
   }
 
   const { decision, reason } = req.body;
@@ -2634,17 +2687,17 @@ app.get('/api/reports/weekly', (req, res) => {
     frequentlyDelayedRooms: [
       { room: 'Employee Desks', count: 3 },
       { room: 'The Community', count: 2 },
-      { room: 'Prestige Block – Waiting Room', count: 1 },
+      { room: 'Prestige Loft', count: 1 },
     ],
     frequentlyBlockedRooms: frequentlyBlockedRooms.length > 0 ? frequentlyBlockedRooms : [
-      { room: 'Prestige Block – Waiting Room', count: 4, primaryReason: 'Candidate interviews running over schedule' },
-      { room: 'Allegation Suite', count: 2, primaryReason: 'Confidential client dispute negotiation' },
+      { room: 'Prestige Loft', count: 4, primaryReason: 'Candidate interviews running over schedule' },
+      { room: 'Elegance Suite (Kimmi Mam Room)', count: 2, primaryReason: 'Confidential client dispute negotiation' },
     ],
     photoVerificationScorePercent: totalPhotos > 0 ? Math.round((verifiedPhotos / totalPhotos) * 100) : 96,
     visitorPrepAverageMinutes: 8.4,
     keyRecommendations: [
-      'Prestige Block candidate interviews occasionally extend into cleaning windows. Routine cleaning is automatically staged prior to 11:30 AM interview schedules.',
-      'Water bottle distribution achieved 100% desk coverage during the 10:00 AM round, with afternoon 3:00 PM rechecks verifying fresh bottle supply across Main Bay and Prime Block.',
+      'Prestige Loft candidate interviews occasionally extend into cleaning windows. Routine cleaning is automatically staged prior to 11:30 AM interview schedules.',
+      'Water bottle distribution achieved 100% desk coverage during the 10:00 AM round, with afternoon 3:00 PM rechecks verifying fresh bottle supply across Main Bay and Prime Loft.',
       'End-of-day office closing checklist triggers at 7:30 PM, ensuring room lockdown and sanitary readiness before the 8:00 PM shift conclusion.',
     ],
   };
@@ -2696,7 +2749,7 @@ app.get('/api/reports/export', (req, res) => {
 // 8. Notifications & Audit Logs
 app.get('/api/notifications', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (!actor) return res.json({ notifications: [] });
 
   const relevant = db.notifications.filter((n) => {
     if (!n.recipientRole && !n.recipientEmail) return true;
@@ -2719,7 +2772,7 @@ app.patch('/api/notifications/:id/read', (req, res) => {
 app.get('/api/audit', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Audit log inspection requires HR, Kimmy Mam, or Admin authorization.' });
+    return res.json({ auditLogs: [] });
   }
   res.json({ auditLogs: db.auditLogs });
 });

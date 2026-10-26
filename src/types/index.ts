@@ -72,7 +72,6 @@ export interface RoomArea {
   name: string;
   category: RoomCategory;
   defaultPriority: TaskPriority;
-  floor: string;
   photoRequired: boolean;
   status: RoomStatus;
   defaultChecklist: string[];

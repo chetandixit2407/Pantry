@@ -465,12 +465,16 @@ export const api = {
   },
 
   async getAuditLogs(): Promise<AuditLog[]> {
-    const res = await fetch(`${BASE_URL}/audit`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch audit logs');
-    const data = await res.json();
-    return data.auditLogs;
+    try {
+      const res = await fetch(`${BASE_URL}/audit`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => ({}));
+      return Array.isArray(data.auditLogs) ? data.auditLogs : [];
+    } catch {
+      return [];
+    }
   },
 
   // AI features
