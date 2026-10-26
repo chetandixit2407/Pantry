@@ -343,6 +343,7 @@ export interface AttendanceRecord {
   status: 'PRESENT' | 'COMPLETED' | 'HALFDAY';
   elapsedMinutes?: number;
   locationVerification: LocationVerification;
+  logoutLocationVerification?: LocationVerification;
   createdAt: string;
   updatedAt: string;
 }

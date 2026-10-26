@@ -90,11 +90,12 @@ export const api = {
     return data;
   },
 
-  async logout(): Promise<void> {
+  async logout(location?: any): Promise<void> {
     try {
       await fetch(`${BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ location }),
       });
     } catch (e) {
       console.warn('Server logout call failed:', e);
@@ -634,10 +635,11 @@ export const api = {
     return data.attendance;
   },
 
-  async recordAttendanceLogout(): Promise<AttendanceRecord | null> {
+  async recordAttendanceLogout(location?: any): Promise<AttendanceRecord | null> {
     const res = await fetch(`${BASE_URL}/attendance/record-logout`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ location }),
     });
     if (!res.ok) return null;
     const data = await res.json();

@@ -381,7 +381,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setIsLoading(true);
     try {
-      await api.logout();
+      let locationPayload: any = undefined;
+      // Privacy Guard: High-accuracy GPS verification is ONLY requested for Pantry Attendants on login & logout
+      if (currentUser?.role === 'PANTRY_BOY') {
+        try {
+          locationPayload = await capturePantryLocation();
+        } catch (err) {
+          console.warn('Location capture during logout failed:', err);
+        }
+      }
+      await api.logout(locationPayload);
     } catch (e) {
       console.warn('Logout error:', e);
       clearSessionToken();

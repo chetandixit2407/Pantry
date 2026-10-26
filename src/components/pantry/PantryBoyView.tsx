@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { Task, TaskStatus, RoomArea, PantryRequest, AppNotification, TaskPriority } from '../../types/index.ts';
+import type { Task, TaskStatus, RoomArea, PantryRequest, AppNotification, TaskPriority, AttendanceRecord } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { CameraCaptureModal } from '../common/CameraCaptureModal.tsx';
@@ -73,6 +73,24 @@ export const PantryBoyView: React.FC = () => {
   const [blockerReason, setBlockerReason] = useState<string>('Room occupied for client meeting / interview in progress');
   const [customReason, setCustomReason] = useState<string>('');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  // Attendance History state
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [showAttendanceHistoryModal, setShowAttendanceHistoryModal] = useState<boolean>(false);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+
+  const handleOpenAttendanceHistory = async () => {
+    setShowAttendanceHistoryModal(true);
+    setLoadingHistory(true);
+    try {
+      const res = await api.getAttendanceHistory();
+      setAttendanceHistory(res.history || []);
+    } catch (err) {
+      console.error('Failed to load attendance history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   // Task list filter
   const [taskFilterStatus, setTaskFilterStatus] = useState<'ALL' | 'AVAILABLE' | 'IN_PROGRESS' | 'PENDING' | 'COMPLETED'>('ALL');
@@ -654,7 +672,7 @@ export const PantryBoyView: React.FC = () => {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
                 </span>
                 <span className="text-xs font-semibold tracking-wider uppercase text-emerald-300">
-                  Active Shift · 9:00 AM – 8:00 PM
+                  Attendance · {todayAttendance?.logoutTimeIST ? `Logged Out (${todayAttendance.logoutTimeIST})` : todayAttendance?.loginTimeIST ? `Logged In (${todayAttendance.loginTimeIST})` : 'Active Session'}
                 </span>
               </div>
 
@@ -1316,8 +1334,11 @@ export const PantryBoyView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
-                    <div className="text-slate-400 font-medium">Assigned Shift</div>
-                    <div className="text-slate-900 font-bold mt-0.5">9:00 AM – 8:00 PM IST</div>
+                    <div className="text-slate-400 font-medium">Today's Attendance</div>
+                    <div className="text-slate-900 font-bold mt-0.5">
+                      {todayAttendance?.loginTimeIST ? `In: ${todayAttendance.loginTimeIST}` : 'Recorded on Login'}
+                      {todayAttendance?.logoutTimeIST ? ` · Out: ${todayAttendance.logoutTimeIST}` : ''}
+                    </div>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
                     <div className="text-slate-400 font-medium">Company Role</div>
@@ -1387,9 +1408,18 @@ export const PantryBoyView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/80 text-[10px] text-slate-500 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3 h-3 text-indigo-500 shrink-0" />
-                    <span>Privacy Notice: Your location was verified only once upon login. Continuous background tracking is disabled.</span>
+                  <div className="pt-2 border-t border-slate-200/80 text-[10px] text-slate-500 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-3 h-3 text-indigo-500 shrink-0" />
+                      <span>Privacy Notice: Your location was verified only once upon login. Continuous background tracking is disabled.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleOpenAttendanceHistory}
+                      className="px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg border border-amber-300 transition-colors shrink-0 cursor-pointer"
+                    >
+                      More · Attendance History
+                    </button>
                   </div>
                 </div>
 
@@ -1399,7 +1429,7 @@ export const PantryBoyView: React.FC = () => {
                     <span>White Collar Realty Company Policy</span>
                   </div>
                   <p className="text-[11px] text-amber-800 leading-relaxed">
-                    Shift starts promptly at 9:00 AM and completes at 8:00 PM. All 15 room morning routines, water bottle distribution at 10:00 AM, recheck at 3:00 PM, and 7:30 PM closing inspection require live camera verification.
+                    Daily attendance login/logout is recorded automatically with IST timestamps and location verification. All 15 room morning routines (9:00 AM), water bottle distribution (10:00 AM), recheck (3:00 PM), and closing inspection (7:30 PM) require live photo verification.
                   </p>
                 </div>
               </div>
@@ -1407,6 +1437,122 @@ export const PantryBoyView: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* Attendance History Modal */}
+      {showAttendanceHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[85vh]">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-amber-400" />
+                <h3 className="text-base font-bold tracking-tight">Pantry Attendant Login & Attendance History</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAttendanceHistoryModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              <div className="text-xs text-slate-500 flex items-center justify-between">
+                <span>Showing daily server IST attendance records and GPS verification statuses</span>
+                <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  {attendanceHistory.length} total records
+                </span>
+              </div>
+
+              {loadingHistory ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-500" />
+                  <p className="text-xs font-medium">Fetching attendance history log...</p>
+                </div>
+              ) : attendanceHistory.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2 border border-dashed border-slate-200 rounded-xl">
+                  <Calendar className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-xs font-semibold text-slate-600">No attendance logs found</p>
+                  <p className="text-[11px] text-slate-400">Attendance records will appear after Pantry Boy logs in.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {attendanceHistory.map((rec) => (
+                    <div
+                      key={rec.id}
+                      className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-100/80 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold font-mono text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+                            {rec.date}
+                          </span>
+                          <span className="text-xs font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            {rec.userName || 'Pantry Attendant'}
+                          </span>
+                          {rec.logoutTime ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                              Session Completed
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                              Active
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs font-mono text-slate-600 flex items-center gap-3 pt-1">
+                          <span>
+                            Login IST: <strong className="text-slate-900">{rec.loginTimeIST || 'N/A'}</strong>
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Logout IST: <strong className="text-slate-900">{rec.logoutTimeIST || 'Active'}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-start sm:items-end text-xs space-y-1 shrink-0">
+                        {rec.locationVerification?.status === 'INSIDE_OFFICE' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                            Inside Office ({rec.locationVerification.distanceFromOfficeMeters}m)
+                          </span>
+                        ) : rec.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300">
+                            <AlertTriangle className="w-3 h-3 text-rose-600" />
+                            Outside Office ({rec.locationVerification.distanceFromOfficeMeters}m)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                            <MapPinOff className="w-3 h-3 text-amber-600" />
+                            Location Unverified
+                          </span>
+                        )}
+                        {rec.elapsedMinutes !== undefined && (
+                          <span className="text-[10px] font-mono text-slate-500">
+                            Elapsed: {Math.floor(rec.elapsedMinutes / 60)}h {rec.elapsedMinutes % 60}m
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAttendanceHistoryModal(false)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Close Log
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ----------------------------------------------------------------------- */}
       {/* Task Detail Modal / Sheet                                               */}

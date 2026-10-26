@@ -1562,15 +1562,19 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                                 todayAttendance?.logoutTime ? 'bg-slate-400' : 'bg-emerald-400 animate-pulse'
                               }`}
                             />
-                            {todayAttendance?.logoutTime ? 'Shift Completed' : 'Present'}
+                            {todayAttendance?.logoutTime ? 'Completed' : 'Present'}
                           </span>
                         </div>
                       </div>
 
-                      {/* Shift Hours & Task Progress */}
+                      {/* Live Attendance Status & Task Progress */}
                       <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-300">
                         <span className="font-mono text-[10px] text-slate-400">
-                          Shift: 9:00 AM – 8:00 PM (Asia/Kolkata)
+                          {todayAttendance?.logoutTimeIST
+                            ? `Logout: ${todayAttendance.logoutTimeIST}`
+                            : todayAttendance?.loginTimeIST
+                            ? `Active Session · Login: ${todayAttendance.loginTimeIST}`
+                            : 'Attendance Tracked'}
                         </span>
                         <span className="font-mono text-amber-400 font-bold">
                           {completedTasks.length} / {tasks.length} Tasks Done
@@ -1662,10 +1666,10 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         <button
                           type="button"
                           onClick={handleOpenAttendanceHistory}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
                         >
-                          <History className="w-3 h-3" />
-                          <span>Attendance History</span>
+                          <History className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>More</span>
                         </button>
 
                         <button
@@ -1743,7 +1747,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-700 shrink-0" />
               <div>
-                <span className="font-bold text-amber-900">Shift Automation Milestones:</span>
+                <span className="font-bold text-amber-900">Task Automation Milestones:</span>
                 <span className="text-amber-800 ml-1">
                   Automated schedule for 9:00 AM routines, 10:00 AM & 3:00 PM water distribution, 7:30 PM inspection, and 8:00 PM closing audit.
                 </span>
@@ -1776,7 +1780,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 onClick={() => handleTriggerMilestone('8PM_CLOSING')}
                 className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
               >
-                8 PM Shift Closing Audit
+                8:00 PM Closing Audit
               </button>
             </div>
           </div>

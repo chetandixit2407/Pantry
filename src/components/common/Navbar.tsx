@@ -8,7 +8,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => {
-  const { currentUser, allUsers, switchUser, logout, notifications, unreadNotifCount, markNotificationRead, hasDashboardAccess } = useAuth();
+  const { currentUser, allUsers, switchUser, logout, notifications, unreadNotifCount, markNotificationRead, hasDashboardAccess, todayAttendance } = useAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -76,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
 
           <div className="text-xs text-slate-500 flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>Shift: 9:00 AM – 8:00 PM (Asia/Kolkata)</span>
+            <span>White Collar Realty HQ · {todayAttendance?.loginTimeIST ? `Attendant In: ${todayAttendance.loginTimeIST}` : 'Gurgaon'}</span>
           </div>
         </nav>
 

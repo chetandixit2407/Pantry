@@ -1331,24 +1331,34 @@ function recordPantryAttendance(
     db.attendance = [];
   }
 
-  let existing = db.attendance.find((a) => a.userId === user.id && a.date === today);
+  // Look for an open active session for today (not yet logged out)
+  const activeSession = db.attendance.find(
+    (a) => a.userId === user.id && a.date === today && a.status === 'PRESENT' && !a.logoutTime
+  );
 
   const verification = verifyOfficeLocation(locationInput);
 
-  if (existing) {
-    // PRESERVE original login timestamp on refresh or subsequent logins!
-    if (existing.locationVerification.status === 'UNVERIFIED' && verification.status !== 'UNVERIFIED') {
-      existing.locationVerification = verification;
+  if (activeSession) {
+    // PRESERVE original login timestamp on refresh or duplicate requests!
+    if (activeSession.locationVerification.status === 'UNVERIFIED' && verification.status !== 'UNVERIFIED') {
+      activeSession.locationVerification = verification;
     }
-    existing.updatedAt = now.toISOString();
+    activeSession.updatedAt = now.toISOString();
     saveDb();
-    broadcastRealtime('attendance:updated', { attendance: existing });
-    return existing;
+    broadcastRealtime('attendance:updated', { attendance: activeSession });
+    return activeSession;
   }
+
+  // Multi-session support: generate unique id for multiple independent sessions in a single day
+  const todaySessionCount = db.attendance.filter((a) => a.userId === user.id && a.date === today).length;
+  const newRecordId =
+    todaySessionCount > 0
+      ? `att-${today}-${user.id}-s${todaySessionCount + 1}`
+      : `att-${today}-${user.id}`;
 
   // Create persistent attendance record
   const newRecord: AttendanceRecord = {
-    id: `att-${today}-${user.id}`,
+    id: newRecordId,
     userId: user.id,
     userEmail: user.email,
     userName: user.name,
@@ -1377,18 +1387,26 @@ function recordPantryAttendance(
   return newRecord;
 }
 
-function recordPantryLogout(user: UserAccount): AttendanceRecord | null {
+function recordPantryLogout(user: UserAccount, locationInput?: any): AttendanceRecord | null {
   const today = getISTDateString();
   const now = new Date();
 
   if (!Array.isArray(db.attendance)) return null;
 
-  const existing = db.attendance.find((a) => a.userId === user.id && a.date === today);
+  // Find active open session first, or most recent record of today
+  const existing =
+    db.attendance.find((a) => a.userId === user.id && a.date === today && a.status === 'PRESENT' && !a.logoutTime) ||
+    db.attendance.find((a) => a.userId === user.id && a.date === today);
+
   if (!existing) return null;
 
   existing.logoutTime = now.toISOString();
   existing.logoutTimeIST = getISTTimeString(now);
   existing.status = 'COMPLETED';
+
+  if (locationInput) {
+    existing.logoutLocationVerification = verifyOfficeLocation(locationInput);
+  }
 
   const loginMs = new Date(existing.loginTime).getTime();
   const logoutMs = now.getTime();
@@ -1403,7 +1421,7 @@ function recordPantryLogout(user: UserAccount): AttendanceRecord | null {
     'ATTENDANCE_LOGOUT_RECORDED',
     'USER',
     user.id,
-    `Pantry Boy logged out at ${existing.logoutTimeIST} IST. Total shift duration: ${Math.floor(existing.elapsedMinutes / 60)}h ${existing.elapsedMinutes % 60}m.`
+    `Pantry Boy logged out at ${existing.logoutTimeIST} IST. Total working duration: ${Math.floor(existing.elapsedMinutes / 60)}h ${existing.elapsedMinutes % 60}m.`
   );
 
   return existing;
@@ -1673,13 +1691,15 @@ app.post('/api/auth/logout', (req, res) => {
     token = String(req.headers['x-session-token']).trim();
   }
 
+  const { location } = req.body || {};
+
   if (token && activeSessions.has(token)) {
     const session = activeSessions.get(token);
     if (session) {
       const user = db.users.find((u) => u.id === session.userId);
       if (user) {
         if (user.role === 'PANTRY_BOY') {
-          recordPantryLogout(user);
+          recordPantryLogout(user, location);
         }
         addAuditLog(
           { email: user.email, name: user.name, role: user.role },
@@ -1752,10 +1772,13 @@ app.get('/api/attendance/history', (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthenticated' });
 
-  let history = db.attendance || [];
+  let history = [...(db.attendance || [])];
   if (user.role === 'PANTRY_BOY') {
     history = history.filter((a) => a.userId === user.id);
   }
+  // Sort latest first
+  history.sort((a, b) => new Date(b.loginTime).getTime() - new Date(a.loginTime).getTime());
+
   res.json({
     history,
     officeConfig: db.officeConfig || INITIAL_OFFICE_CONFIG,
@@ -1777,7 +1800,8 @@ app.post('/api/attendance/record-login', (req, res) => {
 app.post('/api/attendance/record-logout', (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthenticated' });
-  const record = recordPantryLogout(user);
+  const { location } = req.body || {};
+  const record = recordPantryLogout(user, location);
   res.json({ success: true, attendance: record });
 });
 
