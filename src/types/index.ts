@@ -312,3 +312,45 @@ export interface WeeklyReportSummary {
   visitorPrepAverageMinutes: number;
   keyRecommendations: string[];
 }
+
+export type GeofenceStatus = 'INSIDE_OFFICE' | 'OUTSIDE_OFFICE' | 'UNVERIFIED';
+
+export interface LocationVerification {
+  latitude?: number;
+  longitude?: number;
+  accuracyMeters?: number;
+  distanceFromOfficeMeters?: number;
+  status: GeofenceStatus;
+  capturedAt: string;
+  capturedAtIST: string;
+  source: 'GPS' | 'NETWORK' | 'DENIED' | 'UNAVAILABLE' | 'TIMEOUT' | 'NOT_SUPPORTED';
+  errorMessage?: string;
+  officeName: string;
+  geofenceRadiusMeters: number;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  role: Role;
+  date: string; // YYYY-MM-DD in Asia/Kolkata
+  loginTime: string; // ISO string
+  loginTimeIST: string; // e.g. "09:00:15 AM"
+  logoutTime?: string; // ISO string
+  logoutTimeIST?: string; // e.g. "08:02:10 PM"
+  status: 'PRESENT' | 'COMPLETED' | 'HALFDAY';
+  elapsedMinutes?: number;
+  locationVerification: LocationVerification;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OfficeLocationConfig {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  geofenceRadiusMeters: number;
+}

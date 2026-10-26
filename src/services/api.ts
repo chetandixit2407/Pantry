@@ -13,6 +13,8 @@ import type {
   TaskPriority,
   TaskStatus,
   PantryRequest,
+  AttendanceRecord,
+  OfficeLocationConfig,
 } from '../types/index.ts';
 
 const BASE_URL = '/api';
@@ -71,11 +73,11 @@ export const api = {
     }
   },
 
-  async login(email: string, password?: string): Promise<{ user: UserAccount; token: string }> {
+  async login(email: string, password?: string, location?: any): Promise<{ user: UserAccount; token: string; attendance?: AttendanceRecord }> {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, location }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -101,11 +103,11 @@ export const api = {
     }
   },
 
-  async switchUser(userId: string): Promise<{ user: UserAccount; token: string }> {
+  async switchUser(userId: string, location?: any): Promise<{ user: UserAccount; token: string; attendance?: AttendanceRecord }> {
     const res = await fetch(`${BASE_URL}/auth/switch-user`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ userId, location }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -594,6 +596,77 @@ export const api = {
     if (!res.ok) throw new Error('Failed to trigger milestone');
   },
 
+  // Real-time Attendance & Geofence
+  async getTodayAttendance(): Promise<{
+    todayRecord: AttendanceRecord | null;
+    allTodayRecords: AttendanceRecord[];
+    officeConfig: OfficeLocationConfig;
+  }> {
+    const res = await fetch(`${BASE_URL}/attendance/today`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch today attendance');
+    return res.json();
+  },
+
+  async getAttendanceHistory(): Promise<{
+    history: AttendanceRecord[];
+    officeConfig: OfficeLocationConfig;
+  }> {
+    const res = await fetch(`${BASE_URL}/attendance/history`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch attendance history');
+    return res.json();
+  },
+
+  async recordAttendanceLogin(location?: any): Promise<AttendanceRecord> {
+    const res = await fetch(`${BASE_URL}/attendance/record-login`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ location }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to record attendance login');
+    }
+    const data = await res.json();
+    return data.attendance;
+  },
+
+  async recordAttendanceLogout(): Promise<AttendanceRecord | null> {
+    const res = await fetch(`${BASE_URL}/attendance/record-logout`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.attendance || null;
+  },
+
+  async getOfficeConfig(): Promise<OfficeLocationConfig> {
+    const res = await fetch(`${BASE_URL}/attendance/office-config`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch office config');
+    const data = await res.json();
+    return data.officeConfig;
+  },
+
+  async updateOfficeConfig(config: OfficeLocationConfig): Promise<OfficeLocationConfig> {
+    const res = await fetch(`${BASE_URL}/attendance/office-config`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(config),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update office config');
+    }
+    const data = await res.json();
+    return data.officeConfig;
+  },
+
   // Real-time Event Stream (SSE)
   subscribeRealtime(onEvent: (event: string, payload: any) => void): () => void {
     let es: EventSource | null = null;
@@ -620,6 +693,7 @@ export const api = {
         es.addEventListener('account:revoked', handleMessage('account:revoked'));
         es.addEventListener('pantry_request:created', handleMessage('pantry_request:created'));
         es.addEventListener('pantry_request:updated', handleMessage('pantry_request:updated'));
+        es.addEventListener('attendance:updated', handleMessage('attendance:updated'));
 
         es.onerror = () => {
           if (es) {

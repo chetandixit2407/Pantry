@@ -1,6 +1,57 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { UserAccount, AppNotification, Role, UserPermissions } from '../types/index.ts';
+import type { UserAccount, AppNotification, Role, UserPermissions, AttendanceRecord, OfficeLocationConfig } from '../types/index.ts';
 import { api, getSessionToken, clearSessionToken } from '../services/api.ts';
+
+// -----------------------------------------------------------------------------
+// Privacy-Protected High-Accuracy Location Capturer (Pantry Boy Role Only)
+// -----------------------------------------------------------------------------
+export async function capturePantryLocation(): Promise<{
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  source: 'GPS' | 'DENIED' | 'TIMEOUT' | 'UNAVAILABLE' | 'NOT_SUPPORTED';
+  error?: string;
+}> {
+  if (typeof window === 'undefined' || !navigator.geolocation) {
+    return {
+      source: 'NOT_SUPPORTED',
+      error: 'Geolocation is not supported by this browser/device environment',
+    };
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy ? Math.round(position.coords.accuracy) : undefined,
+          source: 'GPS',
+        });
+      },
+      (err) => {
+        let source: 'DENIED' | 'TIMEOUT' | 'UNAVAILABLE' = 'UNAVAILABLE';
+        let error = 'Unable to acquire GPS fix';
+        if (err.code === 1 /* PERMISSION_DENIED */) {
+          source = 'DENIED';
+          error = 'Location permission was denied by device/browser';
+        } else if (err.code === 3 /* TIMEOUT */) {
+          source = 'TIMEOUT';
+          error = 'GPS location request timed out';
+        } else if (err.code === 2 /* POSITION_UNAVAILABLE */) {
+          source = 'UNAVAILABLE';
+          error = 'Location coordinates unavailable from GPS provider';
+        }
+        resolve({ source, error });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 9000,
+        maximumAge: 0,
+      }
+    );
+  });
+}
 
 export function getDefaultPermissions(role: Role): UserPermissions {
   if (role === 'ADMIN') {
@@ -125,6 +176,8 @@ interface AuthContextType {
   ) => boolean;
   hasSidebarAccess: (item: keyof UserPermissions['sidebarItems']) => boolean;
   hasDashboardAccess: (dashboard: 'pantry' | 'management') => boolean;
+  todayAttendance: AttendanceRecord | null;
+  refreshAttendance: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -135,6 +188,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isDeactivated, setIsDeactivated] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+
+  const refreshAttendance = useCallback(async () => {
+    try {
+      const data = await api.getTodayAttendance();
+      setTodayAttendance(data.todayRecord);
+    } catch (err) {
+      console.warn('Error fetching attendance:', err);
+    }
+  }, []);
 
   const refreshUsers = useCallback(async () => {
     try {
@@ -177,6 +240,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async function init() {
       try {
         const token = getSessionToken();
+
+        // Always fetch initial attendance status
+        api.getTodayAttendance().then((res) => {
+          if (mounted && res?.todayRecord) {
+            setTodayAttendance(res.todayRecord);
+          }
+        }).catch(() => {});
 
         if (!token) {
           const users = await api.getUsers().catch(() => []);
@@ -264,6 +334,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else if (event === 'room:updated' || event === 'task:updated' || event === 'pantry_request:created' || event === 'pantry_request:updated') {
         refreshNotifications();
+      } else if (event === 'attendance:updated' && payload?.attendance) {
+        setTodayAttendance(payload.attendance);
       }
     });
 
@@ -281,9 +353,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password?: string) => {
     setIsLoading(true);
     try {
-      const { user } = await api.login(email, password);
+      // Privacy Guard: High-accuracy GPS verification is ONLY requested for Pantry Attendants
+      let locationPayload: any = undefined;
+      const cleanEmail = email.toLowerCase().trim();
+      const targetUser = allUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+      if (cleanEmail.includes('pantry') || targetUser?.role === 'PANTRY_BOY') {
+        locationPayload = await capturePantryLocation();
+      }
+
+      const { user, attendance } = await api.login(email, password, locationPayload);
       setCurrentUser(user);
       setIsDeactivated(user.status === 'inactive');
+      if (attendance) {
+        setTodayAttendance(attendance);
+      } else {
+        refreshAttendance();
+      }
       const users = await api.getUsers().catch(() => []);
       setAllUsers(users);
       const notifs = await api.getNotifications().catch(() => []);
@@ -304,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(null);
       setIsDeactivated(false);
       setNotifications([]);
+      setTodayAttendance(null);
       setIsLoading(false);
     }
   };
@@ -311,9 +397,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchUser = async (userId: string) => {
     setIsLoading(true);
     try {
-      const { user } = await api.switchUser(userId);
+      // Privacy Guard: High-accuracy GPS verification is ONLY requested for Pantry Attendants
+      let locationPayload: any = undefined;
+      const targetUser = allUsers.find((u) => u.id === userId);
+      if (targetUser?.role === 'PANTRY_BOY') {
+        locationPayload = await capturePantryLocation();
+      }
+
+      const { user, attendance } = await api.switchUser(userId, locationPayload);
       setCurrentUser(user);
       setIsDeactivated(user.status === 'inactive');
+      if (attendance) {
+        setTodayAttendance(attendance);
+      } else {
+        refreshAttendance();
+      }
       const users = await api.getUsers().catch(() => []);
       setAllUsers(users);
       const notifs = await api.getNotifications().catch(() => []);
@@ -384,6 +482,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasPermission,
         hasSidebarAccess,
         hasDashboardAccess,
+        todayAttendance,
+        refreshAttendance,
       }}
     >
       {children}

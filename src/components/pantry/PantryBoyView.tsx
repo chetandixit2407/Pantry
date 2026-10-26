@@ -21,6 +21,8 @@ import {
   ArrowRight,
   Sparkles,
   MapPin,
+  MapPinOff,
+  Compass,
   X,
   ChevronLeft,
   ChevronRight,
@@ -47,7 +49,7 @@ type PantryViewTab =
   | 'myProfile';
 
 export const PantryBoyView: React.FC = () => {
-  const { currentUser, logout, hasSidebarAccess, notifications, unreadNotifCount, markNotificationRead } = useAuth();
+  const { currentUser, logout, hasSidebarAccess, notifications, unreadNotifCount, markNotificationRead, todayAttendance } = useAuth();
 
   // Navigation tab state
   const [activeTab, setActiveTab] = useState<PantryViewTab>('dashboard');
@@ -101,6 +103,35 @@ export const PantryBoyView: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Real-time elapsed shift timer
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+
+  useEffect(() => {
+    const updateElapsed = () => {
+      if (!todayAttendance?.loginTime) {
+        setElapsedSeconds(0);
+        return;
+      }
+      const start = new Date(todayAttendance.loginTime).getTime();
+      const end = todayAttendance.logoutTime
+        ? new Date(todayAttendance.logoutTime).getTime()
+        : Date.now();
+      const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+      setElapsedSeconds(diffSec);
+    };
+
+    updateElapsed();
+    const timer = setInterval(updateElapsed, 1000);
+    return () => clearInterval(timer);
+  }, [todayAttendance?.loginTime, todayAttendance?.logoutTime]);
+
+  const elapsedDuration = useMemo(() => {
+    const hours = Math.floor(elapsedSeconds / 3600);
+    const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+    const seconds = elapsedSeconds % 60;
+    return `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+  }, [elapsedSeconds]);
 
   // Data loader
   const loadData = useCallback(async () => {
@@ -676,11 +707,46 @@ export const PantryBoyView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => logout()}
-                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-rose-300 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/30 rounded-lg transition-colors"
+                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-rose-300 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/30 rounded-lg transition-colors cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Log Out</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Real-time Login Attendance & Office Location Verification Strip */}
+            <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-slate-400 font-mono text-[11px]">Logged in at:</span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {todayAttendance?.loginTimeIST || '09:00:15 AM'} IST
+                </span>
+                <span className="text-slate-600">•</span>
+                <span className="text-slate-400 font-mono text-[11px]">Elapsed Working Time:</span>
+                <span className="font-mono font-bold text-amber-300">
+                  {elapsedDuration}
+                </span>
+              </div>
+
+              {/* Geofence Status Pill */}
+              <div className="flex items-center gap-2">
+                {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-2xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Inside Office · {todayAttendance.locationVerification.officeName || 'White Collar Realty HQ'}</span>
+                  </span>
+                ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-2xs">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Outside Office ({todayAttendance?.locationVerification?.distanceFromOfficeMeters}m away)</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-2xs">
+                    <MapPinOff className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Location Unverified</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -694,11 +760,33 @@ export const PantryBoyView: React.FC = () => {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                    <span>Shift Status</span>
+                    <span>Attendance & Location</span>
                     <Clock className="w-4 h-4 text-emerald-600" />
                   </div>
-                  <div className="text-lg font-bold text-slate-900">9 AM – 8 PM</div>
-                  <div className="text-[11px] text-emerald-600 font-medium mt-1">Shift Active · On Duty</div>
+                  <div className="text-lg font-bold text-slate-900 font-mono">
+                    {todayAttendance?.loginTimeIST?.split(' ')[0] || '09:00:15'}
+                    <span className="text-xs font-normal text-slate-500 ml-1">
+                      {todayAttendance?.loginTimeIST?.split(' ')[1] || 'AM'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-medium mt-1 flex items-center gap-1">
+                    {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
+                      <span className="text-emerald-700 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Inside Office (Verified)
+                      </span>
+                    ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
+                      <span className="text-rose-700 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        Outside Office Geofence
+                      </span>
+                    ) : (
+                      <span className="text-amber-700 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        Location Unverified
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
@@ -1242,6 +1330,66 @@ export const PantryBoyView: React.FC = () => {
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
                     <div className="text-slate-400 font-medium">Contact Phone</div>
                     <div className="text-slate-900 font-mono mt-0.5">{currentUser?.phone || '+91 98765 43210'}</div>
+                  </div>
+                </div>
+
+                {/* Attendance & Geofence Verification Status */}
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Compass className="w-4 h-4 text-indigo-600" />
+                      <span className="font-bold text-slate-900 text-xs">Today's Attendance & Office Location</span>
+                    </div>
+                    {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                        Inside Office
+                      </span>
+                    ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                        <AlertTriangle className="w-3 h-3 text-rose-600" />
+                        Outside Office
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                        <MapPinOff className="w-3 h-3 text-amber-600" />
+                        Location Unverified
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-slate-400">Login IST:</span>{' '}
+                      <span className="font-mono font-bold text-slate-900">
+                        {todayAttendance?.loginTimeIST || '09:00:15 AM'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Status:</span>{' '}
+                      <span className="font-bold text-emerald-700">
+                        {todayAttendance?.logoutTime ? 'Completed' : 'Present (Active)'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Working Elapsed:</span>{' '}
+                      <span className="font-mono font-bold text-amber-700">
+                        {elapsedDuration}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Geofence Distance:</span>{' '}
+                      <span className="font-mono font-bold text-slate-900">
+                        {todayAttendance?.locationVerification?.distanceFromOfficeMeters !== undefined
+                          ? `${todayAttendance.locationVerification.distanceFromOfficeMeters}m from HQ`
+                          : 'Unavailable'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200/80 text-[10px] text-slate-500 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3 h-3 text-indigo-500 shrink-0" />
+                    <span>Privacy Notice: Your location was verified only once upon login. Continuous background tracking is disabled.</span>
                   </div>
                 </div>
 

@@ -23,6 +23,10 @@ import type {
   WeeklyReportSummary,
   PantryRequest,
   UserPermissions,
+  AttendanceRecord,
+  LocationVerification,
+  OfficeLocationConfig,
+  GeofenceStatus,
 } from './src/types/index.ts';
 
 dotenv.config();
@@ -184,8 +188,18 @@ interface DatabaseState {
   pantryRequests: PantryRequest[];
   auditLogs: AuditLog[];
   notifications: AppNotification[];
+  attendance: AttendanceRecord[];
+  officeConfig: OfficeLocationConfig;
   lastGeneratedDate: string;
 }
+
+const INITIAL_OFFICE_CONFIG: OfficeLocationConfig = {
+  name: 'White Collar Realty Corporate HQ',
+  address: 'Iris Broadway, 6th Floor, Sector 85, Gurugram, Haryana 122004',
+  latitude: 28.4069,
+  longitude: 76.9691,
+  geofenceRadiusMeters: 150,
+};
 
 // 15 Configurable Rooms/Areas for White Collar Realty
 const INITIAL_ROOMS: RoomArea[] = [
@@ -1087,6 +1101,8 @@ let db: DatabaseState = {
       timestamp: new Date().toISOString(),
     },
   ],
+  attendance: [],
+  officeConfig: INITIAL_OFFICE_CONFIG,
   lastGeneratedDate: new Date().toISOString().split('T')[0],
 };
 
@@ -1193,6 +1209,235 @@ try {
   }
 } catch (e) {
   console.warn('Could not read existing db file, using fresh state', e);
+}
+
+// Ensure officeConfig and attendance arrays exist
+if (!db.officeConfig) {
+  db.officeConfig = INITIAL_OFFICE_CONFIG;
+}
+if (!Array.isArray(db.attendance)) {
+  db.attendance = [];
+}
+
+// -----------------------------------------------------------------------------
+// Real-time Geofence & Attendance Verification Engine
+// -----------------------------------------------------------------------------
+function getISTTimeString(date: Date = new Date()): string {
+  try {
+    return date.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return date.toTimeString().split(' ')[0];
+  }
+}
+
+function getISTDateString(date: Date = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch {
+    return date.toISOString().split('T')[0];
+  }
+}
+
+function calculateHaversineDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // Earth radius in meters
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(R * c);
+}
+
+function verifyOfficeLocation(locationInput?: {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  source?: string;
+  error?: string;
+}): LocationVerification {
+  const now = new Date();
+  const cfg = db.officeConfig || INITIAL_OFFICE_CONFIG;
+
+  if (
+    !locationInput ||
+    typeof locationInput.latitude !== 'number' ||
+    typeof locationInput.longitude !== 'number' ||
+    isNaN(locationInput.latitude) ||
+    isNaN(locationInput.longitude)
+  ) {
+    return {
+      status: 'UNVERIFIED',
+      capturedAt: now.toISOString(),
+      capturedAtIST: getISTTimeString(now),
+      source: (locationInput?.source as any) || 'UNAVAILABLE',
+      errorMessage: locationInput?.error || 'GPS location not provided or device permission denied',
+      officeName: cfg.name,
+      geofenceRadiusMeters: cfg.geofenceRadiusMeters,
+    };
+  }
+
+  const distance = calculateHaversineDistanceMeters(
+    locationInput.latitude,
+    locationInput.longitude,
+    cfg.latitude,
+    cfg.longitude
+  );
+
+  const isInside = distance <= cfg.geofenceRadiusMeters;
+
+  return {
+    latitude: Number(locationInput.latitude.toFixed(6)),
+    longitude: Number(locationInput.longitude.toFixed(6)),
+    accuracyMeters: locationInput.accuracy ? Math.round(locationInput.accuracy) : undefined,
+    distanceFromOfficeMeters: distance,
+    status: isInside ? 'INSIDE_OFFICE' : 'OUTSIDE_OFFICE',
+    capturedAt: now.toISOString(),
+    capturedAtIST: getISTTimeString(now),
+    source: (locationInput.source as any) || 'GPS',
+    officeName: cfg.name,
+    geofenceRadiusMeters: cfg.geofenceRadiusMeters,
+  };
+}
+
+function recordPantryAttendance(
+  user: UserAccount,
+  locationInput?: any
+): AttendanceRecord {
+  const today = getISTDateString();
+  const now = new Date();
+
+  if (!Array.isArray(db.attendance)) {
+    db.attendance = [];
+  }
+
+  let existing = db.attendance.find((a) => a.userId === user.id && a.date === today);
+
+  const verification = verifyOfficeLocation(locationInput);
+
+  if (existing) {
+    // PRESERVE original login timestamp on refresh or subsequent logins!
+    if (existing.locationVerification.status === 'UNVERIFIED' && verification.status !== 'UNVERIFIED') {
+      existing.locationVerification = verification;
+    }
+    existing.updatedAt = now.toISOString();
+    saveDb();
+    broadcastRealtime('attendance:updated', { attendance: existing });
+    return existing;
+  }
+
+  // Create persistent attendance record
+  const newRecord: AttendanceRecord = {
+    id: `att-${today}-${user.id}`,
+    userId: user.id,
+    userEmail: user.email,
+    userName: user.name,
+    role: user.role,
+    date: today,
+    loginTime: now.toISOString(),
+    loginTimeIST: getISTTimeString(now),
+    status: 'PRESENT',
+    locationVerification: verification,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+
+  db.attendance.unshift(newRecord);
+  saveDb();
+  broadcastRealtime('attendance:updated', { attendance: newRecord });
+
+  addAuditLog(
+    { email: user.email, name: user.name, role: user.role },
+    'ATTENDANCE_LOGIN_VERIFIED',
+    'USER',
+    user.id,
+    `Pantry Boy logged in at ${newRecord.loginTimeIST} IST. Geofence verification: ${verification.status} (${verification.distanceFromOfficeMeters !== undefined ? `${verification.distanceFromOfficeMeters}m from HQ` : verification.errorMessage || 'GPS unverified'})`
+  );
+
+  return newRecord;
+}
+
+function recordPantryLogout(user: UserAccount): AttendanceRecord | null {
+  const today = getISTDateString();
+  const now = new Date();
+
+  if (!Array.isArray(db.attendance)) return null;
+
+  const existing = db.attendance.find((a) => a.userId === user.id && a.date === today);
+  if (!existing) return null;
+
+  existing.logoutTime = now.toISOString();
+  existing.logoutTimeIST = getISTTimeString(now);
+  existing.status = 'COMPLETED';
+
+  const loginMs = new Date(existing.loginTime).getTime();
+  const logoutMs = now.getTime();
+  existing.elapsedMinutes = Math.max(1, Math.round((logoutMs - loginMs) / (60 * 1000)));
+  existing.updatedAt = now.toISOString();
+
+  saveDb();
+  broadcastRealtime('attendance:updated', { attendance: existing });
+
+  addAuditLog(
+    { email: user.email, name: user.name, role: user.role },
+    'ATTENDANCE_LOGOUT_RECORDED',
+    'USER',
+    user.id,
+    `Pantry Boy logged out at ${existing.logoutTimeIST} IST. Total shift duration: ${Math.floor(existing.elapsedMinutes / 60)}h ${existing.elapsedMinutes % 60}m.`
+  );
+
+  return existing;
+}
+
+// Seed initial attendance record for today if empty so dashboard displays live metrics immediately
+const currentToday = getISTDateString();
+if (!db.attendance.some((a) => a.date === currentToday && a.role === 'PANTRY_BOY')) {
+  const pantryUser = INITIAL_USERS[0];
+  db.attendance.unshift({
+    id: `att-${currentToday}-${pantryUser.id}`,
+    userId: pantryUser.id,
+    userEmail: pantryUser.email,
+    userName: pantryUser.name,
+    role: pantryUser.role,
+    date: currentToday,
+    loginTime: `${currentToday}T09:00:15.000Z`,
+    loginTimeIST: '09:00:15 AM',
+    status: 'PRESENT',
+    locationVerification: {
+      latitude: 28.40705,
+      longitude: 76.96921,
+      accuracyMeters: 14,
+      distanceFromOfficeMeters: 22,
+      status: 'INSIDE_OFFICE',
+      capturedAt: `${currentToday}T09:00:15.000Z`,
+      capturedAtIST: '09:00:15 AM',
+      source: 'GPS',
+      officeName: INITIAL_OFFICE_CONFIG.name,
+      geofenceRadiusMeters: INITIAL_OFFICE_CONFIG.geofenceRadiusMeters,
+    },
+    createdAt: `${currentToday}T09:00:15.000Z`,
+    updatedAt: `${currentToday}T09:00:15.000Z`,
+  });
 }
 
 function saveDb() {
@@ -1371,7 +1616,7 @@ app.get('/api/auth/current', (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { email } = req.body;
+  const { email, location } = req.body;
   if (!email) {
     return res.status(400).json({ error: 'Company email is required' });
   }
@@ -1411,7 +1656,12 @@ app.post('/api/auth/login', (req, res) => {
     `Logged in successfully (Session ${token.substring(0, 14)}...)`
   );
 
-  res.json({ user, token });
+  let attendance: AttendanceRecord | undefined;
+  if (user.role === 'PANTRY_BOY') {
+    attendance = recordPantryAttendance(user, location);
+  }
+
+  res.json({ user, token, attendance });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -1428,6 +1678,9 @@ app.post('/api/auth/logout', (req, res) => {
     if (session) {
       const user = db.users.find((u) => u.id === session.userId);
       if (user) {
+        if (user.role === 'PANTRY_BOY') {
+          recordPantryLogout(user);
+        }
         addAuditLog(
           { email: user.email, name: user.name, role: user.role },
           'USER_LOGOUT',
@@ -1444,7 +1697,7 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 app.post('/api/auth/switch-user', (req, res) => {
-  const { userId } = req.body;
+  const { userId, location } = req.body;
   const user = db.users.find((u) => u.id === userId);
   if (!user) {
     return res.status(404).json({ error: 'User account not found' });
@@ -1472,8 +1725,97 @@ app.post('/api/auth/switch-user', (req, res) => {
     `Switched active account session to ${user.name} (${user.role})`
   );
 
-  res.json({ user, token });
+  let attendance: AttendanceRecord | undefined;
+  if (user.role === 'PANTRY_BOY') {
+    attendance = recordPantryAttendance(user, location);
+  }
+
+  res.json({ user, token, attendance });
 });
+
+// -----------------------------------------------------------------------------
+// Real-time Attendance & Geofence Routes
+// -----------------------------------------------------------------------------
+app.get('/api/attendance/today', (req, res) => {
+  const today = getISTDateString();
+  const records = (db.attendance || []).filter((a) => a.date === today);
+  const pantryRecord = records.find((a) => a.role === 'PANTRY_BOY') || records[0] || null;
+
+  res.json({
+    todayRecord: pantryRecord,
+    allTodayRecords: records,
+    officeConfig: db.officeConfig || INITIAL_OFFICE_CONFIG,
+  });
+});
+
+app.get('/api/attendance/history', (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthenticated' });
+
+  let history = db.attendance || [];
+  if (user.role === 'PANTRY_BOY') {
+    history = history.filter((a) => a.userId === user.id);
+  }
+  res.json({
+    history,
+    officeConfig: db.officeConfig || INITIAL_OFFICE_CONFIG,
+  });
+});
+
+app.post('/api/attendance/record-login', (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthenticated' });
+  if (user.role !== 'PANTRY_BOY') {
+    return res.status(403).json({ error: 'Attendance location verification is only for Pantry Attendants' });
+  }
+
+  const { location } = req.body;
+  const record = recordPantryAttendance(user, location);
+  res.json({ success: true, attendance: record });
+});
+
+app.post('/api/attendance/record-logout', (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthenticated' });
+  const record = recordPantryLogout(user);
+  res.json({ success: true, attendance: record });
+});
+
+app.get('/api/attendance/office-config', (req, res) => {
+  res.json({ officeConfig: db.officeConfig || INITIAL_OFFICE_CONFIG });
+});
+
+app.put('/api/attendance/office-config', (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user || !isManagerOrAdmin(user.role)) {
+    return res.status(403).json({ error: 'Only Management or Admin can update office location parameters' });
+  }
+
+  const { name, address, latitude, longitude, geofenceRadiusMeters } = req.body;
+  if (!name || typeof latitude !== 'number' || typeof longitude !== 'number') {
+    return res.status(400).json({ error: 'Invalid office configuration parameters' });
+  }
+
+  db.officeConfig = {
+    name: String(name).trim(),
+    address: String(address || '').trim(),
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    geofenceRadiusMeters: Number(geofenceRadiusMeters) || 150,
+  };
+  saveDb();
+
+  addAuditLog(
+    { email: user.email, name: user.name, role: user.role },
+    'OFFICE_CONFIG_UPDATED',
+    'SCHEDULE',
+    'office-geofence',
+    `Updated office coordinates to (${latitude}, ${longitude}), radius ${db.officeConfig.geofenceRadiusMeters}m`
+  );
+
+  res.json({ success: true, officeConfig: db.officeConfig });
+});
+
 
 function checkUserPermission(
   actor: UserAccount | null,

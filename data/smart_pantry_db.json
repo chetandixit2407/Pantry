@@ -854,7 +854,7 @@
     },
     {
       "id": "task-2026-10-26-skyline",
-      "title": "The The The The The The Skyline Boardroom 12-Chair Geometric Alignment & Table Sanitization",
+      "title": "The The The The The The The Skyline Boardroom 12-Chair Geometric Alignment & Table Sanitization",
       "description": "Clean boardroom table, align 12 chairs evenly, check whiteboard and markers.",
       "roomAreaId": "room-6",
       "roomAreaName": "The Skyline",
@@ -1353,7 +1353,7 @@
         },
         {
           "id": "c-4",
-          "text": "Ensure all meeting rooms (The The The The The The Skyline, The Summit, Prestige Loft Loft Loft Loft Loft Loft, WCR Air, Elegance Suite (Kimmi Suite)) are reset",
+          "text": "Ensure all meeting rooms (The The The The The The The Skyline, The Summit, Prestige Loft Loft Loft Loft Loft Loft Loft, WCR Air, Elegance Suite (Kimmi Suite)) are reset",
           "completed": false
         },
         {
@@ -1404,6 +1404,17 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793013508161-1d0l",
+      "timestamp": "2026-10-26T11:18:28.161Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_SWITCHED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Switched active account session to Raju Sharma (PANTRY_BOY)"
+    },
     {
       "id": "audit-1793009739261-ksiw",
       "timestamp": "2026-10-26T10:15:39.261Z",
@@ -1634,6 +1645,40 @@
       "createdAt": "2026-10-26T08:44:53.868Z",
       "servedAt": "2026-10-26T08:59:53.868Z",
       "servedBy": "Raju Sharma"
+    }
+  ],
+  "officeConfig": {
+    "name": "White Collar Realty Corporate HQ",
+    "address": "Iris Broadway, 6th Floor, Sector 85, Gurugram, Haryana 122004",
+    "latitude": 28.4069,
+    "longitude": 76.9691,
+    "geofenceRadiusMeters": 150
+  },
+  "attendance": [
+    {
+      "id": "att-2026-10-26-user-pantry-1",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-26",
+      "loginTime": "2026-10-26T09:00:15.000Z",
+      "loginTimeIST": "09:00:15 AM",
+      "status": "PRESENT",
+      "locationVerification": {
+        "latitude": 28.40705,
+        "longitude": 76.96921,
+        "accuracyMeters": 14,
+        "distanceFromOfficeMeters": 22,
+        "status": "INSIDE_OFFICE",
+        "capturedAt": "2026-10-26T09:00:15.000Z",
+        "capturedAtIST": "09:00:15 AM",
+        "source": "GPS",
+        "officeName": "White Collar Realty Corporate HQ",
+        "geofenceRadiusMeters": 150
+      },
+      "createdAt": "2026-10-26T09:00:15.000Z",
+      "updatedAt": "2026-10-26T11:18:28.162Z"
     }
   ]
 }

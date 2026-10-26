@@ -16,6 +16,8 @@ import type {
   TaskStatus,
   UserPermissions,
   Role,
+  AttendanceRecord,
+  OfficeLocationConfig,
 } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
 import { useAuth, getDefaultPermissions } from '../../context/AuthContext.tsx';
@@ -31,6 +33,9 @@ import {
   Download,
   Users,
   MapPin,
+  MapPinOff,
+  Compass,
+  LocateFixed,
   Trash2,
   Edit3,
   Shield,
@@ -120,6 +125,22 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [showRoomModal, setShowRoomModal] = useState<boolean>(false);
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const [inspectPhotoTask, setInspectPhotoTask] = useState<Task | null>(null);
+
+  // Attendance & Office Location Verification State
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+  const [officeConfig, setOfficeConfig] = useState<OfficeLocationConfig | null>(null);
+  const [attendanceHistoryList, setAttendanceHistoryList] = useState<AttendanceRecord[]>([]);
+  const [showAttendanceHistoryModal, setShowAttendanceHistoryModal] = useState<boolean>(false);
+  const [showOfficeConfigModal, setShowOfficeConfigModal] = useState<boolean>(false);
+  const [loadingAttendanceHistory, setLoadingAttendanceHistory] = useState<boolean>(false);
+  const [officeConfigForm, setOfficeConfigForm] = useState<OfficeLocationConfig>({
+    name: 'White Collar Realty Corporate HQ',
+    address: 'Iris Broadway, Sector 85, Gurugram, Haryana 122004',
+    latitude: 28.4069,
+    longitude: 76.9691,
+    geofenceRadiusMeters: 150,
+  });
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
   // AI Task Generation state
   const [aiPrompt, setAiPrompt] = useState<string>('');
@@ -275,13 +296,15 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
 
   const loadData = useCallback(async () => {
     try {
-      const [tData, rData, vData, dData, wData, aData] = await Promise.all([
+      const [tData, rData, vData, dData, wData, aData, attData, offConfig] = await Promise.all([
         api.getTasks().catch(() => []),
         api.getRooms().catch(() => []),
         api.getVisitors().catch(() => []),
         api.getDailyReport().catch(() => null),
         api.getWeeklyReport().catch(() => null),
         api.getAuditLogs().catch(() => []),
+        api.getTodayAttendance().catch(() => null),
+        api.getOfficeConfig().catch(() => null),
       ]);
       setTasks(tData);
       setRooms(rData);
@@ -289,6 +312,13 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       if (dData?.summary) setDailyReport(dData.summary);
       if (wData?.weeklySummary) setWeeklyReport(wData.weeklySummary);
       setAuditLogs(aData);
+      if (attData) {
+        setTodayAttendance(attData.todayRecord || (attData.allTodayRecords && attData.allTodayRecords[0]) || null);
+      }
+      if (offConfig) {
+        setOfficeConfig(offConfig);
+        setOfficeConfigForm((prev) => ({ ...prev, ...offConfig }));
+      }
 
       if (!newTaskForm.roomAreaId && rData.length > 0) {
         setNewTaskForm((prev) => ({ ...prev, roomAreaId: rData[0].id }));
@@ -317,6 +347,58 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       clearInterval(interval);
     };
   }, [loadData]);
+
+  // Real-time elapsed duration ticker for Pantry Boy's active shift
+  useEffect(() => {
+    const updateElapsed = () => {
+      if (!todayAttendance?.loginTime) {
+        setElapsedSeconds(0);
+        return;
+      }
+      const start = new Date(todayAttendance.loginTime).getTime();
+      const end = todayAttendance.logoutTime
+        ? new Date(todayAttendance.logoutTime).getTime()
+        : Date.now();
+      const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+      setElapsedSeconds(diffSec);
+    };
+
+    updateElapsed();
+    const timer = setInterval(updateElapsed, 1000);
+    return () => clearInterval(timer);
+  }, [todayAttendance?.loginTime, todayAttendance?.logoutTime]);
+
+  const formatElapsedDuration = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+  };
+
+  const handleOpenAttendanceHistory = async () => {
+    setShowAttendanceHistoryModal(true);
+    setLoadingAttendanceHistory(true);
+    try {
+      const historyData = await api.getAttendanceHistory();
+      setAttendanceHistoryList(historyData.history || []);
+    } catch (err) {
+      console.error('Failed to load attendance history:', err);
+    } finally {
+      setLoadingAttendanceHistory(false);
+    }
+  };
+
+  const handleSaveOfficeConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const updated = await api.updateOfficeConfig(officeConfigForm);
+      setOfficeConfig(updated);
+      setShowOfficeConfigModal(false);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update office geofence configuration');
+    }
+  };
 
   // AI Task Parser
   const handleAiParse = async () => {
@@ -1416,98 +1498,189 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   </div>
                 </div>
 
-                {/* Right: Active Shift Operations & Quick Actions (lg:col-span-5) */}
+                {/* Right: Login Attendance & Office Location Verification (lg:col-span-5) */}
                 <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between">
                   <div>
+                    {/* Header with Geofence Status Badge */}
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                       <div>
                         <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                          Shift Operations & Attendant
+                          Login Attendance & Office Verification
                         </h3>
-                        <p className="text-xs text-slate-500">Live attendance and deterministic schedule</p>
+                        <p className="text-xs text-slate-500">Real-time attendance & GPS geofenced check-in</p>
                       </div>
-                      <span className="flex items-center gap-1.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Active
-                      </span>
+
+                      {/* Live Geofence Status Pill */}
+                      {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Inside Office</span>
+                        </span>
+                      ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Outside Office</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                          <MapPinOff className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Location Unverified</span>
+                        </span>
+                      )}
                     </div>
 
-                    {/* Attendant profile card */}
-                    <div className="p-3.5 bg-slate-900 text-white rounded-xl mb-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
-                          alt="Raju Sharma"
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-white">Ramesh Kumar (Pantry Attendant)</div>
-                          <div className="text-[10px] text-amber-300 font-mono mt-0.5">
-                            Shift: 9:00 AM – 8:00 PM (Asia/Kolkata)
+                    {/* Attendant & Attendance Status Card */}
+                    <div className="p-3.5 bg-slate-900 text-white rounded-xl mb-4 relative overflow-hidden">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+                            alt="Raju Sharma"
+                            className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold text-white truncate">
+                              {todayAttendance?.userName || 'Raju Sharma'} (Pantry Attendant)
+                            </div>
+                            <div className="text-[10px] text-amber-300 font-mono mt-0.5 truncate">
+                              {todayAttendance?.userEmail || 'raju.sharma@whitecollarrealty.com'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-slate-800">
-                        <div className="flex items-center justify-between text-[11px] text-slate-300 mb-1">
-                          <span>Today's Task Completion</span>
-                          <span className="font-mono font-bold text-amber-400">
-                            {completedTasks.length} / {tasks.length}
+
+                        {/* Status Pill */}
+                        <div className="shrink-0 text-right">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                              todayAttendance?.logoutTime
+                                ? 'bg-slate-800 text-slate-300 border border-slate-700'
+                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                todayAttendance?.logoutTime ? 'bg-slate-400' : 'bg-emerald-400 animate-pulse'
+                              }`}
+                            />
+                            {todayAttendance?.logoutTime ? 'Shift Completed' : 'Present'}
                           </span>
                         </div>
-                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                          <div
-                            className="bg-amber-400 h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${tasks.length > 0 ? (completedTasks.length / tasks.length) * 100 : 0}%`,
-                            }}
-                          ></div>
+                      </div>
+
+                      {/* Shift Hours & Task Progress */}
+                      <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-300">
+                        <span className="font-mono text-[10px] text-slate-400">
+                          Shift: 9:00 AM – 8:00 PM (Asia/Kolkata)
+                        </span>
+                        <span className="font-mono text-amber-400 font-bold">
+                          {completedTasks.length} / {tasks.length} Tasks Done
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Live Attendance Timestamps & Working Time Meter */}
+                    <div className="grid grid-cols-2 gap-2.5 mb-3">
+                      {/* Login Timestamp */}
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>Login Time (IST)</span>
+                        </div>
+                        <div className="text-sm font-mono font-bold text-slate-900">
+                          {todayAttendance?.loginTimeIST || '09:00:15 AM'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                          Date: {todayAttendance?.date || new Date().toISOString().split('T')[0]}
+                        </div>
+                      </div>
+
+                      {/* Elapsed Working Duration */}
+                      <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl">
+                        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800 uppercase tracking-wider mb-1">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          <span>Elapsed Time</span>
+                        </div>
+                        <div className="text-sm font-mono font-bold text-amber-950">
+                          {formatElapsedDuration(elapsedSeconds)}
+                        </div>
+                        <div className="text-[10px] text-amber-700 font-mono mt-0.5 truncate">
+                          {todayAttendance?.logoutTimeIST
+                            ? `Logout: ${todayAttendance.logoutTimeIST}`
+                            : 'Active session live'}
                         </div>
                       </div>
                     </div>
 
-                    {/* Schedule Milestones fast triggers */}
-                    <div className="mb-4">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        Schedule Milestones
+                    {/* Geofence Verification Detail Card */}
+                    <div className="p-3 bg-slate-50/90 border border-slate-200 rounded-xl mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900">
+                          <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Office Geofence Verification</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-500">
+                          Radius: {officeConfig?.geofenceRadiusMeters ?? 150}m
+                        </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+
+                      <div className="space-y-1.5 text-[11px]">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="text-slate-500">Configured Office:</span>
+                          <span className="font-semibold text-slate-900 truncate max-w-[200px]" title={officeConfig?.address}>
+                            {officeConfig?.name || 'White Collar Realty HQ'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="text-slate-500">GPS Distance from HQ:</span>
+                          <span className="font-mono font-bold text-slate-900">
+                            {todayAttendance?.locationVerification?.distanceFromOfficeMeters !== undefined
+                              ? `${todayAttendance.locationVerification.distanceFromOfficeMeters} meters`
+                              : 'Not Available'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="text-slate-500">Accuracy & Source:</span>
+                          <span className="font-mono text-slate-800">
+                            {todayAttendance?.locationVerification?.accuracyMeters
+                              ? `±${todayAttendance.locationVerification.accuracyMeters}m (${todayAttendance.locationVerification.source})`
+                              : todayAttendance?.locationVerification?.source || 'GPS'}
+                          </span>
+                        </div>
+
+                        {todayAttendance?.locationVerification?.status === 'UNVERIFIED' && (
+                          <div className="mt-1 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-800 leading-relaxed">
+                            {todayAttendance.locationVerification.errorMessage ||
+                              'GPS permission was denied or unavailable at login. Location is unverified; never assumed inside office.'}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Modal Triggers */}
+                      <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between gap-2">
                         <button
                           type="button"
-                          onClick={() => handleTriggerMilestone("9AM_START")}
-                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
+                          onClick={handleOpenAttendanceHistory}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
                         >
-                          <div className="font-bold text-slate-900">9:00 AM</div>
-                          <div className="text-[10px] text-slate-500">Morning Setup</div>
+                          <History className="w-3 h-3" />
+                          <span>Attendance History</span>
                         </button>
+
                         <button
                           type="button"
-                          onClick={() => handleTriggerMilestone("10AM_WATER")}
-                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
+                          onClick={() => setShowOfficeConfigModal(true)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                         >
-                          <div className="font-bold text-slate-900">10:00 AM</div>
-                          <div className="text-[10px] text-slate-500">Water Distribution</div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTriggerMilestone("3PM_WATER")}
-                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
-                        >
-                          <div className="font-bold text-slate-900">3:00 PM</div>
-                          <div className="text-[10px] text-slate-500">Water Recheck</div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTriggerMilestone("8PM_CLOSING")}
-                          className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium transition-colors cursor-pointer"
-                        >
-                          <div className="font-bold text-slate-900">8:00 PM</div>
-                          <div className="text-[10px] text-slate-500">Closing Audit</div>
+                          <Settings className="w-3 h-3" />
+                          <span>Geofence Settings</span>
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Quick Dispatch Action */}
+                  {/* Quick Dispatch Action (Preserved!) */}
                   <div className="pt-3 border-t border-slate-100">
                     <button
                       type="button"
@@ -4709,6 +4882,281 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------------- */}
+      {/* Attendance History Modal                                               */}
+      {/* ----------------------------------------------------------------------- */}
+      {showAttendanceHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Attendance & Location Verification History</h3>
+                  <p className="text-xs text-slate-500">Persistent IST check-in logs with high-accuracy GPS verification</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAttendanceHistoryModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-1">
+              {loadingAttendanceHistory ? (
+                <div className="p-12 text-center text-xs text-slate-400 font-mono">
+                  Loading persistent attendance records...
+                </div>
+              ) : attendanceHistoryList.length === 0 ? (
+                <div className="p-12 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  No attendance history records logged yet. Records are saved automatically on Pantry Boy login.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-xs text-slate-500 font-mono flex items-center justify-between">
+                    <span>Total Logs: {attendanceHistoryList.length}</span>
+                    <span className="text-emerald-700 font-medium">✓ Privacy-safe one-time login verification</span>
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold font-mono text-[11px]">
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Attendant</th>
+                          <th className="p-3">Login (IST)</th>
+                          <th className="p-3">Logout (IST)</th>
+                          <th className="p-3">Elapsed</th>
+                          <th className="p-3">Geofence Status</th>
+                          <th className="p-3">GPS Details</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {attendanceHistoryList.map((record) => {
+                          const v = record.locationVerification;
+                          const isInside = v?.status === 'INSIDE_OFFICE';
+                          const isOutside = v?.status === 'OUTSIDE_OFFICE';
+
+                          return (
+                            <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="p-3 font-mono font-medium text-slate-900 whitespace-nowrap">
+                                {record.date}
+                              </td>
+                              <td className="p-3 whitespace-nowrap">
+                                <div className="font-bold text-slate-900">{record.userName}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{record.userEmail}</div>
+                              </td>
+                              <td className="p-3 font-mono text-emerald-700 font-semibold whitespace-nowrap">
+                                {record.loginTimeIST}
+                              </td>
+                              <td className="p-3 font-mono text-slate-600 whitespace-nowrap">
+                                {record.logoutTimeIST || (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px]">
+                                    Active
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 font-mono text-slate-700 whitespace-nowrap">
+                                {record.elapsedMinutes
+                                  ? `${Math.floor(record.elapsedMinutes / 60)}h ${record.elapsedMinutes % 60}m`
+                                  : 'In Session'}
+                              </td>
+                              <td className="p-3 whitespace-nowrap">
+                                {isInside ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                    <span>Inside Office</span>
+                                  </span>
+                                ) : isOutside ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                    <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                    <span>Outside Office</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                    <MapPinOff className="w-3 h-3 text-amber-600" />
+                                    <span>Unverified</span>
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-[11px] text-slate-600 whitespace-nowrap">
+                                {v?.distanceFromOfficeMeters !== undefined ? (
+                                  <div>
+                                    <span className="font-mono font-bold text-slate-800">{v.distanceFromOfficeMeters}m</span> from HQ
+                                    {v.accuracyMeters ? ` (±${v.accuracyMeters}m)` : ''}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 font-mono">{v?.source || 'No GPS'}</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-slate-400 font-mono">White Collar Realty · Operational Audit Log</span>
+              <button
+                type="button"
+                onClick={() => setShowAttendanceHistoryModal(false)}
+                className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------------- */}
+      {/* Office Geofence Configuration Modal                                     */}
+      {/* ----------------------------------------------------------------------- */}
+      {showOfficeConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Office Geofence Settings</h3>
+                  <p className="text-xs text-slate-500">Target GPS coordinates & verification radius</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOfficeConfigModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveOfficeConfig}>
+              <div className="p-6 space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Office Name</label>
+                  <input
+                    type="text"
+                    value={officeConfigForm.name}
+                    onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Office Street Address</label>
+                  <input
+                    type="text"
+                    value={officeConfigForm.address}
+                    onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, address: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Latitude (°N)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={officeConfigForm.latitude}
+                      onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Longitude (°E)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={officeConfigForm.longitude}
+                      onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Geofence Radius (meters)</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="10"
+                      max="5000"
+                      value={officeConfigForm.geofenceRadiusMeters}
+                      onChange={(e) =>
+                        setOfficeConfigForm((prev) => ({ ...prev, geofenceRadiusMeters: parseInt(e.target.value, 10) || 150 }))
+                      }
+                      className="w-32 px-3 py-2 border border-slate-200 rounded-lg font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
+                      required
+                    />
+                    <span className="text-slate-500 text-[11px]">
+                      Recommended: 150m for building and campus perimeter coverage
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOfficeConfigForm({
+                        name: 'White Collar Realty Corporate HQ',
+                        address: 'Iris Broadway, Sector 85, Gurugram, Haryana 122004',
+                        latitude: 28.4069,
+                        longitude: 76.9691,
+                        geofenceRadiusMeters: 150,
+                      })
+                    }
+                    className="text-[11px] text-amber-700 hover:text-amber-900 font-semibold underline cursor-pointer"
+                  >
+                    Reset to Default WCR Headquarters (Iris Broadway, Gurugram)
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowOfficeConfigModal(false)}
+                  className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors cursor-pointer shadow-sm"
+                >
+                  Save Configuration
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
