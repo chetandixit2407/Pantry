@@ -138,6 +138,33 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
     currentUser && currentUser.role !== 'PANTRY_BOY' && hasPermission('tasks', 'delete')
   );
 
+  const isPantryBoyTask = useCallback(
+    (task?: Task | null): boolean => {
+      if (!task) return false;
+      const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
+      const targetUser = users.find((u) => u.email.toLowerCase() === assignedEmail);
+      if (targetUser && targetUser.role === 'PANTRY_BOY') return true;
+      if (targetUser && targetUser.role !== 'PANTRY_BOY') return false;
+      const assignedName = (task.assignedToName || '').toLowerCase();
+      if (assignedName.includes('pantry') || assignedEmail.includes('pantry')) {
+        return true;
+      }
+      const pType = String(task.taskType || '');
+      if (
+        pType === 'ROUTINE_CLEANING' ||
+        pType === 'WATER_DISTRIBUTION' ||
+        pType === 'WATER_RECHECK' ||
+        pType === 'PLANTS' ||
+        pType === 'OUTER_AREA' ||
+        pType === 'CLOSING_INSPECTION'
+      ) {
+        return true;
+      }
+      return false;
+    },
+    [users]
+  );
+
   useEffect(() => {
     const allowedSettings: Array<'ROOMS' | 'USERS' | 'AUDIT'> = [];
     if (canViewRooms) allowedSettings.push('ROOMS');
@@ -821,14 +848,25 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const requestDeleteTask = useCallback(
     (task: Task) => {
       if (!canDeleteTask) return;
+      if (isPantryBoyTask(task)) {
+        setDeleteTaskError(
+          'Business policy: Pantry Boy tasks are permanent operational records and cannot be deleted.'
+        );
+        return;
+      }
       setDeleteTaskError(null);
       setTaskPendingDelete(task);
     },
-    [canDeleteTask]
+    [canDeleteTask, isPantryBoyTask]
   );
 
   const confirmAndExecuteDeleteTask = async () => {
     if (!taskPendingDelete || !canDeleteTask || isDeletingTask) return;
+    if (isPantryBoyTask(taskPendingDelete)) {
+      setDeleteTaskError('Business policy: Pantry Boy tasks are permanent operational records and cannot be deleted.');
+      setTaskPendingDelete(null);
+      return;
+    }
     const targetId = taskPendingDelete.id;
     setIsDeletingTask(true);
     setDeleteTaskError(null);
@@ -2182,7 +2220,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                                   <Camera className="w-3.5 h-3.5" />
                                 </button>
                               )}
-                              {canDeleteTask && (
+                              {canDeleteTask && !isPantryBoyTask(task) && (
                                 <button
                                   type="button"
                                   onPointerDown={(e) => e.stopPropagation()}
@@ -2665,7 +2703,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         </button>
                       )}
 
-                      {canDeleteTask && (
+                      {canDeleteTask && !isPantryBoyTask(task) && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -3130,7 +3168,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Active Task</span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] font-mono text-amber-700 font-bold">{activeTask.status}</span>
-                              {canDeleteTask && (
+                              {canDeleteTask && !isPantryBoyTask(activeTask) && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -4051,7 +4089,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                       Cancel This Task
                     </button>
                   )}
-                  {canDeleteTask && (
+                  {canDeleteTask && !isPantryBoyTask(editingTask) && (
                     <button
                       type="button"
                       disabled={savingTaskEdit}
@@ -5510,7 +5548,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             >
                               View in Grid
                             </button>
-                            {canDeleteTask && (
+                            {canDeleteTask && !isPantryBoyTask(task) && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -5676,7 +5714,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                               >
                                 View in Grid
                               </button>
-                              {canDeleteTask && (
+                              {canDeleteTask && !isPantryBoyTask(task) && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -5805,7 +5843,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                                 >
                                   Open Task in Grid
                                 </button>
-                                {canDeleteTask && (
+                                {canDeleteTask && !isPantryBoyTask(task) && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -6047,7 +6085,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             >
                               Details
                             </button>
-                            {canDeleteTask && (
+                            {canDeleteTask && !isPantryBoyTask(task) && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -6665,7 +6703,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 </div>
 
                 <div className="flex items-center gap-2 ml-auto">
-                  {canDeleteTasks && (
+                  {canDeleteTasks && !isPantryBoyTask(selectedDetailTask) && (
                     <button
                       type="button"
                       disabled={taskDetailActionLoading}

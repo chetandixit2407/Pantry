@@ -23,7 +23,9 @@ export function deduplicateRepeatedPhrases(raw?: string): string {
       .replace(/\b(?:the[ \t]+){2,}community\b/gi, 'Community')
       .replace(/\bprestige(?:[ \t]+loft){2,}\b/gi, 'Prestige Loft')
       .replace(/\bprime(?:[ \t]+loft){2,}\b/gi, 'Prime Loft')
-      .replace(/\belegance[ \t]+suite(?:[ \t]*\(kimmi[ \t]+suite\)){2,}/gi, 'Elegance Suite (Kimmi Suite)');
+      .replace(/(?:elegance[ \t]+suite[ \t]*\()+[ \t]*elegance[ \t]+suite[ \t]*\(kimmi[ \t]+(?:mam[ \t]+room|suite)\)\)+/gi, 'Elegance Suite (Kimmi Mam Room)')
+      .replace(/\belegance[ \t]+suite(?:[ \t]*\(kimmi[ \t]+(?:mam[ \t]+room|suite)\)){1,}/gi, 'Elegance Suite (Kimmi Mam Room)')
+      .replace(/\belegance[ \t]+suite[ \t]*\(kimmi[ \t]+suite\)/gi, 'Elegance Suite (Kimmi Mam Room)');
 
     // 2. Collapse duplicate adjacent bracketed or parenthetical tags: "[URGENT] [URGENT]" or "(X) (X)"
     for (let i = 0; i < 4; i++) {
@@ -84,14 +86,16 @@ export function normalizeDisplayText(val?: string): string {
     .replace(/kimmy\.mam@whitecollarrealty\.com/gi, 'kimmi.mam@whitecollarrealty.com')
     .replace(/Kimmy/g, 'Kimmi')
     .replace(/kimmy/g, 'kimmi')
-    .replace(/(?:Lalit Sir's|Executive Cabins?) and Kimmi's Cabins?/gi, 'Lalit Sir Room and Kimmi Mam Room')
+    .replace(/(?:Lalit Sir's|Executive Cabins?) and Kimmi's Cabins?/gi, 'Lalit Sir Room and Elegance Suite (Kimmi Mam Room)')
     .replace(/\bLalit Sir's Cabin\b/gi, 'Lalit Sir Room')
     .replace(/\bExecutive Cabin\b/gi, 'Lalit Sir Room')
-    .replace(/\bKimmi's Cabin\b/gi, 'Kimmi Mam Room')
+    .replace(/\bKimmi's Cabin\b/gi, 'Elegance Suite (Kimmi Mam Room)')
+    .replace(/(?<!Elegance Suite\s*\()\bKimmi Mam Room\b/gi, 'Elegance Suite (Kimmi Mam Room)')
     .replace(/\bBCR Air\b/gi, 'WCR Air')
     .replace(/\bPrime Block\b/gi, 'Prime Loft')
     .replace(/\b(?:Residency|Redeincy)\b/gi, 'Regency')
-    .replace(/\bAllegation Suite\b/gi, 'Elegance Suite (Kimmi Suite)')
+    .replace(/\bAllegation Suite\b/gi, 'Elegance Suite (Kimmi Mam Room)')
+    .replace(/\bElegance Suite[ \t]*\(Kimmi Suite\)/gi, 'Elegance Suite (Kimmi Mam Room)')
     .replace(/\bPrestige Block(?:[ \t]*[–-][ \t]*Waiting Room)?\b/gi, 'Prestige Loft')
     .replace(/\s*before 8:00 PM shift end/gi, '')
     .replace(/Automatic Shift-End Scheduler/gi, 'Automatic Closing Scheduler')
@@ -120,8 +124,8 @@ export function normalizeRoomName(name?: string): string {
   if (/^summit$/i.test(cleaned)) return 'The Summit';
   if (/^(?:the[ \t]+)?community$/i.test(cleaned)) return 'Community';
   if (/^(?:executive[ \t]+cabin|lalit[ \t]+sir'?s?[ \t]+(?:cabin|room))$/i.test(cleaned)) return 'Lalit Sir Room';
-  if (/^(?:kimmi'?s?[ \t]+cabin|kimmi[ \t]+mam'?s?[ \t]+(?:cabin|room))$/i.test(cleaned)) return 'Kimmi Mam Room';
-  if (/^allegation$/i.test(cleaned)) return 'Elegance Suite (Kimmi Suite)';
+  if (/^(?:kimmi'?s?[ \t]+cabin|kimmi[ \t]+mam'?s?[ \t]+(?:cabin|room))$/i.test(cleaned)) return 'Elegance Suite (Kimmi Mam Room)';
+  if (/^(?:allegation|allegation[ \t]+suite|elegance(?:[ \t]+suite)?(?:[ \t]*\((?:kimmi[ \t]+(?:mam[ \t]+room|suite)|kimmi)\))?)$/i.test(cleaned)) return 'Elegance Suite (Kimmi Mam Room)';
   return cleaned;
 }
 

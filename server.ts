@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import type {
   Role,
   UserAccount,
@@ -39,7 +40,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// AI Studio dev server must always run on port 3000. Ignore Cloud Run's internal PORT=8080.
+function resolveServerPort(): number {
+  const portArgIdx = process.argv.indexOf('--port');
+  if (portArgIdx !== -1 && process.argv[portArgIdx + 1]) {
+    const parsed = parseInt(process.argv[portArgIdx + 1], 10);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (process.env.PORT && process.env.PORT !== '8080') {
+    const parsed = parseInt(process.env.PORT, 10);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return 3000;
+}
+const PORT = resolveServerPort();
 
 // Body parser with 20MB limit for camera photo uploads
 app.use(express.json({ limit: '20mb' }));
@@ -383,24 +397,6 @@ const INITIAL_ROOMS: RoomArea[] = [
     ],
   },
   {
-    id: 'room-4',
-    name: 'Kimmi Mam Room',
-    category: 'EXECUTIVE_CABIN',
-    defaultPriority: 'P2',
-    photoRequired: true,
-    status: 'AVAILABLE',
-    recurrence: 'DAILY',
-    enabled: true,
-    setupConfig: { ...STANDARD_ROOM_SETUP },
-    defaultChecklist: [
-      'Verify Kimmi Mam Room configuration: 1 table + 4 chairs present and arranged',
-      'Sanitize executive desk, consultation table, and coasters',
-      'Clean and align all 4 chairs neatly',
-      'Replenish water supply, stationery, and verify room readiness',
-      'Capture and upload room verification photograph',
-    ],
-  },
-  {
     id: 'room-5',
     name: 'Prestige Loft',
     category: 'MEETING_SUITE',
@@ -492,7 +488,7 @@ const INITIAL_ROOMS: RoomArea[] = [
   },
   {
     id: 'room-10',
-    name: 'Elegance Suite (Kimmi Suite)',
+    name: 'Elegance Suite (Kimmi Mam Room)',
     category: 'MEETING_SUITE',
     defaultPriority: 'P3',
     photoRequired: true,
@@ -501,7 +497,7 @@ const INITIAL_ROOMS: RoomArea[] = [
     enabled: true,
     setupConfig: { ...STANDARD_ROOM_SETUP },
     defaultChecklist: [
-      'Verify Elegance Suite (Kimmi Suite) configuration: 1 table + 4 chairs present and undamaged',
+      'Verify Elegance Suite (Kimmi Mam Room) configuration: 1 table + 4 chairs present and undamaged',
       'Clean and sanitize the 1 meeting table and surfaces',
       'Clean and align all 4 chairs neatly with uniform spacing',
       'Complete room readiness check (water setup, blinds, ventilation, lighting, empty bin)',
@@ -779,8 +775,8 @@ function parseScheduledForIST(rawInput?: string, fallbackDate: Date = new Date()
 // - 4:00 PM: Refill & redistribute water bottles to every employee's desk
 // - 7:30 PM: Mandatory End-of-Day Office Closing Inspection
 const ROUTINE_SCHEDULE_SLOTS_IST: Record<string, { startHHMM: string; dueTime: string }> = {
-  reception: { startHHMM: '09:00', dueTime: '09:15 AM' },
-  desks: { startHHMM: '09:15', dueTime: '09:30 AM' },
+  desks: { startHHMM: '09:00', dueTime: '09:15 AM' },
+  reception: { startHHMM: '09:15', dueTime: '09:30 AM' },
   prestige: { startHHMM: '09:30', dueTime: '11:00 AM' },
   skyline: { startHHMM: '09:45', dueTime: '11:00 AM' },
   'water-10am': { startHHMM: '10:00', dueTime: '10:30 AM' },
@@ -788,7 +784,6 @@ const ROUTINE_SCHEDULE_SLOTS_IST: Record<string, { startHHMM: string; dueTime: s
   summit: { startHHMM: '10:25', dueTime: '11:00 AM' },
   'wcr-air': { startHHMM: '10:40', dueTime: '11:00 AM' },
   'exec-cabin': { startHHMM: '11:00', dueTime: '12:00 PM' },
-  'kimmi-cabin': { startHHMM: '11:15', dueTime: '12:00 PM' },
   'prime-loft': { startHHMM: '11:30', dueTime: '12:00 PM' },
   regency: { startHHMM: '11:45', dueTime: '12:00 PM' },
   plants: { startHHMM: '12:00', dueTime: '12:30 PM' },
@@ -808,10 +803,9 @@ const PRIORITY_1_ROUTINE_MAP: Array<{ roomId: string; slug: string; startHHMM: s
   { roomId: 'room-9', slug: 'wcr-air', startHHMM: '10:40', dueTime: '11:00 AM' },
 ];
 
-// Priority 2 — Complete by 12:00 PM (strictly after Priority 1 rooms, in exact 1–4 sequence)
+// Priority 2 — Complete by 12:00 PM (strictly after Priority 1 rooms)
 const PRIORITY_2_ROUTINE_MAP: Array<{ roomId: string; slug: string; startHHMM: string; dueTime: string }> = [
   { roomId: 'room-3', slug: 'exec-cabin', startHHMM: '11:00', dueTime: '12:00 PM' },
-  { roomId: 'room-4', slug: 'kimmi-cabin', startHHMM: '11:15', dueTime: '12:00 PM' },
   { roomId: 'room-11', slug: 'prime-loft', startHHMM: '11:30', dueTime: '12:00 PM' },
   { roomId: 'room-12', slug: 'regency', startHHMM: '11:45', dueTime: '12:00 PM' },
 ];
@@ -820,7 +814,6 @@ const BUILTIN_ROUTINE_ROOM_IDS = new Set([
   'room-1',
   'room-2',
   'room-3',
-  'room-4',
   'room-5',
   'room-6',
   'room-7',
@@ -887,16 +880,43 @@ function generateDailyTasks(
 
   const tasks: Task[] = [];
 
-  // 1. 9:00–9:30 AM: Reception (09:00 AM) & Employee Desk Cleaning FIRST (09:15 AM)
+  // 1. Employee Desk Cleaning FIRST (09:00 AM), then Reception (09:15 AM)
+  const desksRoom = getActiveRoom('room-2');
+  if (desksRoom) {
+    const scheduledFor = buildISTIso(today, ROUTINE_SCHEDULE_SLOTS_IST.desks.startHHMM);
+    const status = buildStatus(scheduledFor);
+    tasks.push({
+      id: `task-${today}-desks`,
+      title: '9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup',
+      description:
+        'Morning cleaning and setup of all Employee Desks (9:00–9:15 AM IST, completed first before room schedule): wipe workstation surfaces without disturbing documents, align ergonomic chairs, and prepare desk rows.',
+      roomAreaId: desksRoom.id,
+      roomAreaName: desksRoom.name,
+      priority: 'P1',
+      taskType: 'ROUTINE_CLEANING',
+      assignedToEmail: assignedPantry.email,
+      assignedToName: assignedPantry.name,
+      createdByEmail: 'system@whitecollarrealty.com',
+      createdByName: 'Automatic Daily IST Scheduler',
+      createdAt: createdMorningIso,
+      scheduledFor,
+      dueTime: ROUTINE_SCHEDULE_SLOTS_IST.desks.dueTime,
+      status,
+      isUrgent: false,
+      checklist: toChecklistItems(desksRoom.defaultChecklist),
+      changeHistory: [],
+    });
+  }
+
   const receptionRoom = getActiveRoom('room-1');
   if (receptionRoom) {
     const scheduledFor = buildISTIso(today, ROUTINE_SCHEDULE_SLOTS_IST.reception.startHHMM);
     const status = buildStatus(scheduledFor);
     tasks.push({
       id: `task-${today}-reception`,
-      title: '9:00–9:30 AM – Reception Cleaning & Front-Desk Setup',
+      title: '9:15–9:30 AM – Reception Cleaning & Front-Desk Setup',
       description:
-        'Morning cleaning and setup of Reception (9:00–9:30 AM IST): sanitize marble counter and glass surfaces, align visitor seating, arrange registers/brochures, and verify readiness.',
+        'Morning cleaning and setup of Reception (9:15–9:30 AM IST): sanitize marble counter and glass surfaces, align visitor seating, arrange registers/brochures, and verify readiness.',
       roomAreaId: receptionRoom.id,
       roomAreaName: receptionRoom.name,
       priority: 'P1',
@@ -918,36 +938,9 @@ function generateDailyTasks(
           actorName: 'IST Daily Scheduler',
           fromStatus: 'NONE',
           toStatus: status,
-          note: 'Generated for 9:00–9:30 AM IST Reception cleaning & setup window',
+          note: 'Generated for 9:15–9:30 AM IST Reception cleaning & setup window',
         },
       ],
-    });
-  }
-
-  const desksRoom = getActiveRoom('room-2');
-  if (desksRoom) {
-    const scheduledFor = buildISTIso(today, ROUTINE_SCHEDULE_SLOTS_IST.desks.startHHMM);
-    const status = buildStatus(scheduledFor);
-    tasks.push({
-      id: `task-${today}-desks`,
-      title: '9:00–9:30 AM – Employee Desk Cleaning & Workstation Setup',
-      description:
-        'Morning cleaning and setup of all Employee Desks (9:00–9:30 AM IST, completed before Priority 1 room schedule): wipe workstation surfaces without disturbing documents, align ergonomic chairs, and prepare desk rows.',
-      roomAreaId: desksRoom.id,
-      roomAreaName: desksRoom.name,
-      priority: 'P1',
-      taskType: 'ROUTINE_CLEANING',
-      assignedToEmail: assignedPantry.email,
-      assignedToName: assignedPantry.name,
-      createdByEmail: 'system@whitecollarrealty.com',
-      createdByName: 'Automatic Daily IST Scheduler',
-      createdAt: createdMorningIso,
-      scheduledFor,
-      dueTime: ROUTINE_SCHEDULE_SLOTS_IST.desks.dueTime,
-      status,
-      isUrgent: false,
-      checklist: toChecklistItems(desksRoom.defaultChecklist),
-      changeHistory: [],
     });
   }
 
@@ -1254,12 +1247,12 @@ function generateDailyTasks(
     const activeMeetingNames =
       preparedRoomNames.length > 0
         ? preparedRoomNames.join(', ')
-        : 'Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Kimmi Mam Room, Prime Loft, Regency, Elegance Suite (Kimmi Suite)';
+        : 'Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Prime Loft, Regency, Elegance Suite (Kimmi Mam Room)';
     tasks.push({
       id: `task-${today}-closing`,
       title: '7:30 PM – Mandatory End-of-Day Office Closing Inspection',
       description:
-        'Comprehensive end-of-day check: Reception, Employee Desks, Lalit Sir Room, Kimmi Mam Room, Meeting Rooms, Dustbins, and Pantry Appliance Lockdown.',
+        'Comprehensive end-of-day check: Reception, Employee Desks, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Meeting Rooms, Dustbins, and Pantry Appliance Lockdown.',
       roomAreaId: receptionRoom.id,
       roomAreaName: 'Reception & All Areas',
       priority: 'P1',
@@ -1276,7 +1269,7 @@ function generateDailyTasks(
       checklist: toChecklistItems([
         'Verify Reception is tidy and front-desk display turned off',
         'Verify all Employee Desks are clear and chairs neatly tucked',
-        'Check Lalit Sir Room and Kimmi Mam Room sanitized and secured',
+        'Check Lalit Sir Room and Elegance Suite (Kimmi Mam Room) sanitized and secured',
         `Ensure all active rooms (${activeMeetingNames}) are reset to verified table & chair layout`,
         'Confirm all dustbins emptied and liners replaced',
         'Ensure pantry appliances turned off and water taps closed',
@@ -2298,6 +2291,36 @@ interface ActiveSession {
 const activeSessions = new Map<string, ActiveSession>();
 const revokedTokens = new Set<string>();
 
+const SESSION_SECRET = process.env.SESSION_SECRET || 'wcr-smart-pantry-super-secret-key-2026';
+
+function generateSessionToken(userId: string): string {
+  const timestamp = Date.now();
+  const random = crypto.randomBytes(8).toString('hex');
+  const payload = `${userId}:${timestamp}:${random}`;
+  const hmac = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex').substring(0, 16);
+  return `wcr_sess_${userId}_${timestamp}_${random}_${hmac}`;
+}
+
+function verifyCryptographicToken(token: string): string | null {
+  const match = token.match(/^wcr_sess_(.+)_(\d+)_([a-f0-9]+)_([a-f0-9]{16})$/);
+  if (!match) return null;
+  const [, userId, timestamp, random, hmac] = match;
+  const ts = parseInt(timestamp, 10);
+  if (Number.isNaN(ts) || Date.now() - ts > 7 * 24 * 60 * 60 * 1000) {
+    return null;
+  }
+  const payload = `${userId}:${timestamp}:${random}`;
+  const expectedHmac = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex').substring(0, 16);
+  try {
+    if (crypto.timingSafeEqual(Buffer.from(hmac, 'utf8'), Buffer.from(expectedHmac, 'utf8'))) {
+      return userId;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function extractSessionToken(req?: express.Request): string {
   if (!req) return '';
   const authHeader = req.headers.authorization;
@@ -2319,11 +2342,10 @@ function getCurrentUser(req?: express.Request): UserAccount | null {
 
   let session = activeSessions.get(token);
   if (!session) {
-    // Recover valid unrevoked session across dev server restarts using exact token format
-    const match = token.match(/^wcr_sess_(.+)_\d+_[a-z0-9]+$/);
-    if (match) {
-      const recoveredUserId = match[1];
-      const targetUser = db.users.find((u) => u.id === recoveredUserId);
+    // Only recover sessions that have a valid cryptographic HMAC signature generated by this server
+    const verifiedUserId = verifyCryptographicToken(token);
+    if (verifiedUserId) {
+      const targetUser = db.users.find((u) => u.id === verifiedUserId);
       if (targetUser && targetUser.status !== 'inactive') {
         const newSession: ActiveSession = {
           token,
@@ -2403,8 +2425,8 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
 
-  // Generate trusted session token with 7-day validity
-  const token = `wcr_sess_${user.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  // Generate cryptographically signed session token with 7-day validity
+  const token = generateSessionToken(user.id);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   activeSessions.set(token, {
@@ -2471,7 +2493,7 @@ app.post('/api/auth/switch-user', (req, res) => {
     return res.status(403).json({ error: 'Cannot switch to deactivated account' });
   }
 
-  const token = `wcr_sess_${user.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const token = generateSessionToken(user.id);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   activeSessions.set(token, {
@@ -3987,6 +4009,30 @@ app.patch('/api/tasks/:id/checklist', (req, res) => {
   res.json({ success: true, task });
 });
 
+function isPantryBoyTask(task?: Task | null): boolean {
+  if (!task) return false;
+  const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
+  const assignedUser = db.users.find((u) => u.email.toLowerCase() === assignedEmail);
+  if (assignedUser && assignedUser.role === 'PANTRY_BOY') return true;
+  if (assignedUser && assignedUser.role !== 'PANTRY_BOY') return false;
+  const assignedName = (task.assignedToName || '').toLowerCase();
+  if (assignedName.includes('pantry') || assignedEmail.includes('pantry')) {
+    return true;
+  }
+  const pType = String(task.taskType || '');
+  if (
+    pType === 'ROUTINE_CLEANING' ||
+    pType === 'WATER_DISTRIBUTION' ||
+    pType === 'WATER_RECHECK' ||
+    pType === 'PLANTS' ||
+    pType === 'OUTER_AREA' ||
+    pType === 'CLOSING_INSPECTION'
+  ) {
+    return true;
+  }
+  return false;
+}
+
 app.delete('/api/tasks/:id', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) {
@@ -4011,6 +4057,16 @@ app.delete('/api/tasks/:id', (req, res) => {
   const taskIndex = db.tasks.findIndex((t) => t.id === decodedId || t.id === rawParamId);
   if (taskIndex === -1) {
     return res.status(404).json({ error: 'Task not found or already deleted.' });
+  }
+
+  const targetTask = db.tasks[taskIndex];
+
+  // Business Rule: Pantry Boy tasks must never be deletable; all other tasks must support deletion.
+  if (isPantryBoyTask(targetTask)) {
+    return res.status(403).json({
+      error: 'Business rule violation: Pantry Boy tasks are permanent operational records and must never be deleted.',
+      code: 'PANTRY_TASK_NOT_DELETABLE',
+    });
   }
 
   const [removedTask] = db.tasks.splice(taskIndex, 1);
@@ -4733,13 +4789,13 @@ app.get('/api/reports/weekly', (req, res) => {
         ? frequentlyBlockedRooms
         : [
             { room: 'Prestige Loft', count: 4, primaryReason: 'Candidate interviews running over schedule' },
-            { room: 'Elegance Suite (Kimmi Suite)', count: 2, primaryReason: 'Confidential client dispute negotiation' },
+            { room: 'Elegance Suite (Kimmi Mam Room)', count: 2, primaryReason: 'Confidential client dispute negotiation' },
           ],
     photoVerificationScorePercent: totalPhotos > 0 ? Math.round((verifiedPhotos / totalPhotos) * 100) : 96,
     visitorPrepAverageMinutes: 8.4,
     keyRecommendations: [
-      'Employee Desk Cleaning completes by 9:30 AM IST, followed by Priority 1 rooms by 11:00 AM IST (Prestige Loft, The Skyline, Community, The Summit, WCR Air) and Priority 2 rooms by 12:00 PM IST (Lalit Sir Room, Kimmi Mam Room, Prime Loft, Regency).',
-      'Employee desk water distribution runs daily at 10:00 AM IST with full refill and redistribution at 4:00 PM IST, plus daily office plant watering at 12:00 PM IST.',
+      'Employee Desk Cleaning completes first, followed by Priority 1 rooms by 11:00 AM IST (Prestige Loft, The Skyline, Community, The Summit, WCR Air) and Priority 2 rooms by 12:00 PM IST (Lalit Sir Room, Prime Loft, Regency).',
+      'Employee desk water distribution runs daily at 10:00 AM IST with full refill and redistribution at 4:00 PM IST, plus daily office plant watering at 12:00 PM IST and Elegance Suite (Kimmi Mam Room) prep at 12:50 PM IST.',
       'End-of-day office closing checklist triggers at 7:30 PM IST, ensuring room lockdown and sanitary readiness at day end.',
     ],
   };
@@ -4800,6 +4856,7 @@ app.get('/api/notifications', (req, res) => {
   if (!actor) return res.json({ notifications: [] });
 
   const relevant = db.notifications.filter((n) => {
+    if (actor.role === 'ADMIN' || actor.isSuperAdmin) return true;
     if (!n.recipientRole && !n.recipientEmail) return true;
     if (n.recipientRole === actor.role) return true;
     if (n.recipientEmail === actor.email) return true;
@@ -5108,7 +5165,12 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true, allowedHosts: true },
+      server: {
+        middlewareMode: true,
+        allowedHosts: true,
+        hmr: process.env.DISABLE_HMR !== 'true',
+        watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
