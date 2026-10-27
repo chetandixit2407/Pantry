@@ -309,6 +309,7 @@ export const api = {
       employeeId: string;
       notes?: string;
       forceOverride?: boolean;
+      status?: RoomStatus;
     }
   ): Promise<{ room: RoomArea; assignment: RoomAssignment }> {
     const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(id)}/assign-employee`, {

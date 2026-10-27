@@ -3278,7 +3278,7 @@ app.post('/api/rooms/:id/assign-employee', (req, res) => {
     return res.status(400).json({ error: 'Cannot assign deactivated room. Please activate the room first.' });
   }
 
-  const { employeeId, notes, forceOverride } = req.body;
+  const { employeeId, notes, forceOverride, status } = req.body;
   if (!employeeId || String(employeeId).trim().length === 0) {
     return res.status(400).json({ error: 'Employee ID is required.' });
   }
@@ -3330,6 +3330,9 @@ app.post('/api/rooms/:id/assign-employee', (req, res) => {
     conflictingRoom.assignedEmployeeName = undefined;
     conflictingRoom.assignedEmployeeEmail = undefined;
     conflictingRoom.assignedEmployeeRole = undefined;
+    if (conflictingRoom.status === 'ASSIGNED' || conflictingRoom.status === 'OCCUPIED' || conflictingRoom.status === 'RESERVED') {
+      conflictingRoom.status = 'AVAILABLE';
+    }
     if (conflictingRoom.currentAssignment) {
       conflictingRoom.currentAssignment.status = 'COMPLETED';
       conflictingRoom.currentAssignment.releasedAt = now;
@@ -3358,6 +3361,12 @@ app.post('/api/rooms/:id/assign-employee', (req, res) => {
   room.assignedEmployeeName = targetEmployee.name;
   room.assignedEmployeeEmail = targetEmployee.email;
   room.assignedEmployeeRole = targetEmployee.role;
+
+  if (status && ['OCCUPIED', 'ASSIGNED', 'AVAILABLE', 'VACANT'].includes(status)) {
+    room.status = status as RoomStatus;
+  } else if (room.status === 'AVAILABLE' || room.status === 'VACANT') {
+    room.status = 'ASSIGNED';
+  }
 
   const assignment: RoomAssignment = {
     id: `assign-emp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -3438,6 +3447,10 @@ app.post(['/api/rooms/:id/unassign-employee', '/api/rooms/:id/unassign'], (req, 
     if (!room.assignmentHistory) room.assignmentHistory = [];
     room.assignmentHistory.unshift({ ...room.currentAssignment });
     room.currentAssignment = null;
+  }
+
+  if (room.status === 'ASSIGNED' || room.status === 'OCCUPIED' || room.status === 'RESERVED') {
+    room.status = 'AVAILABLE';
   }
 
   if (!room.statusHistory) room.statusHistory = [];

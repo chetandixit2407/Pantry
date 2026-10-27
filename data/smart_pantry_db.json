@@ -341,8 +341,354 @@
         "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
         "Capture and upload live room readiness verification photo"
       ],
-      "assignmentHistory": [],
-      "statusHistory": [],
+      "assignmentHistory": [
+        {
+          "id": "assign-emp-1793104662887-oamz",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Forced reassignment to testRoom3",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:37:42.884Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:37:42.904Z"
+        },
+        {
+          "id": "assign-emp-1793104662868-t9uv",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Priya Sen",
+          "reference": "Staff Assignment: Priya Sen (Human Resources & Facilities)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Candidate interviews today",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:37:42.868Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-hr-1",
+          "assignedEmployeeName": "Priya Sen",
+          "assignedEmployeeEmail": "priya.sen@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:37:42.876Z"
+        },
+        {
+          "id": "assign-emp-1793104466961-qavm",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Forced reassignment to testRoom3",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:34:26.959Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:34:26.976Z"
+        },
+        {
+          "id": "assign-emp-1793104466946-j8g1",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Priya Sen",
+          "reference": "Staff Assignment: Priya Sen (Human Resources & Facilities)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Candidate interviews today",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:34:26.946Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-hr-1",
+          "assignedEmployeeName": "Priya Sen",
+          "assignedEmployeeEmail": "priya.sen@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:34:26.952Z"
+        },
+        {
+          "id": "assign-emp-1793104438968-63nt",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Forced reassignment to testRoom3",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:33:58.966Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:33:58.981Z"
+        },
+        {
+          "id": "assign-emp-1793104438951-km13",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Priya Sen",
+          "reference": "Staff Assignment: Priya Sen (Human Resources & Facilities)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Candidate interviews today",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:33:58.951Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-hr-1",
+          "assignedEmployeeName": "Priya Sen",
+          "assignedEmployeeEmail": "priya.sen@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:33:58.960Z"
+        },
+        {
+          "id": "assign-emp-1793104317088-w0tl",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Forced reassignment to testRoom3",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:31:57.086Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:31:57.103Z"
+        },
+        {
+          "id": "assign-emp-1793104317078-njjl",
+          "roomAreaId": "room-5",
+          "roomAreaName": "Prestige Loft",
+          "visitorName": "Priya Sen",
+          "reference": "Staff Assignment: Priya Sen (Human Resources & Facilities)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Candidate interviews today",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T12:31:57.078Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-hr-1",
+          "assignedEmployeeName": "Priya Sen",
+          "assignedEmployeeEmail": "priya.sen@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:31:57.086Z"
+        }
+      ],
+      "statusHistory": [
+        {
+          "id": "hist-1793104662904",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:37:42.904Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Unassigned room from Raju Sharma by Priya Sen (HR)"
+        },
+        {
+          "id": "hist-1793104662887",
+          "status": "ASSIGNED",
+          "timestamp": "2026-10-27T12:37:42.884Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Forced reassignment to testRoom3",
+          "assignmentId": "assign-emp-1793104662887-oamz"
+        },
+        {
+          "id": "hist-1793104662876",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:37:42.876Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Priya Sen by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104662868",
+          "status": "ASSIGNED",
+          "timestamp": "2026-10-27T12:37:42.868Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Priya Sen (priya.sen@whitecollarrealty.com): Candidate interviews today",
+          "assignmentId": "assign-emp-1793104662868-t9uv"
+        },
+        {
+          "id": "hist-1793104662842",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:37:42.842Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104466976",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:34:26.976Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Unassigned room from Raju Sharma by Priya Sen (HR)"
+        },
+        {
+          "id": "hist-1793104466961",
+          "status": "ASSIGNED",
+          "timestamp": "2026-10-27T12:34:26.959Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Forced reassignment to testRoom3",
+          "assignmentId": "assign-emp-1793104466961-qavm"
+        },
+        {
+          "id": "hist-1793104466952",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:34:26.952Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Priya Sen by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104466946",
+          "status": "ASSIGNED",
+          "timestamp": "2026-10-27T12:34:26.946Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Priya Sen (priya.sen@whitecollarrealty.com): Candidate interviews today",
+          "assignmentId": "assign-emp-1793104466946-j8g1"
+        },
+        {
+          "id": "hist-1793104466930",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:34:26.930Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104438981",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.981Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Unassigned room from Raju Sharma by Priya Sen (HR)"
+        },
+        {
+          "id": "hist-1793104438968",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.966Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Forced reassignment to testRoom3",
+          "assignmentId": "assign-emp-1793104438968-63nt"
+        },
+        {
+          "id": "hist-1793104438960",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.960Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Priya Sen by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104438951",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.951Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Priya Sen (priya.sen@whitecollarrealty.com): Candidate interviews today",
+          "assignmentId": "assign-emp-1793104438951-km13"
+        },
+        {
+          "id": "hist-1793104438932",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.932Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104317103",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.103Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Unassigned room from Raju Sharma by Priya Sen (HR)"
+        },
+        {
+          "id": "hist-1793104317088",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.086Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Forced reassignment to testRoom3",
+          "assignmentId": "assign-emp-1793104317088-w0tl"
+        },
+        {
+          "id": "hist-1793104317078",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.078Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Priya Sen (priya.sen@whitecollarrealty.com): Candidate interviews today",
+          "assignmentId": "assign-emp-1793104317078-njjl"
+        },
+        {
+          "id": "hist-1793104317054",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.054Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        }
+      ],
       "currentAssignment": null,
       "setupConfig": {
         "tables": 1,
@@ -357,7 +703,7 @@
       "category": "MEETING_SUITE",
       "defaultPriority": "P1",
       "photoRequired": true,
-      "status": "AVAILABLE",
+      "status": "VACANT",
       "recurrence": "DAILY",
       "enabled": true,
       "defaultChecklist": [
@@ -367,8 +713,242 @@
         "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
         "Capture and upload live room readiness verification photo"
       ],
-      "assignmentHistory": [],
-      "statusHistory": [],
+      "assignmentHistory": [
+        {
+          "id": "assign-emp-1793104662852-rm8z",
+          "roomAreaId": "room-6",
+          "roomAreaName": "The Skyline",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Morning shift hospitality lead",
+          "assignedBy": "Operations Administrator (ADMIN)",
+          "assignedAt": "2026-10-27T12:37:42.852Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:37:42.884Z"
+        },
+        {
+          "id": "assign-emp-1793104466937-kyax",
+          "roomAreaId": "room-6",
+          "roomAreaName": "The Skyline",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Morning shift hospitality lead",
+          "assignedBy": "Operations Administrator (ADMIN)",
+          "assignedAt": "2026-10-27T12:34:26.937Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:34:26.959Z"
+        },
+        {
+          "id": "assign-emp-1793104438939-cyaa",
+          "roomAreaId": "room-6",
+          "roomAreaName": "The Skyline",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Morning shift hospitality lead",
+          "assignedBy": "Operations Administrator (ADMIN)",
+          "assignedAt": "2026-10-27T12:33:58.939Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:33:58.966Z"
+        },
+        {
+          "id": "assign-emp-1793104317064-gilz",
+          "roomAreaId": "room-6",
+          "roomAreaName": "The Skyline",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Morning shift hospitality lead",
+          "assignedBy": "Operations Administrator (ADMIN)",
+          "assignedAt": "2026-10-27T12:31:57.064Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:31:57.086Z"
+        }
+      ],
+      "statusHistory": [
+        {
+          "id": "hist-1793104662940",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:37:42.940Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Meeting concluded, room released",
+          "taskId": "task-rearrange-room-6-1793104662940-jeyv"
+        },
+        {
+          "id": "hist-1793104662916",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T12:37:42.916Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Executive team entering for client review",
+          "taskId": "task-water-room-6-1793104662916-hff5"
+        },
+        {
+          "id": "hist-1793104662852",
+          "status": "ASSIGNED",
+          "timestamp": "2026-10-27T12:37:42.852Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Morning shift hospitality lead",
+          "assignmentId": "assign-emp-1793104662852-rm8z"
+        },
+        {
+          "id": "hist-1793104662826",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:37:42.826Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104466997",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:34:26.997Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Meeting concluded, room released",
+          "taskId": "task-rearrange-room-6-1793104466997-q7s1"
+        },
+        {
+          "id": "hist-1793104466981",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T12:34:26.981Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Executive team entering for client review",
+          "taskId": "task-water-room-6-1793104466981-sw4q"
+        },
+        {
+          "id": "hist-1793104466937",
+          "status": "ASSIGNED",
+          "timestamp": "2026-10-27T12:34:26.937Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Morning shift hospitality lead",
+          "assignmentId": "assign-emp-1793104466937-kyax"
+        },
+        {
+          "id": "hist-1793104466920",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:34:26.920Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104439018",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:33:59.018Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Meeting concluded, room released",
+          "taskId": "task-rearrange-room-6-1793104439018-l8d3"
+        },
+        {
+          "id": "hist-1793104438987",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T12:33:58.987Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Executive team entering for client review",
+          "taskId": "task-water-room-6-1793104438987-smia"
+        },
+        {
+          "id": "hist-1793104438939",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:33:58.939Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Morning shift hospitality lead",
+          "assignmentId": "assign-emp-1793104438939-cyaa"
+        },
+        {
+          "id": "hist-1793104438920",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:33:58.920Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104317137",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T12:31:57.137Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Meeting concluded, room released",
+          "taskId": "task-rearrange-room-6-1793104317137-d6yp"
+        },
+        {
+          "id": "hist-1793104317113",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T12:31:57.113Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Executive team entering for client review",
+          "taskId": "task-water-room-6-1793104317113-7sl5"
+        },
+        {
+          "id": "hist-1793104317064",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.064Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com): Morning shift hospitality lead",
+          "assignmentId": "assign-emp-1793104317064-gilz"
+        },
+        {
+          "id": "hist-1793104317040",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.040Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        }
+      ],
       "currentAssignment": null,
       "setupConfig": {
         "tables": 1,
@@ -419,8 +999,202 @@
         "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
         "Capture and upload live room readiness verification photo"
       ],
-      "assignmentHistory": [],
-      "statusHistory": [],
+      "assignmentHistory": [
+        {
+          "id": "assign-emp-1793104662859-xfk3",
+          "roomAreaId": "room-8",
+          "roomAreaName": "The Summit",
+          "visitorName": "Kimmi",
+          "reference": "Staff Assignment: Kimmi (Co-Founder)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Executive board prep meeting",
+          "assignedBy": "Priya Sen (HR)",
+          "assignedAt": "2026-10-27T12:37:42.859Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-kimmy-1",
+          "assignedEmployeeName": "Kimmi",
+          "assignedEmployeeEmail": "kimmi.mam@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:37:42.897Z"
+        },
+        {
+          "id": "assign-emp-1793104466941-zca6",
+          "roomAreaId": "room-8",
+          "roomAreaName": "The Summit",
+          "visitorName": "Kimmi",
+          "reference": "Staff Assignment: Kimmi (Co-Founder)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Executive board prep meeting",
+          "assignedBy": "Priya Sen (HR)",
+          "assignedAt": "2026-10-27T12:34:26.941Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-kimmy-1",
+          "assignedEmployeeName": "Kimmi",
+          "assignedEmployeeEmail": "kimmi.mam@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:34:26.971Z"
+        },
+        {
+          "id": "assign-emp-1793104438945-gk49",
+          "roomAreaId": "room-8",
+          "roomAreaName": "The Summit",
+          "visitorName": "Kimmi",
+          "reference": "Staff Assignment: Kimmi (Co-Founder)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Executive board prep meeting",
+          "assignedBy": "Priya Sen (HR)",
+          "assignedAt": "2026-10-27T12:33:58.945Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-kimmy-1",
+          "assignedEmployeeName": "Kimmi",
+          "assignedEmployeeEmail": "kimmi.mam@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:33:58.976Z"
+        },
+        {
+          "id": "assign-emp-1793104317070-ld1t",
+          "roomAreaId": "room-8",
+          "roomAreaName": "The Summit",
+          "visitorName": "Kimmi",
+          "reference": "Staff Assignment: Kimmi (Co-Founder)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Executive board prep meeting",
+          "assignedBy": "Priya Sen (HR)",
+          "assignedAt": "2026-10-27T12:31:57.070Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-kimmy-1",
+          "assignedEmployeeName": "Kimmi",
+          "assignedEmployeeEmail": "kimmi.mam@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T12:31:57.096Z"
+        }
+      ],
+      "statusHistory": [
+        {
+          "id": "hist-1793104662897",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:37:42.897Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Kimmi by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104662860",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T12:37:42.859Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Assigned room to employee Kimmi (kimmi.mam@whitecollarrealty.com): Executive board prep meeting",
+          "assignmentId": "assign-emp-1793104662859-xfk3"
+        },
+        {
+          "id": "hist-1793104662835",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:37:42.835Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104466971",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:34:26.971Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Kimmi by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104466941",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T12:34:26.941Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Assigned room to employee Kimmi (kimmi.mam@whitecollarrealty.com): Executive board prep meeting",
+          "assignmentId": "assign-emp-1793104466941-zca6"
+        },
+        {
+          "id": "hist-1793104466926",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:34:26.926Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104438976",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.976Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Kimmi by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104438945",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.945Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Assigned room to employee Kimmi (kimmi.mam@whitecollarrealty.com): Executive board prep meeting",
+          "assignmentId": "assign-emp-1793104438945-gk49"
+        },
+        {
+          "id": "hist-1793104438926",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:33:58.926Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104317096",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.096Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Kimmi by Operations Administrator (ADMIN)"
+        },
+        {
+          "id": "hist-1793104317070",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.070Z",
+          "actorName": "Priya Sen",
+          "actorEmail": "priya.sen@whitecollarrealty.com",
+          "note": "Assigned room to employee Kimmi (kimmi.mam@whitecollarrealty.com): Executive board prep meeting",
+          "assignmentId": "assign-emp-1793104317070-ld1t"
+        },
+        {
+          "id": "hist-1793104317047",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T12:31:57.047Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Unassigned room from Employee by Operations Administrator (ADMIN)"
+        }
+      ],
       "currentAssignment": null,
       "setupConfig": {
         "tables": 1,
@@ -699,6 +1473,230 @@
     }
   ],
   "tasks": [
+    {
+      "id": "task-rearrange-room-6-1793104662940-jeyv",
+      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "P2",
+      "taskType": "VISITOR_RESET",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
+      "createdByName": "Kimmi",
+      "createdAt": "2026-10-27T12:37:42.940Z",
+      "scheduledFor": "2026-10-27T12:37:42.940Z",
+      "dueTime": "Within 20 mins",
+      "status": "AVAILABLE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live photo verification to certify room readiness",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:37:42.940Z",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "actorName": "Kimmi",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:37:42.940Z"
+    },
+    {
+      "id": "task-water-room-6-1793104662916-hff5",
+      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T12:37:42.916Z",
+      "scheduledFor": "2026-10-27T12:37:42.916Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "AVAILABLE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:37:42.916Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:37:42.916Z"
+    },
+    {
+      "id": "task-rearrange-room-6-1793104466997-q7s1",
+      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "P2",
+      "taskType": "VISITOR_RESET",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
+      "createdByName": "Kimmi",
+      "createdAt": "2026-10-27T12:34:26.997Z",
+      "scheduledFor": "2026-10-27T12:34:26.997Z",
+      "dueTime": "Within 20 mins",
+      "status": "AVAILABLE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live photo verification to certify room readiness",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:34:26.997Z",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "actorName": "Kimmi",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:34:26.997Z"
+    },
+    {
+      "id": "task-water-room-6-1793104466981-sw4q",
+      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T12:34:26.981Z",
+      "scheduledFor": "2026-10-27T12:34:26.981Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "AVAILABLE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:34:26.981Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:34:26.981Z"
+    },
     {
       "id": "task-2026-10-26-desks",
       "title": "9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup",
@@ -1388,7 +2386,7 @@
     {
       "id": "task-2026-10-26-outer-area",
       "title": "12:20 PM – Clean Areas Outside & Around Prepared Rooms",
-      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
+      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
       "roomAreaId": "room-14",
       "roomAreaName": "Outer Area",
       "priority": "P3",
@@ -1405,7 +2403,7 @@
       "checklist": [
         {
           "id": "c-1",
-          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
+          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
           "completed": false
         },
         {
@@ -1594,7 +2592,7 @@
         },
         {
           "id": "c-4",
-          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
+          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
           "completed": false
         },
         {
@@ -2635,7 +3633,7 @@
       "createdAt": "2026-10-27T11:23:46.904Z",
       "scheduledFor": "2026-10-27T11:23:46.904Z",
       "dueTime": "Immediate (within 10 mins)",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": true,
       "checklist": [
         {
@@ -2672,9 +3670,19 @@
           "fromStatus": "NONE",
           "toStatus": "AVAILABLE",
           "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        },
+        {
+          "timestamp": "2026-10-27T12:28:45.666Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
         }
       ],
-      "dueAlertSentFor": "2026-10-27T11:23:46.904Z"
+      "dueAlertSentFor": "2026-10-27T11:23:46.904Z",
+      "fiveMinAlertSentFor": "2026-10-27T11:23:46.904Z",
+      "overdueMarkedFor": "2026-10-27T11:23:46.904Z"
     },
     {
       "id": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte",
@@ -2691,7 +3699,7 @@
       "createdAt": "2026-10-27T11:23:46.924Z",
       "scheduledFor": "2026-10-27T11:23:46.924Z",
       "dueTime": "Within 20 mins",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": false,
       "checklist": [
         {
@@ -2728,9 +3736,19 @@
           "fromStatus": "NONE",
           "toStatus": "AVAILABLE",
           "note": "Auto-generated upon room transition to VACANT by Operations Administrator (ADMIN)"
+        },
+        {
+          "timestamp": "2026-10-27T12:28:45.666Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Within 20 mins)"
         }
       ],
-      "dueAlertSentFor": "2026-10-27T11:23:46.924Z"
+      "dueAlertSentFor": "2026-10-27T11:23:46.924Z",
+      "fiveMinAlertSentFor": "2026-10-27T11:23:46.924Z",
+      "overdueMarkedFor": "2026-10-27T11:23:46.924Z"
     },
     {
       "id": "task-water-room-test-audit-1793100226892-1793100226947-25ng",
@@ -2747,7 +3765,7 @@
       "createdAt": "2026-10-27T11:23:46.947Z",
       "scheduledFor": "2026-10-27T11:23:46.947Z",
       "dueTime": "Immediate (within 10 mins)",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": true,
       "checklist": [
         {
@@ -2784,9 +3802,245 @@
           "fromStatus": "NONE",
           "toStatus": "AVAILABLE",
           "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        },
+        {
+          "timestamp": "2026-10-27T12:28:45.666Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
         }
       ],
-      "dueAlertSentFor": "2026-10-27T11:23:46.947Z"
+      "dueAlertSentFor": "2026-10-27T11:23:46.947Z",
+      "fiveMinAlertSentFor": "2026-10-27T11:23:46.947Z",
+      "overdueMarkedFor": "2026-10-27T11:23:46.947Z"
+    },
+    {
+      "id": "task-water-room-6-1793104317113-7sl5",
+      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T12:31:57.113Z",
+      "scheduledFor": "2026-10-27T12:31:57.113Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "AVAILABLE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:31:57.113Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:31:57.113Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:31:57.113Z"
+    },
+    {
+      "id": "task-rearrange-room-6-1793104317137-d6yp",
+      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "P2",
+      "taskType": "VISITOR_RESET",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
+      "createdByName": "Kimmi",
+      "createdAt": "2026-10-27T12:31:57.137Z",
+      "scheduledFor": "2026-10-27T12:31:57.137Z",
+      "dueTime": "Within 20 mins",
+      "status": "AVAILABLE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live photo verification to certify room readiness",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:31:57.137Z",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "actorName": "Kimmi",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:31:57.137Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:31:57.137Z"
+    },
+    {
+      "id": "task-water-room-6-1793104438987-smia",
+      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T12:33:58.987Z",
+      "scheduledFor": "2026-10-27T12:33:58.987Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "AVAILABLE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:33:58.987Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:33:58.987Z"
+    },
+    {
+      "id": "task-rearrange-room-6-1793104439018-l8d3",
+      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "P2",
+      "taskType": "VISITOR_RESET",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
+      "createdByName": "Kimmi",
+      "createdAt": "2026-10-27T12:33:59.018Z",
+      "scheduledFor": "2026-10-27T12:33:59.018Z",
+      "dueTime": "Within 20 mins",
+      "status": "AVAILABLE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live photo verification to certify room readiness",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:33:59.018Z",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "actorName": "Kimmi",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:33:59.018Z"
     },
     {
       "id": "task-2026-10-27-closing",
@@ -2874,6 +4128,1018 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793104662940-m5cb",
+      "timestamp": "2026-10-27T12:37:42.940Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from OCCUPIED to VACANT. Created automated chair/table rearrangement task \"[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline\" (#task-rearrange-room-6-1793104662940-jeyv) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104662916-v7aa",
+      "timestamp": "2026-10-27T12:37:42.916Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from AVAILABLE to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to The Skyline\" (#task-water-room-6-1793104662916-hff5) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104662904-qg4w",
+      "timestamp": "2026-10-27T12:37:42.904Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Raju Sharma by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104662897-ms0r",
+      "timestamp": "2026-10-27T12:37:42.897Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Kimmi by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104662887-a0jj",
+      "timestamp": "2026-10-27T12:37:42.887Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104662884-4edm",
+      "timestamp": "2026-10-27T12:37:42.884Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Raju Sharma due to reassignment override to \"Prestige Loft\"."
+    },
+    {
+      "id": "audit-1793104662876-f3cg",
+      "timestamp": "2026-10-27T12:37:42.876Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Priya Sen by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104662868-4lmx",
+      "timestamp": "2026-10-27T12:37:42.868Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Priya Sen (priya.sen@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104662860-2y45",
+      "timestamp": "2026-10-27T12:37:42.860Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Assigned room \"The Summit\" to employee Kimmi (kimmi.mam@whitecollarrealty.com) by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104662852-y2mc",
+      "timestamp": "2026-10-27T12:37:42.852Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Assigned room \"The Skyline\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104662842-61tx",
+      "timestamp": "2026-10-27T12:37:42.842Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104662835-jn56",
+      "timestamp": "2026-10-27T12:37:42.835Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104662826-geo1",
+      "timestamp": "2026-10-27T12:37:42.826Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104662815-uwdt",
+      "timestamp": "2026-10-27T12:37:42.815Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGIN_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged in at 06:07:42 pm IST."
+    },
+    {
+      "id": "audit-1793104662810-j03q",
+      "timestamp": "2026-10-27T12:37:42.810Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104662807-h4w2",
+      "timestamp": "2026-10-27T12:37:42.807Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104662804-uln4",
+      "timestamp": "2026-10-27T12:37:42.804Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104662798-0cey",
+      "timestamp": "2026-10-27T12:37:42.798Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104490449-4hg8",
+      "timestamp": "2026-10-27T12:34:50.449Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104486302-tp73",
+      "timestamp": "2026-10-27T12:34:46.302Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104486300-2jkh",
+      "timestamp": "2026-10-27T12:34:46.300Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGOUT_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged out at 06:04:46 pm IST. Total working duration: 0h 1m."
+    },
+    {
+      "id": "audit-1793104466997-e3ub",
+      "timestamp": "2026-10-27T12:34:26.997Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from OCCUPIED to VACANT. Created automated chair/table rearrangement task \"[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline\" (#task-rearrange-room-6-1793104466997-q7s1) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104466981-revz",
+      "timestamp": "2026-10-27T12:34:26.981Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from AVAILABLE to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to The Skyline\" (#task-water-room-6-1793104466981-sw4q) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104466976-rizb",
+      "timestamp": "2026-10-27T12:34:26.976Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Raju Sharma by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104466971-58xz",
+      "timestamp": "2026-10-27T12:34:26.971Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Kimmi by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104466961-8oav",
+      "timestamp": "2026-10-27T12:34:26.961Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104466959-g8or",
+      "timestamp": "2026-10-27T12:34:26.959Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Raju Sharma due to reassignment override to \"Prestige Loft\"."
+    },
+    {
+      "id": "audit-1793104466952-t8br",
+      "timestamp": "2026-10-27T12:34:26.952Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Priya Sen by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104466946-uaec",
+      "timestamp": "2026-10-27T12:34:26.946Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Priya Sen (priya.sen@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104466941-n09d",
+      "timestamp": "2026-10-27T12:34:26.941Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Assigned room \"The Summit\" to employee Kimmi (kimmi.mam@whitecollarrealty.com) by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104466937-hinp",
+      "timestamp": "2026-10-27T12:34:26.937Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Assigned room \"The Skyline\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104466930-q2vf",
+      "timestamp": "2026-10-27T12:34:26.930Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104466926-aq71",
+      "timestamp": "2026-10-27T12:34:26.926Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104466920-it20",
+      "timestamp": "2026-10-27T12:34:26.920Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104466908-2ahi",
+      "timestamp": "2026-10-27T12:34:26.908Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104466905-ne6o",
+      "timestamp": "2026-10-27T12:34:26.905Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104466900-qt9x",
+      "timestamp": "2026-10-27T12:34:26.900Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104466893-3ovg",
+      "timestamp": "2026-10-27T12:34:26.893Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104439280-k40w",
+      "timestamp": "2026-10-27T12:33:59.280Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104439018-z33s",
+      "timestamp": "2026-10-27T12:33:59.018Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from OCCUPIED to VACANT. Created automated chair/table rearrangement task \"[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline\" (#task-rearrange-room-6-1793104439018-l8d3) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104438987-xi4y",
+      "timestamp": "2026-10-27T12:33:58.987Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from VACANT to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to The Skyline\" (#task-water-room-6-1793104438987-smia) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104438981-pqv0",
+      "timestamp": "2026-10-27T12:33:58.981Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Raju Sharma by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104438976-bvmt",
+      "timestamp": "2026-10-27T12:33:58.976Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Kimmi by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104438968-2xz8",
+      "timestamp": "2026-10-27T12:33:58.968Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104438966-cwqx",
+      "timestamp": "2026-10-27T12:33:58.966Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Raju Sharma due to reassignment override to \"Prestige Loft\"."
+    },
+    {
+      "id": "audit-1793104438960-bsp2",
+      "timestamp": "2026-10-27T12:33:58.960Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Priya Sen by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104438951-mkkm",
+      "timestamp": "2026-10-27T12:33:58.951Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Priya Sen (priya.sen@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104438945-t39m",
+      "timestamp": "2026-10-27T12:33:58.945Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Assigned room \"The Summit\" to employee Kimmi (kimmi.mam@whitecollarrealty.com) by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104438939-7mvp",
+      "timestamp": "2026-10-27T12:33:58.939Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Assigned room \"The Skyline\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104438932-ncme",
+      "timestamp": "2026-10-27T12:33:58.932Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104438926-wlh9",
+      "timestamp": "2026-10-27T12:33:58.926Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104438920-h7v2",
+      "timestamp": "2026-10-27T12:33:58.920Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104438912-ivj0",
+      "timestamp": "2026-10-27T12:33:58.912Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGIN_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged in at 06:03:58 pm IST."
+    },
+    {
+      "id": "audit-1793104438908-g36m",
+      "timestamp": "2026-10-27T12:33:58.908Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104438905-4rr5",
+      "timestamp": "2026-10-27T12:33:58.905Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104438902-eoay",
+      "timestamp": "2026-10-27T12:33:58.902Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104438897-9s64",
+      "timestamp": "2026-10-27T12:33:58.897Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104437964-a76m",
+      "timestamp": "2026-10-27T12:33:57.964Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104437962-2q2b",
+      "timestamp": "2026-10-27T12:33:57.962Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGOUT_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged out at 06:03:57 pm IST. Total working duration: 0h 2m."
+    },
+    {
+      "id": "audit-1793104425662-eokm",
+      "timestamp": "2026-10-27T12:33:45.662Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104424463-liol",
+      "timestamp": "2026-10-27T12:33:44.463Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104317137-d6fv",
+      "timestamp": "2026-10-27T12:31:57.137Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from OCCUPIED to VACANT. Created automated chair/table rearrangement task \"[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline\" (#task-rearrange-room-6-1793104317137-d6yp) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104317113-xrm3",
+      "timestamp": "2026-10-27T12:31:57.113Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Room \"The Skyline\" transitioned from AVAILABLE to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to The Skyline\" (#task-water-room-6-1793104317113-7sl5) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793104317103-rrwa",
+      "timestamp": "2026-10-27T12:31:57.103Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Raju Sharma by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104317096-odue",
+      "timestamp": "2026-10-27T12:31:57.096Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Kimmi by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104317088-z1wm",
+      "timestamp": "2026-10-27T12:31:57.088Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104317086-kyrp",
+      "timestamp": "2026-10-27T12:31:57.086Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Raju Sharma due to reassignment override to \"Prestige Loft\"."
+    },
+    {
+      "id": "audit-1793104317078-xw44",
+      "timestamp": "2026-10-27T12:31:57.078Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Assigned room \"Prestige Loft\" to employee Priya Sen (priya.sen@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793104317070-oma6",
+      "timestamp": "2026-10-27T12:31:57.070Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Assigned room \"The Summit\" to employee Kimmi (kimmi.mam@whitecollarrealty.com) by Priya Sen (HR)."
+    },
+    {
+      "id": "audit-1793104317064-gjug",
+      "timestamp": "2026-10-27T12:31:57.064Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Assigned room \"The Skyline\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104317054-kdc0",
+      "timestamp": "2026-10-27T12:31:57.054Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-5",
+      "details": "Unassigned room \"Prestige Loft\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104317047-lbm6",
+      "timestamp": "2026-10-27T12:31:57.047Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-8",
+      "details": "Unassigned room \"The Summit\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104317040-ql0t",
+      "timestamp": "2026-10-27T12:31:57.040Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-6",
+      "details": "Unassigned room \"The Skyline\" from Employee by Operations Administrator (ADMIN)."
+    },
+    {
+      "id": "audit-1793104317028-1glq",
+      "timestamp": "2026-10-27T12:31:57.028Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGIN_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged in at 06:01:57 pm IST."
+    },
+    {
+      "id": "audit-1793104317023-mm07",
+      "timestamp": "2026-10-27T12:31:57.023Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104317019-wimn",
+      "timestamp": "2026-10-27T12:31:57.019Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104317015-gtc7",
+      "timestamp": "2026-10-27T12:31:57.015Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104317010-lquo",
+      "timestamp": "2026-10-27T12:31:57.011Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104287373-pf0c",
+      "timestamp": "2026-10-27T12:31:27.373Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104284153-vp1v",
+      "timestamp": "2026-10-27T12:31:24.153Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104276810-k3kp",
+      "timestamp": "2026-10-27T12:31:16.810Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104275370-s5g0",
+      "timestamp": "2026-10-27T12:31:15.370Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104275368-4mvb",
+      "timestamp": "2026-10-27T12:31:15.368Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGOUT_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged out at 06:01:15 pm IST. Total working duration: 0h 1m."
+    },
+    {
+      "id": "audit-1793104268595-jsiy",
+      "timestamp": "2026-10-27T12:31:08.595Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGIN_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged in at 06:01:08 pm IST."
+    },
+    {
+      "id": "audit-1793104268590-f5l9",
+      "timestamp": "2026-10-27T12:31:08.590Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104267527-c64l",
+      "timestamp": "2026-10-27T12:31:07.527Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104252384-0rb9",
+      "timestamp": "2026-10-27T12:30:52.384Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104250238-wpds",
+      "timestamp": "2026-10-27T12:30:50.238Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104153841-1bta",
+      "timestamp": "2026-10-27T12:29:13.841Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793104151965-g0c4",
+      "timestamp": "2026-10-27T12:29:11.965Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793104151964-pa0n",
+      "timestamp": "2026-10-27T12:29:11.964Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGOUT_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged out at 05:59:11 pm IST. Total working duration: 1h 7m."
+    },
+    {
+      "id": "audit-1793104143564-soce",
+      "timestamp": "2026-10-27T12:29:03.564Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
     {
       "id": "audit-1793100238163-a6ou",
       "timestamp": "2026-10-27T11:23:58.163Z",
@@ -6001,6 +8267,246 @@
   ],
   "notifications": [
     {
+      "id": "notif-1793104662972-wi83",
+      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:07 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104662916-hff5",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:37:42.972Z"
+    },
+    {
+      "id": "notif-1793104662970-p8o7",
+      "title": "🔔 Task Time Now: [ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:07 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104662940-jeyv",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:37:42.970Z"
+    },
+    {
+      "id": "notif-1793104662942-t5m3",
+      "title": "🪑 Room Vacant: Rearrange The Skyline",
+      "message": "The Skyline is now VACANT. Please reset tables and rearrange all 4 chairs into standard configuration.",
+      "type": "ROOM_RELEASED",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104662940-jeyv",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:37:42.942Z"
+    },
+    {
+      "id": "notif-1793104662918-34jq",
+      "title": "💧 Water Delivery Needed: The Skyline",
+      "message": "The Skyline is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
+      "type": "URGENT_TASK",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104662916-hff5",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:37:42.918Z"
+    },
+    {
+      "id": "notif-1793104467938-dohw",
+      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:04 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104466981-sw4q",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:34:27.938Z"
+    },
+    {
+      "id": "notif-1793104467935-dzq1",
+      "title": "🔔 Task Time Now: [ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:04 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104466997-q7s1",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:34:27.935Z"
+    },
+    {
+      "id": "notif-1793104466999-vqly",
+      "title": "🪑 Room Vacant: Rearrange The Skyline",
+      "message": "The Skyline is now VACANT. Please reset tables and rearrange all 4 chairs into standard configuration.",
+      "type": "ROOM_RELEASED",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104466997-q7s1",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:34:26.999Z"
+    },
+    {
+      "id": "notif-1793104466983-1ecm",
+      "title": "💧 Water Delivery Needed: The Skyline",
+      "message": "The Skyline is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
+      "type": "URGENT_TASK",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104466981-sw4q",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:34:26.983Z"
+    },
+    {
+      "id": "notif-1793104439656-vk59",
+      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:03 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104438987-smia",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:33:59.656Z"
+    },
+    {
+      "id": "notif-1793104439652-4h8d",
+      "title": "🔔 Task Time Now: [ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:03 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104439018-l8d3",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:33:59.652Z"
+    },
+    {
+      "id": "notif-1793104439020-57l6",
+      "title": "🪑 Room Vacant: Rearrange The Skyline",
+      "message": "The Skyline is now VACANT. Please reset tables and rearrange all 4 chairs into standard configuration.",
+      "type": "ROOM_RELEASED",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104439018-l8d3",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:33:59.020Z"
+    },
+    {
+      "id": "notif-1793104438988-ia84",
+      "title": "💧 Water Delivery Needed: The Skyline",
+      "message": "The Skyline is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
+      "type": "URGENT_TASK",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104438987-smia",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:33:58.988Z"
+    },
+    {
+      "id": "notif-1793104317169-3aaj",
+      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:01 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104317113-7sl5",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:31:57.169Z"
+    },
+    {
+      "id": "notif-1793104317166-dpy1",
+      "title": "🔔 Task Time Now: [ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:01 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104317137-d6yp",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T12:31:57.166Z"
+    },
+    {
+      "id": "notif-1793104317139-um1e",
+      "title": "🪑 Room Vacant: Rearrange The Skyline",
+      "message": "The Skyline is now VACANT. Please reset tables and rearrange all 4 chairs into standard configuration.",
+      "type": "ROOM_RELEASED",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-6-1793104317137-d6yp",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "P2",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:31:57.140Z"
+    },
+    {
+      "id": "notif-1793104317115-bka6",
+      "title": "💧 Water Delivery Needed: The Skyline",
+      "message": "The Skyline is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
+      "type": "URGENT_TASK",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-6-1793104317113-7sl5",
+      "roomId": "room-6",
+      "roomName": "The Skyline",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T12:31:57.115Z"
+    },
+    {
       "id": "notif-1793100238161-yame",
       "title": "9:00 AM IST Daily Schedule Verified",
       "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
@@ -6558,6 +9064,67 @@
   ],
   "attendance": [
     {
+      "id": "att-2026-10-27-user-pantry-1-s14",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-27",
+      "loginTime": "2026-10-27T12:37:42.812Z",
+      "loginTimeIST": "06:07:42 pm",
+      "status": "PRESENT",
+      "createdAt": "2026-10-27T12:37:42.812Z",
+      "updatedAt": "2026-10-27T12:37:42.812Z"
+    },
+    {
+      "id": "att-2026-10-27-user-pantry-1-s13",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-27",
+      "loginTime": "2026-10-27T12:33:58.910Z",
+      "loginTimeIST": "06:03:58 pm",
+      "status": "COMPLETED",
+      "createdAt": "2026-10-27T12:33:58.910Z",
+      "updatedAt": "2026-10-27T12:34:46.297Z",
+      "logoutTime": "2026-10-27T12:34:46.297Z",
+      "logoutTimeIST": "06:04:46 pm",
+      "elapsedMinutes": 1
+    },
+    {
+      "id": "att-2026-10-27-user-pantry-1-s12",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-27",
+      "loginTime": "2026-10-27T12:31:57.025Z",
+      "loginTimeIST": "06:01:57 pm",
+      "status": "COMPLETED",
+      "createdAt": "2026-10-27T12:31:57.025Z",
+      "updatedAt": "2026-10-27T12:33:57.960Z",
+      "logoutTime": "2026-10-27T12:33:57.960Z",
+      "logoutTimeIST": "06:03:57 pm",
+      "elapsedMinutes": 2
+    },
+    {
+      "id": "att-2026-10-27-user-pantry-1-s11",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-27",
+      "loginTime": "2026-10-27T12:31:08.593Z",
+      "loginTimeIST": "06:01:08 pm",
+      "status": "COMPLETED",
+      "createdAt": "2026-10-27T12:31:08.593Z",
+      "updatedAt": "2026-10-27T12:31:15.366Z",
+      "logoutTime": "2026-10-27T12:31:15.366Z",
+      "logoutTimeIST": "06:01:15 pm",
+      "elapsedMinutes": 1
+    },
+    {
       "id": "att-2026-10-27-user-pantry-1-s10",
       "userId": "user-pantry-1",
       "userEmail": "raju.sharma@whitecollarrealty.com",
@@ -6566,9 +9133,12 @@
       "date": "2026-10-27",
       "loginTime": "2026-10-27T11:22:31.733Z",
       "loginTimeIST": "04:52:31 pm",
-      "status": "PRESENT",
+      "status": "COMPLETED",
       "createdAt": "2026-10-27T11:22:31.733Z",
-      "updatedAt": "2026-10-27T11:23:56.846Z"
+      "updatedAt": "2026-10-27T12:29:11.963Z",
+      "logoutTime": "2026-10-27T12:29:11.963Z",
+      "logoutTimeIST": "05:59:11 pm",
+      "elapsedMinutes": 67
     },
     {
       "id": "att-2026-10-27-user-pantry-1-s9",

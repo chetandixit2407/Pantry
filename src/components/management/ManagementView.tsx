@@ -21,6 +21,7 @@ import type {
 import { api, getServerNowMs } from '../../services/api.ts';
 import { useAuth, getDefaultPermissions } from '../../context/AuthContext.tsx';
 import { Card3D } from '../common/Card3D.tsx';
+import { RealtimeRoomDashboard } from './RealtimeRoomDashboard.tsx';
 import { normalizeDisplayText, normalizeRoomName } from '../../utils/textNormalizer.ts';
 import {
   Sparkles,
@@ -134,6 +135,14 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const canViewUsers = hasSidebarAccess('users') && hasPermission('users', 'view');
   const canViewAudit = hasSidebarAccess('audit');
   const canViewSettings = hasSidebarAccess('settings') && (canViewRooms || canViewUsers || canViewAudit);
+  const canManageAssignments = Boolean(
+    currentUser &&
+      (currentUser.role === 'ADMIN' ||
+        currentUser.role === 'HR' ||
+        currentUser.role === 'KIMMY_MAM' ||
+        currentUser.isSuperAdmin ||
+        hasPermission('rooms', 'edit'))
+  );
   const canDeleteTask = Boolean(
     currentUser && currentUser.role !== 'PANTRY_BOY' && hasPermission('tasks', 'delete')
   );
@@ -2056,77 +2065,26 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 </Card3D>
               </div>
 
-              {/* Rooms Section (6 Room Cards from reference image) */}
+              {/* Real-Time Room Status & Assignment Dashboard (SSE Live Sync) */}
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Rooms</h3>
-                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      6 Active Areas
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsTab("ROOMS");
-                      setSubTab("SETTINGS");
-                    }}
-                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <span>View All 15 Areas</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {dashboardRooms.map((room) => {
-                    const isReady = room.status === "AVAILABLE" || room.status === "READY_FOR_VISITOR";
-                    return (
-                      <Card3D
-                        as="button"
-                        key={room.name}
-                        type="button"
-                        maxTilt={3.2}
-                        liftPx={3.5}
-                        onClick={() => {
-                          const realRoom = rooms.find((r) => r.id === room.id);
-                          if (realRoom) {
-                            handleViewHistory(realRoom);
-                          } else {
-                            setSettingsTab("ROOMS");
-                            setSubTab("SETTINGS");
-                          }
-                        }}
-                        className="p-4 rounded-xl border border-slate-200 text-left flex items-center justify-between group active:scale-[0.99] cursor-pointer"
-                      >
-                        <div className="min-w-0 flex-1 pr-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
-                              {room.name}
-                            </span>
-                            <span
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                                isReady
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-amber-50 text-amber-700 border-amber-200"
-                              }`}
-                            >
-                              {isReady ? "Ready" : "In Progress"}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-500 truncate">
-                            {room.pendingCount === 0
-                              ? "0 pending tasks"
-                              : `${room.pendingCount} pending task${room.pendingCount > 1 ? "s" : ""}`}
-                          </div>
-                        </div>
-                        <div className="w-8 h-8 rounded-lg bg-slate-50 group-hover:bg-amber-50 group-hover:text-amber-700 text-slate-400 flex items-center justify-center shrink-0 transition-colors">
-                          <ChevronRight className="w-4 h-4" />
-                        </div>
-                      </Card3D>
-                    );
-                  })}
-                </div>
+                <RealtimeRoomDashboard
+                  rooms={rooms}
+                  allUsers={allUsers}
+                  currentUser={currentUser}
+                  onRefresh={loadData}
+                  onOpenVisitorModal={(roomId?: string) => {
+                    if (roomId) setVisitorForm((prev) => ({ ...prev, roomAreaId: roomId }));
+                    setShowVisitorModal(true);
+                  }}
+                  onViewHistory={handleViewHistory}
+                  canManageAssignments={canManageAssignments}
+                  canManageRooms={canViewRooms}
+                  isCompactView={false}
+                  onNavigateToRoomsTab={() => {
+                    setSettingsTab("ROOMS");
+                    setSubTab("ROOMS");
+                  }}
+                />
               </div>
 
               {/* Bottom Row: Recent Activity (left) + Active Attendance & Quick Actions (right) */}
@@ -2919,415 +2877,21 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
             </div>
           </div>
 
-          {/* Status Breakdown Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => setRoomFilterStatus('ALL')}
-              className={`p-2.5 rounded-xl border text-left transition-colors ${
-                roomFilterStatus === 'ALL'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="text-[10px] opacity-75 font-semibold uppercase tracking-wider">All Rooms</div>
-              <div className="text-lg font-bold font-mono tabular-nums mt-0.5">{rooms.length}</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRoomFilterStatus('AVAILABLE')}
-              className={`p-2.5 rounded-xl border text-left transition-colors ${
-                roomFilterStatus === 'AVAILABLE'
-                  ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
-                  : 'bg-emerald-50/60 text-emerald-900 border-emerald-200 hover:bg-emerald-100/60'
-              }`}
-            >
-              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Available</div>
-              <div className="text-lg font-bold font-mono tabular-nums mt-0.5">
-                {rooms.filter((r) => r.status === 'AVAILABLE' || r.status === 'READY_FOR_VISITOR').length}
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRoomFilterStatus('OCCUPIED')}
-              className={`p-2.5 rounded-xl border text-left transition-colors ${
-                roomFilterStatus === 'OCCUPIED'
-                  ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
-                  : 'bg-purple-50/60 text-purple-900 border-purple-200 hover:bg-purple-100/60'
-              }`}
-            >
-              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Occupied</div>
-              <div className="text-lg font-bold font-mono tabular-nums mt-0.5">
-                {rooms.filter((r) => r.status === 'OCCUPIED').length}
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRoomFilterStatus('PREPARATION_REQUIRED')}
-              className={`p-2.5 rounded-xl border text-left transition-colors ${
-                roomFilterStatus === 'PREPARATION_REQUIRED'
-                  ? 'bg-amber-700 text-white border-amber-700 shadow-xs'
-                  : 'bg-amber-50/60 text-amber-900 border-amber-200 hover:bg-amber-100/60'
-              }`}
-            >
-              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Needs Prep</div>
-              <div className="text-lg font-bold font-mono tabular-nums mt-0.5">
-                {rooms.filter((r) => r.status === 'PREPARATION_REQUIRED').length}
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRoomFilterStatus('READY_FOR_VISITOR')}
-              className={`p-2.5 rounded-xl border text-left transition-colors ${
-                roomFilterStatus === 'READY_FOR_VISITOR'
-                  ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
-                  : 'bg-blue-50/60 text-blue-900 border-blue-200 hover:bg-blue-100/60'
-              }`}
-            >
-              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Ready for Guest</div>
-              <div className="text-lg font-bold font-mono tabular-nums mt-0.5">
-                {rooms.filter((r) => r.status === 'READY_FOR_VISITOR').length}
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRoomFilterStatus('CLEANING_REQUIRED')}
-              className={`p-2.5 rounded-xl border text-left transition-colors ${
-                roomFilterStatus === 'CLEANING_REQUIRED'
-                  ? 'bg-rose-700 text-white border-rose-700 shadow-xs'
-                  : 'bg-rose-50/60 text-rose-900 border-rose-200 hover:bg-rose-100/60'
-              }`}
-            >
-              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Needs Cleaning</div>
-              <div className="text-lg font-bold font-mono tabular-nums mt-0.5">
-                {rooms.filter((r) => r.status === 'CLEANING_REQUIRED' || r.status === 'CLEANING_IN_PROGRESS').length}
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRoomFilterStatus('PENDING_VERIFICATION')}
-              className={`p-2.5 rounded-xl border text-left transition-colors ${
-                roomFilterStatus === 'PENDING_VERIFICATION'
-                  ? 'bg-indigo-700 text-white border-indigo-700 shadow-xs'
-                  : 'bg-indigo-50/60 text-indigo-900 border-indigo-200 hover:bg-indigo-100/60'
-              }`}
-            >
-              <div className="text-[10px] opacity-80 font-semibold uppercase tracking-wider">Under Review</div>
-              <div className="text-lg font-bold font-mono tabular-nums mt-0.5">
-                {rooms.filter((r) => r.status === 'PENDING_VERIFICATION').length}
-              </div>
-            </button>
-          </div>
-
-          {/* Room Search & Category Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 text-xs">
-            <div className="flex items-center gap-2 overflow-x-auto">
-              <span className="font-semibold text-slate-500 whitespace-nowrap">Filter Area:</span>
-              {[
-                { id: 'ALL', label: 'All Areas' },
-                { id: 'MEETING_SUITE', label: 'Meeting Suites' },
-                { id: 'EXECUTIVE_CABIN', label: 'Cabins' },
-                { id: 'OPERATIONAL', label: 'Operational (Reception/Desks)' },
-                { id: 'FACILITIES', label: 'Facilities' },
-              ].map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setRoomFilterCategory(cat.id)}
-                  className={`px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap font-medium ${
-                    roomFilterCategory === cat.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="relative shrink-0 w-full sm:w-64">
-              <input
-                type="text"
-                placeholder="Search rooms or visitor name..."
-                value={roomSearchQuery}
-                onChange={(e) => setRoomSearchQuery(e.target.value)}
-                className="w-full pl-3 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs"
-              />
-            </div>
-          </div>
-
-          {/* Room Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rooms
-              .filter((room) => {
-                if (!room.enabled && roomFilterStatus !== 'ALL') return false;
-                if (roomFilterStatus !== 'ALL' && room.status !== roomFilterStatus) return false;
-                if (roomFilterCategory !== 'ALL') {
-                  if (roomFilterCategory === 'OPERATIONAL') {
-                    if (room.category !== 'RECEPTION' && room.category !== 'WORKSTATION') return false;
-                  } else if (room.category !== roomFilterCategory) {
-                    return false;
-                  }
-                }
-                if (roomSearchQuery.trim()) {
-                  const q = roomSearchQuery.toLowerCase();
-                  const matchesName = room.name.toLowerCase().includes(q);
-                  const matchesVisitor = room.currentAssignment?.visitorName.toLowerCase().includes(q);
-                  return matchesName || matchesVisitor;
-                }
-                return true;
-              })
-              .map((room) => {
-                const badge = getRoomStatusBadge(room.status);
-                const activeTask = tasks.find(
-                  (t) => t.roomAreaId === room.id && t.status !== 'COMPLETED' && t.status !== 'CANCELLED'
-                );
-
-                return (
-                  <Card3D
-                    key={room.id}
-                    maxTilt={2.2}
-                    liftPx={3}
-                    disabled={!room.enabled}
-                    className={`rounded-xl border p-4 flex flex-col justify-between ${
-                      !room.enabled ? 'opacity-60 bg-slate-50 border-slate-200' : 'border-slate-200'
-                    }`}
-                  >
-                    <div>
-                      {/* Top bar */}
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                            {room.defaultPriority}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.color}`}>
-                            {badge.label}
-                          </span>
-                          {hasPermission('rooms', 'edit') && (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleRoomActive(room.id)}
-                              title={room.enabled ? 'Deactivate room' : 'Activate room'}
-                              className={`p-1 rounded text-xs transition-colors ${
-                                room.enabled ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-200'
-                              }`}
-                            >
-                              <Power className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Room Name */}
-                      <h4 className="text-sm font-bold text-slate-900 mb-1 leading-snug flex items-center gap-1.5">
-                        <Building className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span>{room.name}</span>
-                      </h4>
-                      {room.setupConfig?.summary && (
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200/80 text-[10px] font-mono font-semibold text-amber-900 mb-1">
-                          <span>Verified Setup: {room.setupConfig.summary}</span>
-                        </div>
-                      )}
-
-                      {/* Active Assignment Card if any */}
-                      {room.currentAssignment ? (
-                        <div className="my-2.5 p-3 bg-amber-50/80 rounded-xl border border-amber-200/80 text-xs space-y-1.5">
-                          <div className="flex items-center justify-between text-amber-900 font-bold border-b border-amber-200/60 pb-1">
-                            <span className="flex items-center gap-1">
-                              <Users className="w-3.5 h-3.5 text-amber-700" />
-                              {room.currentAssignment.visitorName}
-                            </span>
-                            <span className="text-[10px] font-mono bg-amber-200/60 px-1.5 py-0.2 rounded">
-                              {room.currentAssignment.expectedArrival}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-amber-800">
-                            <strong>Reference:</strong> {room.currentAssignment.reference} ({room.currentAssignment.expectedDuration})
-                          </div>
-                          <div className="text-[11px] text-amber-800">
-                            <strong>Water:</strong> {room.currentAssignment.waterRequirements}
-                          </div>
-                          {room.currentAssignment.instructions && (
-                            <div className="text-[10px] text-amber-700 italic">
-                              "{room.currentAssignment.instructions}"
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="my-2 text-[11px] text-slate-400 italic">No active visitor booking</div>
-                      )}
-
-                      {/* Active Room Task if any */}
-                      {activeTask && (
-                        <div className="my-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Active Task</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-mono text-amber-700 font-bold">{activeTask.status}</span>
-                              {canDeleteTask && !isPantryBoyTask(activeTask) && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    requestDeleteTask(activeTask);
-                                  }}
-                                  title="Delete Task"
-                                  aria-label={`Delete task ${activeTask.title}`}
-                                  className="p-1 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <div
-                            onClick={() => handleOpenTaskDetail(activeTask.id)}
-                            className="font-semibold text-slate-900 truncate cursor-pointer hover:text-amber-800 transition-colors"
-                          >
-                            {activeTask.title}
-                          </div>
-                          {activeTask.photoEvidence && (
-                            <div className="mt-1 flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setInspectPhotoTask(activeTask)}
-                                className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1"
-                              >
-                                <Camera className="w-3 h-3" />
-                                Inspect Live Photo Evidence
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Room Lifecycle Control Action Buttons */}
-                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                      {hasPermission('rooms', 'edit') && (
-                        <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                          {/* 1. Assign Room button (Available / Reserved) */}
-                          {(room.status === 'AVAILABLE' || room.status === 'RESERVED') && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAssignForm({
-                                  roomId: room.id,
-                                  visitorName: '',
-                                  reference: 'Candidate Interview / Client Meeting',
-                                  expectedArrival: '11:30 AM',
-                                  expectedDuration: '1 hour',
-                                  prepRequirements: [
-                                    'Sanitize meeting table and coasters',
-                                    'Align all chairs in uniform geometric layout',
-                                    'Check presentation screen & HDMI connection',
-                                  ],
-                                  waterRequirements: '2 Chilled Sealed Bottles + Clean Glasses',
-                                  priority: 'P2',
-                                  instructions: '',
-                                  forceOverride: false,
-                                });
-                                setAssignConflictError(null);
-                                setShowAssignModal(true);
-                              }}
-                              className="w-full py-1.5 px-2.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-                            >
-                              <UserPlus className="w-3.5 h-3.5" />
-                              Assign Room
-                            </button>
-                          )}
-
-                          {/* 2. Mark Ready for Occupancy (if PREPARATION_REQUIRED) */}
-                          {room.status === 'PREPARATION_REQUIRED' && (
-                            <button
-                              type="button"
-                              onClick={() => handleRoomStatusAction(room.id, 'MARK_READY')}
-                              className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex items-center justify-center gap-1"
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-blue-600" />
-                              Ready for Occupancy
-                            </button>
-                          )}
-
-                          {/* 3. Mark Occupied (if READY_FOR_VISITOR, PREPARATION_REQUIRED, ASSIGNED, AVAILABLE, or VACANT) */}
-                          {(room.status === 'READY_FOR_VISITOR' || room.status === 'PREPARATION_REQUIRED' || room.status === 'ASSIGNED' || room.status === 'AVAILABLE' || room.status === 'VACANT') && (
-                            <button
-                              type="button"
-                              onClick={() => handleRoomStatusAction(room.id, 'MARK_OCCUPIED')}
-                              className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                            >
-                              <DoorOpen className="w-3 h-3 text-purple-600" />
-                              Mark Occupied
-                            </button>
-                          )}
-
-                          {/* 4. Release Vacant (if OCCUPIED or READY_FOR_VISITOR) */}
-                          {(room.status === 'OCCUPIED' || room.status === 'READY_FOR_VISITOR') && (
-                            <button
-                              type="button"
-                              onClick={() => handleRoomStatusAction(room.id, 'RELEASE_VACANT')}
-                              className="w-full py-1.5 px-2.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                              Release Room (Mark Vacant & Rearrange)
-                            </button>
-                          )}
-
-                          {/* 5. Inspection / Ad-hoc cleaning */}
-                          {room.status === 'CLEANING_REQUIRED' && (
-                            <button
-                              type="button"
-                              onClick={() => handleRoomStatusAction(room.id, 'REQUEST_CLEANING')}
-                              className="w-full py-1.5 px-2 text-xs font-semibold text-rose-800 bg-rose-100/80 hover:bg-rose-200/80 border border-rose-300 rounded-lg transition-colors flex items-center justify-center gap-1"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              Re-Trigger Cleaning Task
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* History & Config Bar */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => handleViewHistory(room)}
-                          className="font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1 hover:underline"
-                        >
-                          <History className="w-3 h-3 text-slate-400" />
-                          History & Camera Photos
-                        </button>
-                        {hasPermission('rooms', 'edit') && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRoomForm({
-                                id: room.id,
-                                name: room.name,
-                                category: room.category,
-                                defaultPriority: room.defaultPriority,
-                                photoRequired: room.photoRequired,
-                                recurrence: room.recurrence,
-                              });
-                              setShowRoomModal(true);
-                            }}
-                            className="font-medium text-slate-500 hover:text-slate-900 underline"
-                          >
-                            Edit Area
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </Card3D>
-                );
-              })}
-          </div>
+          {/* Real-time Room Status & Employee Assignments Dashboard */}
+          <RealtimeRoomDashboard
+            rooms={rooms}
+            allUsers={allUsers}
+            currentUser={currentUser}
+            onRefresh={loadData}
+            onOpenVisitorModal={(roomId?: string) => {
+              if (roomId) setAssignForm((prev) => ({ ...prev, roomId }));
+              setShowAssignModal(true);
+            }}
+            onViewHistory={handleViewHistory}
+            canManageAssignments={canManageAssignments}
+            canManageRooms={canViewRooms}
+            isCompactView={false}
+          />
         </div>
       )}
 
