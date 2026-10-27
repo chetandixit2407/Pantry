@@ -31,11 +31,6 @@ export interface UserPermissions {
     users: { view: boolean; create: boolean; edit: boolean; delete: boolean };
     reports: { view: boolean; export: boolean };
   };
-  confidentialAccess?: {
-    hrNotes: boolean;
-    resumes: boolean;
-    governmentIds: boolean;
-  };
 }
 
 export interface UserAccount {
@@ -216,6 +211,11 @@ export interface Task {
   startedAt?: string;
   submittedAt?: string;
   completedAt?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  fiveMinAlertSentFor?: string;
+  dueAlertSentFor?: string;
+  overdueMarkedFor?: string;
   status: TaskStatus;
   checklist: ChecklistItem[];
   photoEvidence?: PhotoEvidence;
@@ -223,6 +223,15 @@ export interface Task {
   rejectionReason?: string;
   isUrgent: boolean;
   changeHistory: TaskHistoryEntry[];
+}
+
+export interface ScheduleAlertPayload {
+  alertId: string;
+  alertType: 'WARNING_5MIN' | 'TASK_DUE_NOW';
+  task: Task;
+  scheduledFor: string;
+  scheduledTimeIST: string;
+  serverTime: string;
 }
 
 export interface VisitorEvent {
@@ -267,6 +276,10 @@ export interface AppNotification {
   priority?: TaskPriority;
   type:
     | 'TASK_ASSIGNED'
+    | 'TASK_RESCHEDULED'
+    | 'TASK_CANCELLED'
+    | 'TASK_UPCOMING_WARNING'
+    | 'TASK_DUE_NOW'
     | 'URGENT_TASK'
     | 'VISITOR_EVENT'
     | 'TASK_OVERDUE'
@@ -313,22 +326,6 @@ export interface WeeklyReportSummary {
   keyRecommendations: string[];
 }
 
-export type GeofenceStatus = 'INSIDE_OFFICE' | 'OUTSIDE_OFFICE' | 'UNVERIFIED';
-
-export interface LocationVerification {
-  latitude?: number;
-  longitude?: number;
-  accuracyMeters?: number;
-  distanceFromOfficeMeters?: number;
-  status: GeofenceStatus;
-  capturedAt: string;
-  capturedAtIST: string;
-  source: 'GPS' | 'NETWORK' | 'DENIED' | 'UNAVAILABLE' | 'TIMEOUT' | 'NOT_SUPPORTED';
-  errorMessage?: string;
-  officeName: string;
-  geofenceRadiusMeters: number;
-}
-
 export interface AttendanceRecord {
   id: string;
   userId: string;
@@ -339,19 +336,9 @@ export interface AttendanceRecord {
   loginTime: string; // ISO string
   loginTimeIST: string; // e.g. "09:00:15 AM"
   logoutTime?: string; // ISO string
-  logoutTimeIST?: string; // e.g. "08:02:10 PM"
+  logoutTimeIST?: string;
   status: 'PRESENT' | 'COMPLETED' | 'HALFDAY';
   elapsedMinutes?: number;
-  locationVerification: LocationVerification;
-  logoutLocationVerification?: LocationVerification;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface OfficeLocationConfig {
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  geofenceRadiusMeters: number;
 }

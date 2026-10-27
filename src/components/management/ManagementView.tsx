@@ -17,10 +17,10 @@ import type {
   UserPermissions,
   Role,
   AttendanceRecord,
-  OfficeLocationConfig,
 } from '../../types/index.ts';
-import { api } from '../../services/api.ts';
+import { api, getServerNowMs } from '../../services/api.ts';
 import { useAuth, getDefaultPermissions } from '../../context/AuthContext.tsx';
+import { Card3D } from '../common/Card3D.tsx';
 import {
   Sparkles,
   Plus,
@@ -33,9 +33,6 @@ import {
   Download,
   Users,
   MapPin,
-  MapPinOff,
-  Compass,
-  LocateFixed,
   Trash2,
   Edit3,
   Shield,
@@ -43,7 +40,6 @@ import {
   Calendar,
   FileText,
   ShieldCheck,
-  ShieldAlert,
   Camera,
   Play,
   RotateCcw,
@@ -96,7 +92,31 @@ export type ManagementTab =
   | 'AUDIT';
 
 export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setActiveView }) => {
-  const { currentUser, allUsers, refreshUsers, logout, hasPermission } = useAuth();
+  const { currentUser, allUsers, refreshUsers, logout, hasPermission, hasSidebarAccess, hasDashboardAccess } = useAuth();
+
+  const getUserRoleLabel = (user: UserAccount | null) => {
+    if (!user) return 'Authorized Staff';
+    if (user.role === 'KIMMY_MAM') return user.department || 'Co-Founder';
+    if (user.role === 'ADMIN') return user.department || 'System Administrator';
+    if (user.role === 'HR') return user.department || 'Human Resources & Facilities';
+    if (user.role === 'PANTRY_BOY') return user.department || 'Pantry Attendant';
+    return user.department || user.role;
+  };
+
+  const getUserRoleBadge = (role?: Role) => {
+    if (role === 'KIMMY_MAM') return 'Co-Founder';
+    if (role === 'ADMIN') return 'Admin';
+    if (role === 'HR') return 'HR';
+    if (role === 'PANTRY_BOY') return 'Pantry';
+    return 'Staff';
+  };
+
+  const getUserInitials = (name?: string) => {
+    if (!name) return 'WC';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   // Active navigation sub-tab
   const [subTab, setSubTab] = useState<ManagementTab>('DASHBOARD');
@@ -104,6 +124,54 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [hoveredSidebarTab, setHoveredSidebarTab] = useState<ManagementTab | null>(null);
+  const isRailCollapsed = sidebarCollapsed && !sidebarOpen;
+
+  const canViewOverview = hasSidebarAccess('overview');
+  const canViewTasks = hasSidebarAccess('tasks') && hasPermission('tasks', 'view');
+  const canViewReports = hasSidebarAccess('reports') && hasPermission('reports', 'view');
+  const canViewRooms = hasSidebarAccess('rooms') && hasPermission('rooms', 'view');
+  const canViewUsers = hasSidebarAccess('users') && hasPermission('users', 'view');
+  const canViewAudit = hasSidebarAccess('audit');
+  const canViewSettings = hasSidebarAccess('settings') && (canViewRooms || canViewUsers || canViewAudit);
+
+  useEffect(() => {
+    const allowedSettings: Array<'ROOMS' | 'USERS' | 'AUDIT'> = [];
+    if (canViewRooms) allowedSettings.push('ROOMS');
+    if (canViewUsers) allowedSettings.push('USERS');
+    if (canViewAudit) allowedSettings.push('AUDIT');
+    if (allowedSettings.length > 0 && !allowedSettings.includes(settingsTab)) {
+      setSettingsTab(allowedSettings[0]);
+    }
+
+    const isSubTabAuthorized =
+      (subTab === 'DASHBOARD' && canViewOverview) ||
+      ((subTab === 'PANTRY_TASKS' || subTab === 'CLEANING_TASKS' || subTab === 'REARRANGEMENT_TASKS' || subTab === 'TASKS') && canViewTasks) ||
+      (subTab === 'REPORTS' && canViewReports) ||
+      (subTab === 'SETTINGS' && canViewSettings) ||
+      (subTab === 'ROOMS' && canViewRooms) ||
+      (subTab === 'USERS' && canViewUsers) ||
+      (subTab === 'AUDIT' && canViewAudit);
+
+    if (!isSubTabAuthorized) {
+      if (canViewOverview) setSubTab('DASHBOARD');
+      else if (canViewTasks) setSubTab('PANTRY_TASKS');
+      else if (canViewReports) setSubTab('REPORTS');
+      else if (canViewSettings) setSubTab('SETTINGS');
+      else if (canViewRooms) setSubTab('ROOMS');
+      else if (canViewUsers) setSubTab('USERS');
+      else if (canViewAudit) setSubTab('AUDIT');
+    }
+  }, [
+    subTab,
+    settingsTab,
+    canViewOverview,
+    canViewTasks,
+    canViewReports,
+    canViewRooms,
+    canViewUsers,
+    canViewAudit,
+    canViewSettings,
+  ]);
 
   // Operational Data States
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -126,30 +194,70 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [showRoomModal, setShowRoomModal] = useState<boolean>(false);
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const [inspectPhotoTask, setInspectPhotoTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [taskDetailActionLoading, setTaskDetailActionLoading] = useState<boolean>(false);
+  const [taskDetailError, setTaskDetailError] = useState<string | null>(null);
+  const [confirmDeleteTaskId, setConfirmDeleteTaskId] = useState<string | null>(null);
 
-  // Attendance & Office Location Verification State
+  // Attendance State
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
-  const [officeConfig, setOfficeConfig] = useState<OfficeLocationConfig | null>(null);
   const [attendanceHistoryList, setAttendanceHistoryList] = useState<AttendanceRecord[]>([]);
   const [showAttendanceHistoryModal, setShowAttendanceHistoryModal] = useState<boolean>(false);
-  const [showOfficeConfigModal, setShowOfficeConfigModal] = useState<boolean>(false);
   const [loadingAttendanceHistory, setLoadingAttendanceHistory] = useState<boolean>(false);
-  const [officeConfigForm, setOfficeConfigForm] = useState<OfficeLocationConfig>({
-    name: 'White Collar Realty Corporate HQ',
-    address: 'Iris Broadway, Sector 85, Gurugram, Haryana 122004',
-    latitude: 28.4069,
-    longitude: 76.9691,
-    geofenceRadiusMeters: 150,
-  });
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
-  // AI Task Generation state
+  const toISTDateTimeLocal = useCallback((dateOrIso?: Date | string): string => {
+    const d = dateOrIso
+      ? typeof dateOrIso === 'string'
+        ? new Date(dateOrIso)
+        : dateOrIso
+      : new Date(getServerNowMs());
+    if (Number.isNaN(d.getTime())) return '';
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+    const hh = get('hour') === '24' ? '00' : get('hour');
+    return `${get('year')}-${get('month')}-${get('day')}T${hh}:${get('minute')}`;
+  }, []);
+
+  const formatISTTaskSchedule = useCallback((iso?: string): string => {
+    if (!iso) return 'Immediate';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return 'Scheduled';
+    const datePart = d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+    });
+    const timePart = d
+      .toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })
+      .toUpperCase();
+    return `${datePart}, ${timePart} IST`;
+  }, []);
+
+  // AI Task Generation & Scheduling state
   const [aiPrompt, setAiPrompt] = useState<string>('');
   const [isAiParsing, setIsAiParsing] = useState<boolean>(false);
+  const [taskModalError, setTaskModalError] = useState<string | null>(null);
   const [newTaskForm, setNewTaskForm] = useState<{
     title: string;
     roomAreaId: string;
     priority: TaskPriority;
+    scheduleMode: 'IMMEDIATE' | 'SCHEDULED';
+    scheduledFor: string;
+    assignedToEmail: string;
     dueTime: string;
     description: string;
     isUrgent: boolean;
@@ -158,17 +266,43 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
     title: '',
     roomAreaId: '',
     priority: 'P2',
+    scheduleMode: 'IMMEDIATE',
+    scheduledFor: '',
+    assignedToEmail: '',
     dueTime: 'Within 30 mins',
     description: '',
     isUrgent: false,
     checklist: ['Clean table surfaces', 'Align all chairs', 'Provide fresh water bottles', 'Upload photo evidence'],
   });
 
+  // Edit / Reschedule Task Modal State
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [savingTaskEdit, setSavingTaskEdit] = useState<boolean>(false);
+  const [editTaskForm, setEditTaskForm] = useState<{
+    title: string;
+    roomAreaId: string;
+    priority: TaskPriority;
+    scheduledFor: string;
+    assignedToEmail: string;
+    dueTime: string;
+    description: string;
+    isUrgent: boolean;
+  }>({
+    title: '',
+    roomAreaId: '',
+    priority: 'P2',
+    scheduledFor: '',
+    assignedToEmail: '',
+    dueTime: '',
+    description: '',
+    isUrgent: false,
+  });
+
   // Visitor Form
   const [visitorForm, setVisitorForm] = useState({
     visitorName: '',
     companyName: '',
-    hostName: currentUser?.role === 'KIMMY_MAM' ? 'Kimmi' : currentUser?.name || 'Kimmi',
+    hostName: currentUser?.name || '',
     roomAreaId: '',
     guestCount: 2,
     notes: 'Require fresh water bottles and dry fruits setup.',
@@ -283,21 +417,61 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [modalSearchQuery, setModalSearchQuery] = useState<string>('');
   const [modalStatusFilter, setModalStatusFilter] = useState<string>('ALL');
 
+  const selectedDetailTask = selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) || null : null;
+
+  const handleOpenTaskDetail = useCallback((taskId: string) => {
+    if (!taskId) return;
+    setTaskDetailError(null);
+    setConfirmDeleteTaskId(null);
+    setSelectedTaskId(taskId);
+  }, []);
+
+  const handleCloseTaskDetail = useCallback(() => {
+    setSelectedTaskId(null);
+    setTaskDetailError(null);
+    setConfirmDeleteTaskId(null);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenTaskEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ taskId?: string }>;
+      const targetId = customEvent.detail?.taskId;
+      if (targetId) {
+        handleOpenTaskDetail(targetId);
+      }
+    };
+    window.addEventListener('wcr_open_task', handleOpenTaskEvent as EventListener);
+    return () => window.removeEventListener('wcr_open_task', handleOpenTaskEvent as EventListener);
+  }, [handleOpenTaskDetail]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key !== 'Escape') return;
+      if (inspectPhotoTask) {
+        setInspectPhotoTask(null);
+        return;
+      }
+      if (editingTask) {
+        setEditingTask(null);
+        return;
+      }
+      if (selectedTaskId) {
+        handleCloseTaskDetail();
+        return;
+      }
+      if (activeDashboardModal) {
         setActiveDashboardModal(null);
       }
     };
-    if (activeDashboardModal) {
+    if (inspectPhotoTask || editingTask || selectedTaskId || activeDashboardModal) {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeDashboardModal]);
+  }, [inspectPhotoTask, editingTask, selectedTaskId, activeDashboardModal, handleCloseTaskDetail]);
 
   const loadData = useCallback(async () => {
     try {
-      const [tData, rData, vData, dData, wData, aData, attData, offConfig] = await Promise.all([
+      const [tData, rData, vData, dData, wData, aData, attData] = await Promise.all([
         api.getTasks().catch(() => []),
         api.getRooms().catch(() => []),
         api.getVisitors().catch(() => []),
@@ -305,7 +479,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         api.getWeeklyReport().catch(() => null),
         api.getAuditLogs().catch(() => []),
         api.getTodayAttendance().catch(() => null),
-        api.getOfficeConfig().catch(() => null),
       ]);
       setTasks(tData);
       setRooms(rData);
@@ -315,10 +488,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       setAuditLogs(aData);
       if (attData) {
         setTodayAttendance(attData.todayRecord || (attData.allTodayRecords && attData.allTodayRecords[0]) || null);
-      }
-      if (offConfig) {
-        setOfficeConfig(offConfig);
-        setOfficeConfigForm((prev) => ({ ...prev, ...offConfig }));
       }
 
       if (!newTaskForm.roomAreaId && rData.length > 0) {
@@ -349,7 +518,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
     };
   }, [loadData]);
 
-  // Real-time elapsed duration ticker for Pantry Boy's active shift
+  // Real-time elapsed duration ticker for Pantry Boy's active session
   useEffect(() => {
     const updateElapsed = () => {
       if (!todayAttendance?.loginTime) {
@@ -389,33 +558,22 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
     }
   };
 
-  const handleSaveOfficeConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const updated = await api.updateOfficeConfig(officeConfigForm);
-      setOfficeConfig(updated);
-      setShowOfficeConfigModal(false);
-      await loadData();
-    } catch (err: any) {
-      alert(err.message || 'Failed to update office geofence configuration');
-    }
-  };
-
   // AI Task Parser
   const handleAiParse = async () => {
     if (!aiPrompt.trim()) return;
     setIsAiParsing(true);
     try {
       const parsed = await api.parseNaturalLanguageTask(aiPrompt);
-      setNewTaskForm({
+      setNewTaskForm((prev) => ({
+        ...prev,
         title: parsed.title || `Prepare ${parsed.matchedRoomName}`,
         roomAreaId: parsed.roomAreaId || rooms[0]?.id || '',
         priority: parsed.priority || 'P2',
         dueTime: parsed.dueTime || 'Within 30 mins',
         description: parsed.description || aiPrompt,
         isUrgent: Boolean(parsed.isUrgent),
-        checklist: parsed.checklist && parsed.checklist.length > 0 ? parsed.checklist : newTaskForm.checklist,
-      });
+        checklist: parsed.checklist && parsed.checklist.length > 0 ? parsed.checklist : prev.checklist,
+      }));
     } catch (err) {
       console.error('AI parse error:', err);
     } finally {
@@ -426,11 +584,18 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskForm.title || !newTaskForm.roomAreaId) return;
+    setTaskModalError(null);
     try {
+      const defaultPantry = allUsers.find((u) => u.role === 'PANTRY_BOY' && u.status === 'active');
       await api.createTask({
         title: newTaskForm.title,
         roomAreaId: newTaskForm.roomAreaId,
         priority: newTaskForm.isUrgent ? 'URGENT' : newTaskForm.priority,
+        scheduledFor:
+          newTaskForm.scheduleMode === 'SCHEDULED' && newTaskForm.scheduledFor
+            ? newTaskForm.scheduledFor
+            : undefined,
+        assignedToEmail: newTaskForm.assignedToEmail || defaultPantry?.email,
         dueTime: newTaskForm.dueTime,
         description: newTaskForm.description,
         isUrgent: newTaskForm.isUrgent,
@@ -438,9 +603,72 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       });
       setShowNewTaskModal(false);
       setAiPrompt('');
+      setNewTaskForm((prev) => ({
+        ...prev,
+        title: '',
+        description: '',
+        scheduleMode: 'IMMEDIATE',
+        scheduledFor: toISTDateTimeLocal(new Date(getServerNowMs() + 15 * 60 * 1000)),
+      }));
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to create task');
+      setTaskModalError(err.message || 'Failed to create task');
+    }
+  };
+
+  const handleOpenEditTask = (task: Task) => {
+    setTaskModalError(null);
+    setEditingTask(task);
+    setEditTaskForm({
+      title: task.title,
+      roomAreaId: task.roomAreaId,
+      priority: task.priority,
+      scheduledFor: toISTDateTimeLocal(task.scheduledFor),
+      assignedToEmail: task.assignedToEmail,
+      dueTime: task.dueTime,
+      description: task.description || '',
+      isUrgent: task.isUrgent,
+    });
+  };
+
+  const handleSaveEditTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask) return;
+    setSavingTaskEdit(true);
+    setTaskModalError(null);
+    try {
+      await api.updateTask(editingTask.id, {
+        title: editTaskForm.title,
+        roomAreaId: editTaskForm.roomAreaId,
+        priority: editTaskForm.isUrgent ? 'URGENT' : editTaskForm.priority,
+        isUrgent: editTaskForm.isUrgent,
+        scheduledFor: editTaskForm.scheduledFor,
+        assignedToEmail: editTaskForm.assignedToEmail,
+        dueTime: editTaskForm.dueTime,
+        description: editTaskForm.description,
+      });
+      setEditingTask(null);
+      await loadData();
+    } catch (err: any) {
+      setTaskModalError(err.message || 'Failed to update/reschedule task');
+    } finally {
+      setSavingTaskEdit(false);
+    }
+  };
+
+  const handleCancelTask = async (task: Task) => {
+    setSavingTaskEdit(true);
+    setTaskModalError(null);
+    try {
+      await api.cancelTask(task.id, `Cancelled by ${currentUser?.name || 'Management'}`);
+      if (editingTask?.id === task.id) {
+        setEditingTask(null);
+      }
+      await loadData();
+    } catch (err: any) {
+      setTaskModalError(err.message || 'Failed to cancel task');
+    } finally {
+      setSavingTaskEdit(false);
     }
   };
 
@@ -454,6 +682,78 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
     }
   };
 
+  const handleDetailToggleChecklist = async (taskId: string, itemId: string, completed: boolean) => {
+    if (!hasPermission('tasks', 'edit')) return;
+    setTaskDetailError(null);
+    try {
+      const updated = await api.updateChecklistItem(taskId, itemId, completed);
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      await loadData();
+    } catch (err: any) {
+      setTaskDetailError(err.message || 'Failed to update checklist item');
+    }
+  };
+
+  const handleDetailStatusChange = async (taskId: string, nextStatus: TaskStatus, note?: string) => {
+    if (!hasPermission('tasks', 'edit')) return;
+    setTaskDetailActionLoading(true);
+    setTaskDetailError(null);
+    try {
+      const updated = await api.updateTaskStatus(taskId, nextStatus, note ? { note } : undefined);
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      await loadData();
+    } catch (err: any) {
+      setTaskDetailError(err.message || 'Failed to update task status');
+    } finally {
+      setTaskDetailActionLoading(false);
+    }
+  };
+
+  const handleDetailCancelTask = async (task: Task) => {
+    if (!hasPermission('tasks', 'edit')) return;
+    setTaskDetailActionLoading(true);
+    setTaskDetailError(null);
+    try {
+      const updated = await api.cancelTask(task.id, `Cancelled by ${currentUser?.name || 'Management'}`);
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      await loadData();
+    } catch (err: any) {
+      setTaskDetailError(err.message || 'Failed to cancel task');
+    } finally {
+      setTaskDetailActionLoading(false);
+    }
+  };
+
+  const handleDetailVerifyPhoto = async (taskId: string, decision: 'APPROVE' | 'REJECT', reason?: string) => {
+    if (!hasPermission('tasks', 'edit')) return;
+    setTaskDetailActionLoading(true);
+    setTaskDetailError(null);
+    try {
+      const updated = await api.verifyPhotoEvidence(taskId, decision, reason);
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      await loadData();
+    } catch (err: any) {
+      setTaskDetailError(err.message || 'Failed to verify submitted photo evidence');
+    } finally {
+      setTaskDetailActionLoading(false);
+    }
+  };
+
+  const handleDetailDeleteTask = async (taskId: string) => {
+    if (!hasPermission('tasks', 'delete')) return;
+    setTaskDetailActionLoading(true);
+    setTaskDetailError(null);
+    try {
+      await api.deleteTask(taskId);
+      handleCloseTaskDetail();
+      await loadData();
+    } catch (err: any) {
+      setTaskDetailError(err.message || 'Failed to delete task');
+    } finally {
+      setTaskDetailActionLoading(false);
+    }
+  };
+
   const handleRegisterArrival = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -462,7 +762,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       setVisitorForm({
         visitorName: '',
         companyName: '',
-        hostName: currentUser?.role === 'KIMMY_MAM' ? 'Kimmi' : currentUser?.name || 'Kimmi',
+        hostName: currentUser?.name || '',
         roomAreaId: rooms[4]?.id || rooms[0]?.id || '',
         guestCount: 2,
         notes: '',
@@ -672,7 +972,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
     }
   };
 
-  const handleTriggerMilestone = async (milestone: '9AM_START' | '10AM_WATER' | '3PM_WATER' | '8PM_CLOSING') => {
+  const handleTriggerMilestone = async (milestone: '9AM_START' | '10AM_WATER' | '3PM_WATER' | 'CLOSING_AUDIT') => {
     try {
       await api.triggerSchedulerMilestone(milestone);
       await loadData();
@@ -716,15 +1016,29 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         return { label: 'In Progress', bg: 'bg-amber-50 text-amber-800 border-amber-200' };
       case 'PENDING_VERIFICATION':
         return { label: 'Under Review', bg: 'bg-sky-50 text-sky-800 border-sky-200' };
+      case 'SUBMITTED':
+        return { label: 'Submitted', bg: 'bg-sky-50 text-sky-800 border-sky-200' };
+      case 'REJECTED':
+        return { label: 'Rejected', bg: 'bg-rose-50 text-rose-800 border-rose-200' };
       case 'OVERDUE':
         return { label: 'Overdue', bg: 'bg-rose-50 text-rose-800 border-rose-200' };
       case 'BLOCKED':
         return { label: 'Blocked', bg: 'bg-red-50 text-red-800 border-red-200' };
       case 'SCHEDULED':
         return { label: 'Scheduled', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200' };
+      case 'CANCELLED':
+        return { label: 'Cancelled', bg: 'bg-slate-100 text-slate-500 border-slate-300' };
       default:
         return { label: 'Available', bg: 'bg-slate-50 text-slate-700 border-slate-200' };
     }
+  };
+
+  const formatTaskTypeLabel = (taskType?: string) => {
+    if (!taskType) return 'Operational Task';
+    return taskType
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
   };
 
   // Counts for sidebar badges
@@ -906,16 +1220,16 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         />
       )}
 
-      {/* Dark Animated Sidebar (Expandable / Collapsible desktop rail / Mobile drawer) */}
+      {/* Dark Animated Sidebar (Fixed 100dvh desktop rail / Mobile slide-over drawer) */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen bg-[#0b1329] text-white flex flex-col z-50 transition-[width,transform] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shrink-0 border-r border-slate-800 ${
+        className={`fixed top-0 left-0 wcr-h-dvh bg-[#0b1329] text-white flex flex-col z-50 md:z-40 transition-[width,transform] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shrink-0 border-r border-slate-800 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } ${sidebarCollapsed ? "w-72 md:w-20" : "w-72 md:w-64"}`}
+        } ${isRailCollapsed ? "w-72 md:w-20" : "w-72 md:w-64"}`}
       >
         {/* Brand Header with Expand/Collapse Animation */}
         <div
-          className={`p-3.5 border-b border-slate-800/90 flex items-center transition-all duration-300 ${
-            sidebarCollapsed ? "md:justify-center md:flex-col md:gap-2.5 justify-between" : "justify-between"
+          className={`p-3.5 border-b border-slate-800/90 flex items-center shrink-0 transition-all duration-300 ${
+            isRailCollapsed ? "md:justify-center md:flex-col md:gap-2.5 justify-between" : "justify-between"
           }`}
         >
           <div className="flex items-center gap-3 overflow-hidden min-w-0">
@@ -926,7 +1240,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               onClick={() => {
                 if (sidebarCollapsed) setSidebarCollapsed(false);
               }}
-              title={sidebarCollapsed ? "Click to expand" : undefined}
+              title={isRailCollapsed ? "Click to expand" : undefined}
             >
               <img
                 src="/assets/wcr_logo.png"
@@ -936,7 +1250,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
             </motion.div>
 
             <AnimatePresence mode="wait">
-              {!sidebarCollapsed && (
+              {!isRailCollapsed && (
                 <motion.div
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -984,19 +1298,23 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
           </div>
         </div>
 
-        {/* Navigation Items with Apple-Style Gliding Hover & Active Pill */}
+        {/* Navigation Items (Independent Scroll Only If Needed) */}
         <nav
-          className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden"
+          className={`flex-1 min-h-0 px-3 py-4 space-y-1.5 wcr-sidebar-scroll ${
+            isRailCollapsed ? "md:overflow-visible overflow-y-auto" : "overflow-y-auto overflow-x-hidden"
+          }`}
           onMouseLeave={() => setHoveredSidebarTab(null)}
         >
           {[
-            { id: "DASHBOARD" as ManagementTab, label: "Dashboard", icon: LayoutDashboard },
-            { id: "PANTRY_TASKS" as ManagementTab, label: "Pantry Tasks", icon: Coffee, count: pantryTasksCount },
-            { id: "CLEANING_TASKS" as ManagementTab, label: "Cleaning Tasks", icon: Sparkles, count: cleaningTasksCount },
-            { id: "REARRANGEMENT_TASKS" as ManagementTab, label: "Rearrangement Tasks", icon: Move, count: rearrangementTasksCount },
-            { id: "REPORTS" as ManagementTab, label: "Reports", icon: FileText },
-            { id: "SETTINGS" as ManagementTab, label: "Settings", icon: Settings },
-          ].map((item) => {
+            { id: "DASHBOARD" as ManagementTab, label: "Dashboard", icon: LayoutDashboard, visible: canViewOverview },
+            { id: "PANTRY_TASKS" as ManagementTab, label: "Pantry Tasks", icon: Coffee, count: pantryTasksCount, visible: canViewTasks },
+            { id: "CLEANING_TASKS" as ManagementTab, label: "Cleaning Tasks", icon: Sparkles, count: cleaningTasksCount, visible: canViewTasks },
+            { id: "REARRANGEMENT_TASKS" as ManagementTab, label: "Rearrangement Tasks", icon: Move, count: rearrangementTasksCount, visible: canViewTasks },
+            { id: "REPORTS" as ManagementTab, label: "Reports", icon: FileText, visible: canViewReports },
+            { id: "SETTINGS" as ManagementTab, label: "Settings", icon: Settings, visible: canViewSettings },
+          ]
+            .filter((item) => item.visible)
+            .map((item) => {
             const Icon = item.icon;
             const isItemActive =
               subTab === item.id ||
@@ -1013,7 +1331,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   }}
                   onMouseEnter={() => setHoveredSidebarTab(item.id)}
                   className={`w-full relative flex items-center ${
-                    sidebarCollapsed ? "md:justify-center" : "justify-between"
+                    isRailCollapsed ? "md:justify-center" : "justify-between"
                   } px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer overflow-hidden select-none ${
                     isItemActive
                       ? "text-slate-950 font-bold"
@@ -1047,12 +1365,15 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   {/* Icon & Label Content with Tactile Spring Lift */}
                   <motion.div
                     className="relative z-10 flex items-center gap-3 min-w-0"
-                    whileHover={{ y: -1.5, x: sidebarCollapsed ? 0 : 2 }}
+                    whileHover={{ y: -1.5, x: isRailCollapsed ? 0 : 2 }}
                     transition={{ type: "spring", stiffness: 400, damping: 22 }}
                   >
                     <motion.div
                       whileHover={{ scale: 1.15, rotate: [0, -3, 3, 0] }}
-                      transition={{ type: "spring", stiffness: 450, damping: 20 }}
+                      transition={{
+                        scale: { type: "spring", stiffness: 450, damping: 20 },
+                        rotate: { type: "tween", duration: 0.35, ease: "easeInOut" },
+                      }}
                       className="shrink-0 flex items-center justify-center"
                     >
                       <Icon
@@ -1067,7 +1388,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                     </motion.div>
 
                     <AnimatePresence mode="wait">
-                      {!sidebarCollapsed && (
+                      {!isRailCollapsed && (
                         <motion.span
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -1082,7 +1403,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   </motion.div>
 
                   {/* Badge Counter (When Expanded) */}
-                  {!sidebarCollapsed && item.count !== undefined && item.count > 0 && (
+                  {!isRailCollapsed && item.count !== undefined && item.count > 0 && (
                     <span
                       className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold tabular-nums transition-colors duration-200 ${
                         isItemActive
@@ -1097,13 +1418,13 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   )}
 
                   {/* Collapsed Mode Indicator Dot */}
-                  {sidebarCollapsed && item.count !== undefined && item.count > 0 && (
+                  {isRailCollapsed && item.count !== undefined && item.count > 0 && (
                     <span className="hidden md:block absolute top-2 right-2.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-[#0b1329] z-20" />
                   )}
                 </button>
 
                 {/* Collapsed Floating Tooltip with Arrow (Dribbble Signature) */}
-                {sidebarCollapsed && (
+                {isRailCollapsed && (
                   <div className="hidden md:flex absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700 pointer-events-none whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-2">
                     <span>{item.label}</span>
                     {item.count !== undefined && item.count > 0 && (
@@ -1119,23 +1440,41 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
           })}
         </nav>
 
-        {/* Profile Card at Sidebar Bottom */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950/70 relative group">
+        {/* Authenticated User Profile Card & Logout Fixed at Sidebar Bottom */}
+        <div className="p-3 border-t border-slate-800 bg-slate-950/80 shrink-0 mt-auto relative group">
           <div
             className={`flex items-center transition-all duration-300 ${
-              sidebarCollapsed ? "md:justify-center" : "gap-3"
+              isRailCollapsed ? "md:flex-col md:justify-center md:gap-2" : "gap-3"
             }`}
           >
-            <motion.img
-              whileHover={{ scale: 1.08 }}
-              src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
-              alt="Kimmi"
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-amber-400 shrink-0 cursor-pointer shadow-md"
-              title={sidebarCollapsed ? "Kimmi · Co-Founder" : undefined}
-            />
+            {currentUser?.avatarUrl && currentUser.avatarUrl !== "/assets/wcr_logo.png" ? (
+              <motion.img
+                whileHover={{ scale: 1.08 }}
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-amber-400 shrink-0 cursor-pointer shadow-md"
+                title={isRailCollapsed ? `${currentUser.name} · ${getUserRoleLabel(currentUser)}` : undefined}
+              />
+            ) : (
+              <motion.div
+                whileHover={{ scale: 1.08 }}
+                title={isRailCollapsed && currentUser ? `${currentUser.name} · ${getUserRoleLabel(currentUser)}` : undefined}
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-extrabold tracking-tight ring-2 shrink-0 shadow-md select-none ${
+                  currentUser?.role === "ADMIN"
+                    ? "bg-purple-500/20 text-purple-200 ring-purple-400/70"
+                    : currentUser?.role === "HR"
+                    ? "bg-blue-500/20 text-blue-200 ring-blue-400/70"
+                    : currentUser?.role === "KIMMY_MAM"
+                    ? "bg-amber-500/20 text-amber-300 ring-amber-400"
+                    : "bg-emerald-500/20 text-emerald-200 ring-emerald-400/70"
+                }`}
+              >
+                {getUserInitials(currentUser?.name)}
+              </motion.div>
+            )}
 
             <AnimatePresence mode="wait">
-              {!sidebarCollapsed && (
+              {!isRailCollapsed && (
                 <motion.div
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -1144,35 +1483,38 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   className="min-w-0 flex-1"
                 >
                   <div className="text-xs font-bold text-white truncate">
-                    Kimmi
+                    {currentUser?.name || "Authorized User"}
                   </div>
                   <div className="text-[10px] text-amber-400 font-semibold truncate">
-                    Co-Founder
+                    {getUserRoleLabel(currentUser)}
+                  </div>
+                  <div className="text-[9.5px] text-slate-400 font-mono truncate">
+                    {currentUser?.email}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {!sidebarCollapsed && (
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={() => logout()}
-                title="Sign Out"
-                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </motion.button>
-            )}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              type="button"
+              onClick={() => logout()}
+              title="Sign Out"
+              aria-label="Sign Out"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+            </motion.button>
           </div>
 
           {/* Collapsed Tooltip for Profile & Logout */}
-          {sidebarCollapsed && (
-            <div className="hidden md:flex absolute left-full ml-3 bottom-2 p-3 bg-slate-900/95 backdrop-blur-md text-white rounded-xl shadow-2xl border border-slate-700 pointer-events-auto whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-3">
+          {isRailCollapsed && (
+            <div className="hidden md:flex absolute left-full ml-3 bottom-3 p-3 bg-slate-900/95 backdrop-blur-md text-white rounded-xl shadow-2xl border border-slate-700 pointer-events-auto whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-3">
               <div>
-                <div className="text-xs font-bold text-white">Kimmi</div>
-                <div className="text-[10px] text-amber-400 font-semibold">Co-Founder</div>
+                <div className="text-xs font-bold text-white">{currentUser?.name || "Authorized User"}</div>
+                <div className="text-[10px] text-amber-400 font-semibold">{getUserRoleLabel(currentUser)}</div>
+                <div className="text-[9.5px] text-slate-400 font-mono">{currentUser?.email}</div>
               </div>
               <button
                 type="button"
@@ -1182,14 +1524,18 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
-              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900/95" />
+              <div className="absolute right-full bottom-4 border-4 border-transparent border-r-slate-900/95" />
             </div>
           )}
         </div>
       </aside>
 
-      {/* Main Layout Area */}
-      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+      {/* Main Layout Area (Offset by Fixed Desktop Sidebar Width) */}
+      <div
+        className={`flex-1 min-w-0 flex flex-col min-h-screen transition-[padding] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+          sidebarCollapsed ? "md:pl-20" : "md:pl-64"
+        }`}
+      >
         {/* Dark Top Header Bar */}
         <header className="bg-[#0b1329] border-b border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-xs">
           <div className="flex items-center gap-3">
@@ -1216,21 +1562,29 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
           </div>
 
           <div className="flex items-center gap-2.5">
-            {/* Live Status indicator */}
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-[10px] font-mono text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Live System Online</span>
-            </div>
+            {/* Active Authenticated User Badge */}
+            {currentUser && (
+              <div
+                className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/90 text-xs text-slate-200"
+                title={`Signed in as ${currentUser.name} (${currentUser.email})`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <span className="font-semibold text-white truncate max-w-[160px]">{currentUser.name}</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                  {getUserRoleBadge(currentUser.role)}
+                </span>
+              </div>
+            )}
 
-            {/* Switch to Pantry Mode Simulator button for management testing */}
-            {setActiveView && (
+            {/* Switch to Pantry Mode Simulator button for authorized accounts */}
+            {setActiveView && hasDashboardAccess('pantry') && (
               <motion.button
                 whileHover={{ y: -1.5, scale: 1.03 }}
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => setActiveView("PANTRY")}
                 className="px-3 py-1.5 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/90 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                title="Preview Raju Sharma's mobile attendant view"
+                title="Preview Pantry Attendant dashboard"
               >
                 <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
                 <span className="hidden sm:inline">Pantry Boy View</span>
@@ -1238,157 +1592,182 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
             )}
 
             {/* Fast Task Creation */}
-            <motion.button
-              whileHover={{ y: -1.5, scale: 1.04 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={() => {
-                setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: "P2" }));
-                setShowNewTaskModal(true);
-              }}
-              className="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-full transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/25 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span className="hidden sm:inline">New Task</span>
-            </motion.button>
+            {hasPermission('tasks', 'create') && (
+              <motion.button
+                whileHover={{ y: -1.5, scale: 1.04 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => {
+                  setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: "P2" }));
+                  setShowNewTaskModal(true);
+                }}
+                className="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-full transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/25 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="hidden sm:inline">New Task</span>
+              </motion.button>
+            )}
           </div>
         </header>
 
         {/* Content Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {/* TAB 1: REDESIGNED DASHBOARD */}
-          {subTab === "DASHBOARD" && (
+          {subTab === "DASHBOARD" && canViewOverview && (
             <div className="space-y-6">
-              {/* Header: Welcome Back, Team + Date Card */}
+              {/* Header: Welcome Back + Date Card */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                    Welcome Back, Team 👋
+                    Welcome Back, {currentUser?.name || "Team"} 👋
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    Here's what's happening with your tasks today.
+                    Signed in as <span className="font-semibold text-slate-700">{currentUser?.email}</span> · {getUserRoleLabel(currentUser)}
                   </p>
                 </div>
-                <div className="bg-white border border-slate-200/90 shadow-xs px-4 py-2.5 rounded-xl flex items-center gap-3 self-start sm:self-auto">
-                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                <Card3D
+                  maxTilt={2.5}
+                  liftPx={2.5}
+                  className="border border-slate-200/90 px-4 py-2.5 rounded-xl flex items-center gap-3 self-start sm:self-auto"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/60 flex items-center justify-center">
                     <Calendar className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Today</div>
-                    <div className="text-xs sm:text-sm font-bold text-slate-800 font-mono">
+                    <div className="text-xs sm:text-sm font-bold text-slate-800 font-mono tabular-nums">
                       {todayFormatted}
                     </div>
                   </div>
-                </div>
+                </Card3D>
               </div>
 
               {/* 4 Clickable Summary Cards (Total Tasks, Pending Tasks, Overdue Tasks, Total Reports) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Card 1: Total Tasks */}
-                <button
+                <Card3D
+                  as="button"
                   type="button"
+                  maxTilt={3.4}
+                  liftPx={4}
                   onClick={() => {
                     setModalSearchQuery("");
                     setModalStatusFilter("ALL");
                     setActiveDashboardModal("TOTAL_TASKS");
                   }}
-                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-slate-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-slate-900/10 flex flex-col justify-between"
+                  className="p-5 rounded-2xl border border-slate-200 cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-amber-500/20 flex flex-col justify-between"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-slate-900 transition-colors">
                       Total Tasks
                     </span>
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono tabular-nums">
                       <ArrowUpRight className="w-3 h-3 text-emerald-600" />
                       12%
                     </span>
                   </div>
-                  <div className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight my-1">
+                  <div className="text-3xl font-extrabold text-slate-900 font-mono tabular-nums tracking-tight my-1">
                     {tasks.length}
                   </div>
-                  <div className="text-xs text-slate-400 truncate mt-1">
+                  <div className="text-xs text-slate-500 truncate mt-1">
                     {completedTasks.length} completed · Click for details
                   </div>
-                </button>
+                </Card3D>
 
                 {/* Card 2: Pending Tasks */}
-                <button
+                <Card3D
+                  as="button"
                   type="button"
+                  maxTilt={3.4}
+                  liftPx={4}
                   onClick={() => {
                     setModalSearchQuery("");
                     setModalStatusFilter("ALL");
                     setActiveDashboardModal("PENDING_TASKS");
                   }}
-                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-amber-500/20 flex flex-col justify-between"
+                  className="p-5 rounded-2xl border border-slate-200 cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-amber-500/20 flex flex-col justify-between"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider group-hover:text-amber-900 transition-colors">
                       Pending Tasks
                     </span>
-                    <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono tabular-nums">
                       <ArrowUpRight className="w-3 h-3 text-amber-600" />
                       5%
                     </span>
                   </div>
-                  <div className="text-3xl font-extrabold text-amber-600 font-mono tracking-tight my-1">
+                  <div className="text-3xl font-extrabold text-amber-600 font-mono tabular-nums tracking-tight my-1">
                     {pendingTasks.length}
                   </div>
-                  <div className="text-xs text-slate-400 truncate mt-1">
+                  <div className="text-xs text-slate-500 truncate mt-1">
                     {inProgressTasks.length} in progress · Click for details
                   </div>
-                </button>
+                </Card3D>
 
                 {/* Card 3: Overdue Tasks */}
-                <button
+                <Card3D
+                  as="button"
                   type="button"
+                  maxTilt={3.4}
+                  liftPx={4}
                   onClick={() => {
                     setModalSearchQuery("");
                     setModalStatusFilter("ALL");
                     setActiveDashboardModal("OVERDUE_TASKS");
                   }}
-                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-rose-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-rose-500/20 flex flex-col justify-between"
+                  className="p-5 rounded-2xl border border-slate-200 cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-rose-500/20 flex flex-col justify-between"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-rose-700 uppercase tracking-wider group-hover:text-rose-900 transition-colors">
                       Overdue Tasks
                     </span>
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono tabular-nums">
                       <ArrowDownRight className="w-3 h-3 text-emerald-600" />
                       100%
                     </span>
                   </div>
-                  <div className="text-3xl font-extrabold text-rose-600 font-mono tracking-tight my-1">
+                  <div className="text-3xl font-extrabold text-rose-600 font-mono tabular-nums tracking-tight my-1">
                     {overdueTasks.length}
                   </div>
-                  <div className="text-xs text-slate-400 truncate mt-1">
+                  <div className="text-xs text-slate-500 truncate mt-1">
                     {overdueTasks.length > 0 ? "Requires attention" : "All running on schedule"}
                   </div>
-                </button>
+                </Card3D>
 
                 {/* Card 4: Total Reports */}
-                <button
+                <Card3D
+                  as="button"
                   type="button"
+                  maxTilt={3.4}
+                  liftPx={4}
+                  disabled={!canViewReports}
                   onClick={() => {
-                    setActiveDashboardModal("TOTAL_REPORTS");
+                    if (canViewReports) {
+                      setActiveDashboardModal("TOTAL_REPORTS");
+                    }
                   }}
-                  className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer text-left active:scale-[0.99] group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 flex flex-col justify-between"
+                  className={`p-5 rounded-2xl border border-slate-200 text-left group focus:outline-none flex flex-col justify-between ${
+                    canViewReports
+                      ? "cursor-pointer active:scale-[0.99] focus:ring-2 focus:ring-indigo-500/20"
+                      : "opacity-60 cursor-not-allowed"
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider group-hover:text-indigo-900 transition-colors">
                       Total Reports
                     </span>
-                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono tabular-nums">
                       <ArrowUpRight className="w-3 h-3 text-indigo-600" />
                       20%
                     </span>
                   </div>
-                  <div className="text-3xl font-extrabold text-indigo-600 font-mono tracking-tight my-1">
+                  <div className="text-3xl font-extrabold text-indigo-600 font-mono tabular-nums tracking-tight my-1">
                     12
                   </div>
-                  <div className="text-xs text-slate-400 truncate mt-1">
-                    Daily shift & weekly analytics
+                  <div className="text-xs text-slate-500 truncate mt-1">
+                    {canViewReports ? "Daily & weekly analytics" : "Reports access restricted"}
                   </div>
-                </button>
+                </Card3D>
               </div>
 
               {/* Rooms Section (6 Room Cards from reference image) */}
@@ -1417,9 +1796,12 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   {dashboardRooms.map((room) => {
                     const isReady = room.status === "AVAILABLE" || room.status === "READY_FOR_VISITOR";
                     return (
-                      <button
+                      <Card3D
+                        as="button"
                         key={room.name}
                         type="button"
+                        maxTilt={3.2}
+                        liftPx={3.5}
                         onClick={() => {
                           const realRoom = rooms.find((r) => r.id === room.id);
                           if (realRoom) {
@@ -1429,7 +1811,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             setSubTab("SETTINGS");
                           }
                         }}
-                        className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs hover:border-slate-400 hover:shadow-md transition-all text-left flex items-center justify-between group active:scale-[0.99] cursor-pointer"
+                        className="p-4 rounded-xl border border-slate-200 text-left flex items-center justify-between group active:scale-[0.99] cursor-pointer"
                       >
                         <div className="min-w-0 flex-1 pr-3">
                           <div className="flex items-center gap-2 mb-1">
@@ -1455,104 +1837,137 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         <div className="w-8 h-8 rounded-lg bg-slate-50 group-hover:bg-amber-50 group-hover:text-amber-700 text-slate-400 flex items-center justify-center shrink-0 transition-colors">
                           <ChevronRight className="w-4 h-4" />
                         </div>
-                      </button>
+                      </Card3D>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Bottom Row: Recent Activity (left) + Active Shift Operations & Quick Actions (right) */}
+              {/* Bottom Row: Recent Activity (left) + Active Attendance & Quick Actions (right) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Left: Recent Activity (lg:col-span-7) */}
-                <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <Card3D
+                  maxTilt={2.8}
+                  liftPx={3.5}
+                  className="lg:col-span-7 rounded-2xl border border-slate-200 p-5"
+                >
+                  <div className="relative z-10 pointer-events-auto flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                     <div>
                       <h3 className="text-sm font-bold text-slate-900 tracking-tight">Recent Activity</h3>
                       <p className="text-xs text-slate-500">Live task logs, attendant updates, and photo audits</p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSubTab("TASKS")}
-                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSubTab("TASKS");
+                      }}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 rounded-md px-1.5 py-0.5"
                     >
                       <span>All Tasks</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="space-y-3">
-                    {tasks.slice(0, 5).map((task) => {
-                      const badge = getTaskStatusBadge(task.status);
-                      return (
-                        <div
-                          key={task.id}
-                          className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-800">
-                                {task.priority}
-                              </span>
-                              <span className="text-xs font-bold text-slate-900 truncate">{task.roomAreaName}</span>
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.bg}`}>
-                                {badge.label}
-                              </span>
+                  <div className="relative z-10 pointer-events-auto space-y-3">
+                    {tasks.length === 0 ? (
+                      <div className="p-6 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-xs text-slate-500">
+                        No recent task activity available.
+                      </div>
+                    ) : (
+                      tasks.slice(0, 5).map((task) => {
+                        const badge = getTaskStatusBadge(task.status);
+                        return (
+                          <div
+                            key={task.id}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`View details for task ${task.title} in ${task.roomAreaName}`}
+                            onClick={() => handleOpenTaskDetail(task.id)}
+                            onKeyDown={(e) => {
+                              if (e.target !== e.currentTarget) return;
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleOpenTaskDetail(task.id);
+                              }
+                            }}
+                            className="group/task relative p-3 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:border-amber-300/80 hover:shadow-sm active:scale-[0.995] transition-all duration-200 flex items-center justify-between gap-3 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:border-amber-400"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-0.5 flex-wrap sm:flex-nowrap">
+                                <span
+                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                                    task.priority === 'URGENT' || task.isUrgent
+                                      ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                      : 'bg-slate-200/80 text-slate-800'
+                                  }`}
+                                >
+                                  {task.priority}
+                                </span>
+                                <span className="text-xs font-bold text-slate-900 group-hover/task:text-amber-950 truncate transition-colors">
+                                  {task.roomAreaName}
+                                </span>
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${badge.bg}`}>
+                                  {badge.label}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-700 font-medium truncate">{task.title}</div>
+                              <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                                <span>Assigned: {task.assignedToName}</span>
+                                <span>•</span>
+                                <span>Due: {task.dueTime}</span>
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-700 font-medium truncate">{task.title}</div>
-                            <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-2">
-                              <span>Assigned: {task.assignedToName}</span>
-                              <span>•</span>
-                              <span>Due: {task.dueTime}</span>
-                            </div>
-                          </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            {task.photoEvidence && (
-                              <button
-                                type="button"
-                                onClick={() => setInspectPhotoTask(task)}
-                                className="p-1.5 text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
-                                title="Inspect Photo Evidence"
-                              >
-                                <Camera className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {task.photoEvidence && (
+                                <button
+                                  type="button"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInspectPhotoTask(task);
+                                  }}
+                                  className="p-1.5 text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
+                                  title="Inspect Photo Evidence"
+                                  aria-label={`Inspect photo evidence for ${task.title}`}
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <ChevronRight className="w-4 h-4 text-slate-300 group-hover/task:text-amber-600 group-hover/task:translate-x-0.5 transition-all" />
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
-                </div>
+                </Card3D>
 
-                {/* Right: Login Attendance & Office Location Verification (lg:col-span-5) */}
-                <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between">
+                {/* Right: Attendant Login & Attendance (lg:col-span-5) */}
+                <Card3D
+                  maxTilt={2.6}
+                  liftPx={3.5}
+                  className="lg:col-span-5 rounded-2xl border border-slate-200 p-5 flex flex-col justify-between"
+                >
                   <div>
-                    {/* Header with Geofence Status Badge */}
+                    {/* Header */}
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                       <div>
                         <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                          Login Attendance & Office Verification
+                          Attendant Login & Attendance
                         </h3>
-                        <p className="text-xs text-slate-500">Real-time attendance & GPS geofenced check-in</p>
+                        <p className="text-xs text-slate-500">Real-time IST check-in & session log</p>
                       </div>
-
-                      {/* Live Geofence Status Pill */}
-                      {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Inside Office</span>
-                        </span>
-                      ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
-                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                          <span>Outside Office</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
-                          <MapPinOff className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Location Unverified</span>
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={handleOpenAttendanceHistory}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <History className="w-3.5 h-3.5 text-slate-600" />
+                        <span>History</span>
+                      </button>
                     </div>
 
                     {/* Attendant & Attendance Status Card */}
@@ -1560,9 +1975,9 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <img
-                            src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+                            src="/assets/wcr_logo.png"
                             alt="Raju Sharma"
-                            className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+                            className="w-10 h-10 rounded-full object-contain bg-white p-1 ring-2 ring-amber-400 shrink-0"
                           />
                           <div className="min-w-0 flex-1">
                             <div className="text-xs font-bold text-white truncate">
@@ -1609,7 +2024,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                     </div>
 
                     {/* Live Attendance Timestamps & Working Time Meter */}
-                    <div className="grid grid-cols-2 gap-2.5 mb-3">
+                    <div className="grid grid-cols-2 gap-2.5 mb-4">
                       {/* Login Timestamp */}
                       <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
                         <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
@@ -1640,176 +2055,119 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Geofence Verification Detail Card */}
-                    <div className="p-3 bg-slate-50/90 border border-slate-200 rounded-xl mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900">
-                          <Compass className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Office Geofence Verification</span>
-                        </div>
-                        <span className="text-[10px] font-mono text-slate-500">
-                          Radius: {officeConfig?.geofenceRadiusMeters ?? 150}m
-                        </span>
-                      </div>
-
-                      <div className="space-y-1.5 text-[11px]">
-                        <div className="flex items-center justify-between text-slate-600">
-                          <span className="text-slate-500">Configured Office:</span>
-                          <span className="font-semibold text-slate-900 truncate max-w-[200px]" title={officeConfig?.address}>
-                            {officeConfig?.name || 'White Collar Realty HQ'}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-slate-600">
-                          <span className="text-slate-500">GPS Distance from HQ:</span>
-                          <span className="font-mono font-bold text-slate-900">
-                            {todayAttendance?.locationVerification?.distanceFromOfficeMeters !== undefined
-                              ? `${todayAttendance.locationVerification.distanceFromOfficeMeters} meters`
-                              : 'Not Available'}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-slate-600">
-                          <span className="text-slate-500">Accuracy & Source:</span>
-                          <span className="font-mono text-slate-800">
-                            {todayAttendance?.locationVerification?.accuracyMeters
-                              ? `±${todayAttendance.locationVerification.accuracyMeters}m (${todayAttendance.locationVerification.source})`
-                              : todayAttendance?.locationVerification?.source || 'GPS'}
-                          </span>
-                        </div>
-
-                        {todayAttendance?.locationVerification?.status === 'UNVERIFIED' && (
-                          <div className="mt-1 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-800 leading-relaxed">
-                            {todayAttendance.locationVerification.errorMessage ||
-                              'GPS permission was denied or unavailable at login. Location is unverified; never assumed inside office.'}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Modal Triggers */}
-                      <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={handleOpenAttendanceHistory}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <History className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>More</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowOfficeConfigModal(true)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
-                        >
-                          <Settings className="w-3 h-3" />
-                          <span>Geofence Settings</span>
-                        </button>
-                      </div>
+                  {/* Quick Dispatch Action */}
+                  {hasPermission('tasks', 'create') && (
+                    <div className="pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: "P2" }));
+                          setShowNewTaskModal(true);
+                        }}
+                        className="w-full py-2 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Assign New Task</span>
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Quick Dispatch Action (Preserved!) */}
-                  <div className="pt-3 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewTaskForm((prev) => ({ ...prev, isUrgent: false, priority: "P2" }));
-                        setShowNewTaskModal(true);
-                      }}
-                      className="w-full py-2 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Assign New Task</span>
-                    </button>
-                  </div>
-                </div>
+                  )}
+                </Card3D>
               </div>
             </div>
           )}
 
           {/* SETTINGS SUB-NAV BAR (When in SETTINGS tab) */}
-          {subTab === "SETTINGS" && (
+          {subTab === "SETTINGS" && canViewSettings && (
             <div className="mb-6 bg-white border border-slate-200 rounded-xl p-2.5 flex items-center gap-2 overflow-x-auto">
-              <button
-                type="button"
-                onClick={() => setSettingsTab("ROOMS")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  settingsTab === "ROOMS" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                15 Office Areas & Room Config ({rooms.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setSettingsTab("USERS")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  settingsTab === "USERS" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Account Access & Security ({allUsers.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setSettingsTab("AUDIT")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  settingsTab === "AUDIT" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Audit Trail ({auditLogs.length})
-              </button>
+              {canViewRooms && (
+                <button
+                  type="button"
+                  onClick={() => setSettingsTab("ROOMS")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    settingsTab === "ROOMS" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  15 Office Areas & Room Config ({rooms.length})
+                </button>
+              )}
+              {canViewUsers && (
+                <button
+                  type="button"
+                  onClick={() => setSettingsTab("USERS")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    settingsTab === "USERS" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Account Access & Security ({allUsers.length})
+                </button>
+              )}
+              {canViewAudit && (
+                <button
+                  type="button"
+                  onClick={() => setSettingsTab("AUDIT")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    settingsTab === "AUDIT" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Audit Trail ({auditLogs.length})
+                </button>
+              )}
             </div>
           )}
 
           {/* TAB 2: TASKS VIEW (Pantry Tasks, Cleaning Tasks, Rearrangement Tasks, All Tasks) */}
-          {(subTab === "TASKS" ||
-            subTab === "PANTRY_TASKS" ||
-            subTab === "CLEANING_TASKS" ||
-            subTab === "REARRANGEMENT_TASKS") && (
+          {canViewTasks &&
+            (subTab === "TASKS" ||
+              subTab === "PANTRY_TASKS" ||
+              subTab === "CLEANING_TASKS" ||
+              subTab === "REARRANGEMENT_TASKS") && (
         <div className="space-y-4">
           {/* Quick Schedule Milestone Simulation Bar */}
-          <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-              <div>
-                <span className="font-bold text-amber-900">Task Automation Milestones:</span>
-                <span className="text-amber-800 ml-1">
-                  Automated schedule for 9:00 AM routines, 10:00 AM & 3:00 PM water distribution, 7:30 PM inspection, and 8:00 PM closing audit.
-                </span>
+          {hasPermission('tasks', 'create') && (
+            <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                <div>
+                  <span className="font-bold text-amber-900">Task Automation Milestones:</span>
+                  <span className="text-amber-800 ml-1">
+                    Automated schedule for 9:00 AM routines, 10:00 AM & 3:00 PM water distribution, and 7:30 PM closing inspection.
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleTriggerMilestone('9AM_START')}
+                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
+                >
+                  9 AM Routine
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTriggerMilestone('10AM_WATER')}
+                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
+                >
+                  10 AM Water Distribution
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTriggerMilestone('3PM_WATER')}
+                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
+                >
+                  3 PM Water Recheck
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTriggerMilestone('CLOSING_AUDIT')}
+                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
+                >
+                  Closing Audit
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-              <button
-                type="button"
-                onClick={() => handleTriggerMilestone('9AM_START')}
-                className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
-              >
-                9 AM Routine
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTriggerMilestone('10AM_WATER')}
-                className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
-              >
-                10 AM Water Distribution
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTriggerMilestone('3PM_WATER')}
-                className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
-              >
-                3 PM Water Recheck
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTriggerMilestone('8PM_CLOSING')}
-                className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100"
-              >
-                8:00 PM Closing Audit
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* Filter Bar */}
           <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex flex-wrap items-center justify-between gap-3">
@@ -1855,12 +2213,14 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 className="text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white"
               >
                 <option value="ALL">All Statuses</option>
+                <option value="SCHEDULED">Scheduled</option>
                 <option value="AVAILABLE">Available</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="PENDING_VERIFICATION">Under Review</option>
                 <option value="BLOCKED">Blocked</option>
                 <option value="COMPLETED">Completed</option>
                 <option value="OVERDUE">Overdue</option>
+                <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
 
@@ -1880,9 +2240,11 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 const isPendingReview = task.status === 'PENDING_VERIFICATION';
 
                 return (
-                  <div
+                  <Card3D
                     key={task.id}
-                    className={`bg-white rounded-xl border p-4 flex flex-col justify-between transition-shadow hover:shadow-md ${
+                    maxTilt={2.2}
+                    liftPx={3}
+                    className={`rounded-xl border p-4 flex flex-col justify-between ${
                       task.isUrgent
                         ? 'border-rose-400 bg-rose-50/20'
                         : isPendingReview
@@ -1909,6 +2271,12 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           className={`text-[11px] font-semibold ${
                             task.status === 'COMPLETED'
                               ? 'text-emerald-700'
+                              : task.status === 'CANCELLED'
+                              ? 'text-slate-400 line-through'
+                              : task.status === 'OVERDUE'
+                              ? 'text-rose-700'
+                              : task.status === 'SCHEDULED'
+                              ? 'text-indigo-700'
                               : task.status === 'BLOCKED'
                               ? 'text-rose-700'
                               : task.status === 'PENDING_VERIFICATION'
@@ -1920,7 +2288,20 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         </span>
                       </div>
 
-                      <h3 className="text-sm font-bold text-slate-900 mb-1.5 leading-snug">{task.title}</h3>
+                      <h3 className={`text-sm font-bold mb-1.5 leading-snug ${task.status === 'CANCELLED' ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                        {task.title}
+                      </h3>
+
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mb-2 font-mono">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          {formatISTTaskSchedule(task.scheduledFor)}
+                        </span>
+                        <span className="text-slate-400">•</span>
+                        <span className="font-sans text-slate-600 truncate">
+                          {task.assignedToName}
+                        </span>
+                      </div>
 
                       {task.description && (
                         <p className="text-xs text-slate-600 line-clamp-2 mb-3 leading-relaxed">
@@ -1962,11 +2343,11 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                     </div>
 
                     {/* Card Actions */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                       <div className="text-[11px] text-slate-400 font-mono">Due {task.dueTime}</div>
 
                       <div className="flex items-center gap-1.5">
-                        {isPendingReview ? (
+                        {isPendingReview && hasPermission('tasks', 'edit') ? (
                           <>
                             <button
                               type="button"
@@ -1994,6 +2375,29 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           </button>
                         ) : null}
 
+                        {hasPermission('tasks', 'edit') && task.status !== 'COMPLETED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditTask(task)}
+                            title="Edit or Reschedule Task (IST)"
+                            className="px-2 py-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>Reschedule</span>
+                          </button>
+                        )}
+
+                        {hasPermission('tasks', 'edit') && task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelTask(task)}
+                            title="Cancel Task"
+                            className="px-2 py-1 text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        )}
+
                         {hasPermission('tasks', 'delete') && (
                           <button
                             type="button"
@@ -2006,7 +2410,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         )}
                       </div>
                     </div>
-                  </div>
+                  </Card3D>
                 );
               })
             )}
@@ -2016,7 +2420,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
 
 
       {/* SUB-TAB 3: DEDICATED REAL-TIME ROOM MANAGEMENT */}
-      {(subTab === 'ROOMS' || (subTab === 'SETTINGS' && settingsTab === 'ROOMS')) && (
+      {canViewRooms && (subTab === 'ROOMS' || (subTab === 'SETTINGS' && settingsTab === 'ROOMS')) && (
         <div className="space-y-5">
           {/* Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200">
@@ -2030,36 +2434,52 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               <p className="text-xs text-slate-500 mt-0.5">
                 Real-time database-backed room statuses, candidate & visitor assignments, collision detection, and automated cleaning pipelines.
               </p>
+              <div
+                className="mt-1.5 flex items-start sm:items-center gap-1.5 text-[11px] text-slate-600 font-medium"
+                title="6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India"
+              >
+                <Building className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+                <span className="sm:hidden">
+                  6th Floor, Tower A, M3M Urbana Business Park, Sector 67, Gurugram 122101
+                </span>
+                <span className="hidden sm:inline">
+                  6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setAssignConflictError(null);
-                  setShowAssignModal(true);
-                }}
-                className="px-3.5 py-2 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
-              >
-                <DoorOpen className="w-4 h-4 text-slate-950" />
-                Assign Room
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setRoomForm({
-                    name: '',
-                    category: 'MEETING_SUITE',
-                    defaultPriority: 'P5',
-                    photoRequired: true,
-                    recurrence: 'DAILY',
-                  });
-                  setShowRoomModal(true);
-                }}
-                className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Area
-              </button>
+              {hasPermission('rooms', 'edit') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssignConflictError(null);
+                    setShowAssignModal(true);
+                  }}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                >
+                  <DoorOpen className="w-4 h-4 text-slate-950" />
+                  Assign Room
+                </button>
+              )}
+              {hasPermission('rooms', 'create') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoomForm({
+                      name: '',
+                      category: 'MEETING_SUITE',
+                      defaultPriority: 'P5',
+                      photoRequired: true,
+                      recurrence: 'DAILY',
+                    });
+                    setShowRoomModal(true);
+                  }}
+                  className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Area
+                </button>
+              )}
             </div>
           </div>
 
@@ -2232,9 +2652,12 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 );
 
                 return (
-                  <div
+                  <Card3D
                     key={room.id}
-                    className={`bg-white rounded-xl border p-4 flex flex-col justify-between shadow-xs transition-all ${
+                    maxTilt={2.2}
+                    liftPx={3}
+                    disabled={!room.enabled}
+                    className={`rounded-xl border p-4 flex flex-col justify-between ${
                       !room.enabled ? 'opacity-60 bg-slate-50 border-slate-200' : 'border-slate-200'
                     }`}
                   >
@@ -2250,16 +2673,18 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.color}`}>
                             {badge.label}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleRoomActive(room.id)}
-                            title={room.enabled ? 'Deactivate room' : 'Activate room'}
-                            className={`p-1 rounded text-xs transition-colors ${
-                              room.enabled ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-200'
-                            }`}
-                          >
-                            <Power className="w-3.5 h-3.5" />
-                          </button>
+                          {hasPermission('rooms', 'edit') && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleRoomActive(room.id)}
+                              title={room.enabled ? 'Deactivate room' : 'Activate room'}
+                              className={`p-1 rounded text-xs transition-colors ${
+                                room.enabled ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Power className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -2323,86 +2748,88 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
 
                     {/* Room Lifecycle Control Action Buttons */}
                     <div className="pt-3 border-t border-slate-100 space-y-2">
-                      <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                        {/* 1. Assign Room button (Available / Reserved) */}
-                        {(room.status === 'AVAILABLE' || room.status === 'RESERVED') && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAssignForm({
-                                roomId: room.id,
-                                visitorName: '',
-                                reference: 'Candidate Interview / Client Meeting',
-                                expectedArrival: '11:30 AM',
-                                expectedDuration: '1 hour',
-                                prepRequirements: [
-                                  'Sanitize meeting table and coasters',
-                                  'Align all chairs in uniform geometric layout',
-                                  'Check presentation screen & HDMI connection',
-                                ],
-                                waterRequirements: '2 Chilled Sealed Bottles + Clean Glasses',
-                                priority: 'P2',
-                                instructions: '',
-                                forceOverride: false,
-                              });
-                              setAssignConflictError(null);
-                              setShowAssignModal(true);
-                            }}
-                            className="w-full py-1.5 px-2.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            Assign Room
-                          </button>
-                        )}
+                      {hasPermission('rooms', 'edit') && (
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                          {/* 1. Assign Room button (Available / Reserved) */}
+                          {(room.status === 'AVAILABLE' || room.status === 'RESERVED') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAssignForm({
+                                  roomId: room.id,
+                                  visitorName: '',
+                                  reference: 'Candidate Interview / Client Meeting',
+                                  expectedArrival: '11:30 AM',
+                                  expectedDuration: '1 hour',
+                                  prepRequirements: [
+                                    'Sanitize meeting table and coasters',
+                                    'Align all chairs in uniform geometric layout',
+                                    'Check presentation screen & HDMI connection',
+                                  ],
+                                  waterRequirements: '2 Chilled Sealed Bottles + Clean Glasses',
+                                  priority: 'P2',
+                                  instructions: '',
+                                  forceOverride: false,
+                                });
+                                setAssignConflictError(null);
+                                setShowAssignModal(true);
+                              }}
+                              className="w-full py-1.5 px-2.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              Assign Room
+                            </button>
+                          )}
 
-                        {/* 2. Mark Ready for Occupancy (if PREPARATION_REQUIRED) */}
-                        {room.status === 'PREPARATION_REQUIRED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleRoomStatusAction(room.id, 'MARK_READY')}
-                            className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex items-center justify-center gap-1"
-                          >
-                            <CheckCircle2 className="w-3 h-3 text-blue-600" />
-                            Ready for Occupancy
-                          </button>
-                        )}
+                          {/* 2. Mark Ready for Occupancy (if PREPARATION_REQUIRED) */}
+                          {room.status === 'PREPARATION_REQUIRED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRoomStatusAction(room.id, 'MARK_READY')}
+                              className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex items-center justify-center gap-1"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                              Ready for Occupancy
+                            </button>
+                          )}
 
-                        {/* 3. Mark Occupied (if READY_FOR_VISITOR, PREPARATION_REQUIRED, or ASSIGNED) */}
-                        {(room.status === 'READY_FOR_VISITOR' || room.status === 'PREPARATION_REQUIRED' || room.status === 'ASSIGNED') && (
-                          <button
-                            type="button"
-                            onClick={() => handleRoomStatusAction(room.id, 'MARK_OCCUPIED')}
-                            className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex items-center justify-center gap-1"
-                          >
-                            <DoorOpen className="w-3 h-3 text-purple-600" />
-                            Mark Occupied
-                          </button>
-                        )}
+                          {/* 3. Mark Occupied (if READY_FOR_VISITOR, PREPARATION_REQUIRED, or ASSIGNED) */}
+                          {(room.status === 'READY_FOR_VISITOR' || room.status === 'PREPARATION_REQUIRED' || room.status === 'ASSIGNED') && (
+                            <button
+                              type="button"
+                              onClick={() => handleRoomStatusAction(room.id, 'MARK_OCCUPIED')}
+                              className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex items-center justify-center gap-1"
+                            >
+                              <DoorOpen className="w-3 h-3 text-purple-600" />
+                              Mark Occupied
+                            </button>
+                          )}
 
-                        {/* 4. Release Vacant (if OCCUPIED or READY_FOR_VISITOR) */}
-                        {(room.status === 'OCCUPIED' || room.status === 'READY_FOR_VISITOR') && (
-                          <button
-                            type="button"
-                            onClick={() => handleRoomStatusAction(room.id, 'RELEASE_VACANT')}
-                            className="w-full py-1.5 px-2.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                            Release Room (Vacant & Request Cleaning)
-                          </button>
-                        )}
+                          {/* 4. Release Vacant (if OCCUPIED or READY_FOR_VISITOR) */}
+                          {(room.status === 'OCCUPIED' || room.status === 'READY_FOR_VISITOR') && (
+                            <button
+                              type="button"
+                              onClick={() => handleRoomStatusAction(room.id, 'RELEASE_VACANT')}
+                              className="w-full py-1.5 px-2.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                            >
+                              <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                              Release Room (Vacant & Request Cleaning)
+                            </button>
+                          )}
 
-                        {/* 5. Inspection / Ad-hoc cleaning */}
-                        {room.status === 'CLEANING_REQUIRED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleRoomStatusAction(room.id, 'REQUEST_CLEANING')}
-                            className="w-full py-1.5 px-2 text-xs font-semibold text-rose-800 bg-rose-100/80 hover:bg-rose-200/80 border border-rose-300 rounded-lg transition-colors flex items-center justify-center gap-1"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Re-Trigger Cleaning Task
-                          </button>
-                        )}
-                      </div>
+                          {/* 5. Inspection / Ad-hoc cleaning */}
+                          {room.status === 'CLEANING_REQUIRED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRoomStatusAction(room.id, 'REQUEST_CLEANING')}
+                              className="w-full py-1.5 px-2 text-xs font-semibold text-rose-800 bg-rose-100/80 hover:bg-rose-200/80 border border-rose-300 rounded-lg transition-colors flex items-center justify-center gap-1"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              Re-Trigger Cleaning Task
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {/* History & Config Bar */}
                       <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100">
@@ -2414,26 +2841,28 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           <History className="w-3 h-3 text-slate-400" />
                           History & Camera Photos
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRoomForm({
-                              id: room.id,
-                              name: room.name,
-                              category: room.category,
-                              defaultPriority: room.defaultPriority,
-                              photoRequired: room.photoRequired,
-                              recurrence: room.recurrence,
-                            });
-                            setShowRoomModal(true);
-                          }}
-                          className="font-medium text-slate-500 hover:text-slate-900 underline"
-                        >
-                          Edit Area
-                        </button>
+                        {hasPermission('rooms', 'edit') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRoomForm({
+                                id: room.id,
+                                name: room.name,
+                                category: room.category,
+                                defaultPriority: room.defaultPriority,
+                                photoRequired: room.photoRequired,
+                                recurrence: room.recurrence,
+                              });
+                              setShowRoomModal(true);
+                            }}
+                            className="font-medium text-slate-500 hover:text-slate-900 underline"
+                          >
+                            Edit Area
+                          </button>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  </Card3D>
                 );
               })}
           </div>
@@ -2441,7 +2870,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       )}
 
       {/* SUB-TAB 4: DAILY & WEEKLY REPORTS */}
-      {subTab === 'REPORTS' && (
+      {subTab === 'REPORTS' && canViewReports && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -2450,14 +2879,16 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 Calculated strictly from live database records and verified camera timestamps.
               </p>
             </div>
-            <a
-              href={api.getReportExportUrl()}
-              download
-              className="px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5 shrink-0 shadow-xs"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export Full Report (CSV)
-            </a>
+            {hasPermission('reports', 'export') && (
+              <a
+                href={api.getReportExportUrl()}
+                download
+                className="px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5 shrink-0 shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Full Report (CSV)
+              </a>
+            )}
           </div>
 
           {/* Daily Report Card */}
@@ -2571,7 +3002,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       )}
 
       {/* SUB-TAB 5: ACCOUNT ACCESS & SECURITY */}
-      {(subTab === 'USERS' || (subTab === 'SETTINGS' && settingsTab === 'USERS')) && (
+      {canViewUsers && (subTab === 'USERS' || (subTab === 'SETTINGS' && settingsTab === 'USERS')) && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -2580,14 +3011,16 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 Authorized company emails only. Deactivating an employee immediately revokes active session tokens. Historical records remain preserved.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowUserModal(true)}
-              className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shrink-0 shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Company User
-            </button>
+            {hasPermission('users', 'create') && (
+              <button
+                type="button"
+                onClick={() => setShowUserModal(true)}
+                className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shrink-0 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Company User
+              </button>
+            )}
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
@@ -2595,6 +3028,9 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               const isDeactivated = u.status === 'inactive';
               const isMe = currentUser?.id === u.id;
               const isSuper = Boolean(u.isSuperAdmin || u.id === 'user-admin-1' || u.email.toLowerCase() === 'admin.director@whitecollarrealty.com');
+              const canEditTarget =
+                hasPermission('users', 'edit') &&
+                (!(isSuper || u.role === 'ADMIN') || currentUser?.role === 'ADMIN' || Boolean(currentUser?.isSuperAdmin));
 
               return (
                 <div key={u.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2606,6 +3042,11 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono">
                           {u.role === 'KIMMY_MAM' ? 'Co-Founder' : u.role}
                         </span>
+                        {isMe && (
+                          <span className="text-[10px] font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-full">
+                            Active Session (You)
+                          </span>
+                        )}
                         {isSuper && (
                           <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Shield className="w-3 h-3 text-amber-600" />
@@ -2631,55 +3072,61 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
 
                   <div className="flex items-center gap-2 flex-wrap shrink-0">
                     {/* Permissions & Edit Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditUser(u)}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-xs"
-                      title="Customize Dashboards, Sidebar Items, and CRUD Actions"
-                    >
-                      <Sliders className="w-3.5 h-3.5 text-slate-600" />
-                      <span>Edit & Permissions</span>
-                    </button>
+                    {canEditTarget && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditUser(u)}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-xs"
+                        title="Customize Dashboards, Sidebar Items, and CRUD Actions"
+                      >
+                        <Sliders className="w-3.5 h-3.5 text-slate-600" />
+                        <span>Edit & Permissions</span>
+                      </button>
+                    )}
 
                     {/* Activate / Deactivate Toggle */}
-                    <button
-                      type="button"
-                      disabled={isSuper}
-                      onClick={() => handleToggleUser(u.id)}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
-                        isSuper
-                          ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
-                          : isDeactivated
-                          ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
-                          : 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200'
-                      }`}
-                      title={isSuper ? 'Security Policy: Super Administrator cannot be deactivated.' : undefined}
-                    >
-                      {isDeactivated ? (
-                        <>
-                          <UserCheck className="w-3.5 h-3.5" /> Reactivate
-                        </>
-                      ) : (
-                        <>
-                          <UserX className="w-3.5 h-3.5" /> Deactivate
-                        </>
-                      )}
-                    </button>
+                    {hasPermission('users', 'edit') && (
+                      <button
+                        type="button"
+                        disabled={isSuper}
+                        onClick={() => handleToggleUser(u.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                          isSuper
+                            ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
+                            : isDeactivated
+                            ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+                            : 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200'
+                        }`}
+                        title={isSuper ? 'Security Policy: Super Administrator cannot be deactivated.' : undefined}
+                      >
+                        {isDeactivated ? (
+                          <>
+                            <UserCheck className="w-3.5 h-3.5" /> Reactivate
+                          </>
+                        ) : (
+                          <>
+                            <UserX className="w-3.5 h-3.5" /> Deactivate
+                          </>
+                        )}
+                      </button>
+                    )}
 
                     {/* Delete User Button */}
-                    <button
-                      type="button"
-                      disabled={isSuper}
-                      onClick={() => setDeleteConfirmUser(u)}
-                      className={`p-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center ${
-                        isSuper
-                          ? 'opacity-30 cursor-not-allowed bg-slate-100 text-slate-400'
-                          : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200'
-                      }`}
-                      title={isSuper ? 'Security Policy: Primary Super Administrator cannot be deleted.' : 'Delete User Account'}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {hasPermission('users', 'delete') && (
+                      <button
+                        type="button"
+                        disabled={isSuper}
+                        onClick={() => setDeleteConfirmUser(u)}
+                        className={`p-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center ${
+                          isSuper
+                            ? 'opacity-30 cursor-not-allowed bg-slate-100 text-slate-400'
+                            : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200'
+                        }`}
+                        title={isSuper ? 'Security Policy: Primary Super Administrator cannot be deleted.' : 'Delete User Account'}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -2689,7 +3136,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       )}
 
       {/* SUB-TAB 6: AUDIT TRAIL */}
-      {(subTab === 'AUDIT' || (subTab === 'SETTINGS' && settingsTab === 'AUDIT')) && (
+      {canViewAudit && (subTab === 'AUDIT' || (subTab === 'SETTINGS' && settingsTab === 'AUDIT')) && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -2719,7 +3166,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                         {new Date(log.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
                       </td>
                       <td className="py-2.5 px-4 text-slate-900 font-sans font-medium whitespace-nowrap">
-                        {log.actorName} ({log.actorRole})
+                        {log.actorName} ({log.actorRole === 'KIMMY_MAM' ? 'Co-Founder' : log.actorRole})
                       </td>
                       <td className="py-2.5 px-4 text-amber-700 font-semibold whitespace-nowrap">{log.action}</td>
                       <td className="py-2.5 px-4 text-slate-500 whitespace-nowrap">{log.entityType}</td>
@@ -2733,6 +3180,27 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         </div>
       )}
         </main>
+
+        {/* Responsive Corporate Office Footer */}
+        <footer className="mt-auto border-t border-slate-200/80 bg-white/80 px-4 sm:px-6 lg:px-8 py-3.5 shrink-0">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500">
+            <div className="font-semibold text-slate-700 flex items-center gap-1.5 shrink-0">
+              <Building className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>White Collar Realty</span>
+            </div>
+            <div
+              className="text-center sm:text-right text-slate-500 leading-relaxed"
+              title="6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India"
+            >
+              <span className="sm:hidden">
+                6th Floor, Tower A, M3M Urbana Business Park, Sector 67, Gurugram 122101
+              </span>
+              <span className="hidden sm:inline">
+                6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India
+              </span>
+            </div>
+          </div>
+        </footer>
       </div>
 
       {/* MODAL 1: Create New Task / Urgent Request with AI Natural Language Assist */}
@@ -2835,15 +3303,125 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Due Time / Deadline</label>
-                <input
-                  type="text"
-                  value={newTaskForm.dueTime}
-                  onChange={(e) => setNewTaskForm({ ...newTaskForm, dueTime: e.target.value })}
-                  placeholder="e.g. Immediate (within 15 mins), 11:30 AM"
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Assign To (Attendant)</label>
+                  <select
+                    value={
+                      newTaskForm.assignedToEmail ||
+                      allUsers.find((u) => u.role === 'PANTRY_BOY' && u.status === 'active')?.email ||
+                      ''
+                    }
+                    onChange={(e) => setNewTaskForm({ ...newTaskForm, assignedToEmail: e.target.value })}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                  >
+                    {allUsers
+                      .filter((u) => u.status === 'active' && (u.role === 'PANTRY_BOY' || u.permissions?.dashboards?.pantry))
+                      .map((u) => (
+                        <option key={u.id} value={u.email}>
+                          {u.name} ({u.role === 'PANTRY_BOY' ? 'Pantry Boy' : u.role})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Due Time / Deadline</label>
+                  <input
+                    type="text"
+                    value={newTaskForm.dueTime}
+                    onChange={(e) => setNewTaskForm({ ...newTaskForm, dueTime: e.target.value })}
+                    placeholder="e.g. Immediate (within 15 mins), 11:30 AM"
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              {/* Scheduled Date & Time (IST) */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Task Execution Schedule (IST)</span>
+                  </label>
+                  <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setNewTaskForm({ ...newTaskForm, scheduleMode: 'IMMEDIATE' })}
+                      className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                        newTaskForm.scheduleMode === 'IMMEDIATE'
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Dispatch Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewTaskForm({
+                          ...newTaskForm,
+                          scheduleMode: 'SCHEDULED',
+                          scheduledFor:
+                            newTaskForm.scheduledFor ||
+                            toISTDateTimeLocal(new Date(getServerNowMs() + 10 * 60 * 1000)),
+                        })
+                      }
+                      className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                        newTaskForm.scheduleMode === 'SCHEDULED'
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Schedule Date & Time
+                    </button>
+                  </div>
+                </div>
+
+                {newTaskForm.scheduleMode === 'SCHEDULED' ? (
+                  <div className="space-y-2">
+                    <input
+                      type="datetime-local"
+                      required
+                      value={newTaskForm.scheduledFor}
+                      onChange={(e) => setNewTaskForm({ ...newTaskForm, scheduledFor: e.target.value })}
+                      className="w-full text-xs font-mono px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900"
+                    />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-slate-500 font-medium">Quick IST Presets:</span>
+                      {[
+                        { label: '+5 Mins', mins: 5 },
+                        { label: '+10 Mins', mins: 10 },
+                        { label: '+30 Mins', mins: 30 },
+                        { label: '+1 Hour', mins: 60 },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() =>
+                            setNewTaskForm({
+                              ...newTaskForm,
+                              scheduleMode: 'SCHEDULED',
+                              scheduledFor: toISTDateTimeLocal(
+                                new Date(getServerNowMs() + preset.mins * 60 * 1000)
+                              ),
+                            })
+                          }
+                          className="px-2 py-0.5 text-[10px] font-semibold bg-white hover:bg-amber-50 text-slate-700 border border-slate-200 rounded-md cursor-pointer"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Pantry Boy automatically receives a 5-minute warning popup and an execution alert popup at exact IST scheduled time.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500">
+                    Task activates immediately on Pantry Boy's dashboard and triggers an instant execution alert.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -2857,6 +3435,12 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 />
               </div>
 
+              {taskModalError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-medium">
+                  {taskModalError}
+                </div>
+              )}
+
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -2869,8 +3453,200 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors shadow-sm bg-slate-900 hover:bg-slate-800"
                 >
-                  Confirm & Dispatch Task
+                  {newTaskForm.scheduleMode === 'SCHEDULED' ? 'Schedule & Sync Task' : 'Confirm & Dispatch Task'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1B: Edit / Reschedule / Reassign / Cancel Existing Task */}
+      {editingTask && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl p-5 border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Edit / Reschedule Task (IST)</h3>
+                <p className="text-xs text-slate-500">
+                  Changes sync instantly in real time to Pantry Boy's dashboard, countdown, and scheduled alerts.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTask(null)}
+                className="p-1 rounded text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTask} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Task Title</label>
+                <input
+                  type="text"
+                  required
+                  value={editTaskForm.title}
+                  onChange={(e) => setEditTaskForm({ ...editTaskForm, title: e.target.value })}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Target Room / Area</label>
+                  <select
+                    value={editTaskForm.roomAreaId}
+                    onChange={(e) => setEditTaskForm({ ...editTaskForm, roomAreaId: e.target.value })}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                  >
+                    {rooms.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Priority</label>
+                  <select
+                    value={editTaskForm.isUrgent ? 'URGENT' : editTaskForm.priority}
+                    onChange={(e) => {
+                      const val = e.target.value as TaskPriority;
+                      setEditTaskForm({
+                        ...editTaskForm,
+                        priority: val,
+                        isUrgent: val === 'URGENT',
+                      });
+                    }}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                  >
+                    <option value="URGENT">⚠️ URGENT</option>
+                    <option value="P1">P1 (High / Reception)</option>
+                    <option value="P2">P2 (Desks & Routine)</option>
+                    <option value="P3">P3 (Cabins)</option>
+                    <option value="P4">P4 (Executive)</option>
+                    <option value="P5">P5 (Scheduled)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Attendant</label>
+                  <select
+                    value={editTaskForm.assignedToEmail}
+                    onChange={(e) => setEditTaskForm({ ...editTaskForm, assignedToEmail: e.target.value })}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                  >
+                    {allUsers
+                      .filter((u) => u.status === 'active' && (u.role === 'PANTRY_BOY' || u.permissions?.dashboards?.pantry))
+                      .map((u) => (
+                        <option key={u.id} value={u.email}>
+                          {u.name} ({u.role === 'PANTRY_BOY' ? 'Pantry Boy' : u.role})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Due Time Label</label>
+                  <input
+                    type="text"
+                    value={editTaskForm.dueTime}
+                    onChange={(e) => setEditTaskForm({ ...editTaskForm, dueTime: e.target.value })}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-indigo-50/60 border border-indigo-200 rounded-xl space-y-2">
+                <label className="block text-xs font-bold text-indigo-950">
+                  Scheduled Date & Time (IST · Asia/Kolkata)
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={editTaskForm.scheduledFor}
+                  onChange={(e) => setEditTaskForm({ ...editTaskForm, scheduledFor: e.target.value })}
+                  className="w-full text-xs font-mono px-3 py-2 bg-white border border-indigo-300 rounded-lg focus:ring-1 focus:ring-indigo-700"
+                />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-indigo-800 font-medium">Quick Reschedule (from current IST):</span>
+                  {[
+                    { label: 'Now', mins: 0 },
+                    { label: '+5 Mins', mins: 5 },
+                    { label: '+10 Mins', mins: 10 },
+                    { label: '+30 Mins', mins: 30 },
+                    { label: '+1 Hour', mins: 60 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() =>
+                        setEditTaskForm({
+                          ...editTaskForm,
+                          scheduledFor: toISTDateTimeLocal(
+                            new Date(getServerNowMs() + preset.mins * 60 * 1000)
+                          ),
+                        })
+                      }
+                      className="px-2 py-0.5 text-[10px] font-semibold bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-md cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Instructions</label>
+                <textarea
+                  value={editTaskForm.description}
+                  onChange={(e) => setEditTaskForm({ ...editTaskForm, description: e.target.value })}
+                  rows={2}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+
+              {taskModalError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-medium">
+                  {taskModalError}
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+                {editingTask.status !== 'CANCELLED' && editingTask.status !== 'COMPLETED' ? (
+                  <button
+                    type="button"
+                    disabled={savingTaskEdit}
+                    onClick={() => handleCancelTask(editingTask)}
+                    className="px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Cancel This Task
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTask(null)}
+                    className="px-3 py-2 text-xs text-slate-600 hover:text-slate-900"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingTaskEdit}
+                    className="px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors shadow-sm bg-slate-900 hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                  >
+                    {savingTaskEdit ? 'Syncing...' : 'Save & Sync Schedule'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -3217,7 +3993,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                     <div>
                       <div className="font-bold text-slate-900">Pantry Boy Dashboard</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        Access dedicated attendant dashboard with shift clock, room support, and live camera evidence.
+                        Access dedicated attendant dashboard with attendance log, room support, and live camera evidence.
                       </div>
                     </div>
                   </label>
@@ -3467,91 +4243,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 </div>
               </div>
 
-              {/* SECTION 5: Confidential Information Security Clearances */}
-              <div className="space-y-3">
-                <div className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-rose-600" />
-                    5. Confidential Data Access Clearances
-                  </span>
-                  <span className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-mono font-bold">
-                    RESTRICTED
-                  </span>
-                </div>
-                <div className="p-3.5 bg-rose-50/60 border border-rose-200 rounded-xl space-y-2">
-                  <p className="text-[11px] text-rose-900 leading-relaxed">
-                    By default, Pantry Boys and non-management personnel are strictly prohibited from viewing candidate resumes, internal HR notes, and government IDs. Grant clearance only when operationally essential.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-rose-200/80">
-                    <label className="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-lg border border-rose-200/80">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(editUserForm.permissions.confidentialAccess?.hrNotes)}
-                        onChange={(e) =>
-                          setEditUserForm({
-                            ...editUserForm,
-                            permissions: {
-                              ...editUserForm.permissions,
-                              confidentialAccess: {
-                                hrNotes: e.target.checked,
-                                resumes: Boolean(editUserForm.permissions.confidentialAccess?.resumes),
-                                governmentIds: Boolean(editUserForm.permissions.confidentialAccess?.governmentIds),
-                              },
-                            },
-                          })
-                        }
-                        className="w-3.5 h-3.5 text-rose-600 rounded border-rose-300"
-                      />
-                      <span className="font-semibold text-rose-950">Internal HR Notes</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-lg border border-rose-200/80">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(editUserForm.permissions.confidentialAccess?.resumes)}
-                        onChange={(e) =>
-                          setEditUserForm({
-                            ...editUserForm,
-                            permissions: {
-                              ...editUserForm.permissions,
-                              confidentialAccess: {
-                                hrNotes: Boolean(editUserForm.permissions.confidentialAccess?.hrNotes),
-                                resumes: e.target.checked,
-                                governmentIds: Boolean(editUserForm.permissions.confidentialAccess?.governmentIds),
-                              },
-                            },
-                          })
-                        }
-                        className="w-3.5 h-3.5 text-rose-600 rounded border-rose-300"
-                      />
-                      <span className="font-semibold text-rose-950">Candidate Resumes</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-lg border border-rose-200/80">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(editUserForm.permissions.confidentialAccess?.governmentIds)}
-                        onChange={(e) =>
-                          setEditUserForm({
-                            ...editUserForm,
-                            permissions: {
-                              ...editUserForm.permissions,
-                              confidentialAccess: {
-                                hrNotes: Boolean(editUserForm.permissions.confidentialAccess?.hrNotes),
-                                resumes: Boolean(editUserForm.permissions.confidentialAccess?.resumes),
-                                governmentIds: e.target.checked,
-                              },
-                            },
-                          })
-                        }
-                        className="w-3.5 h-3.5 text-rose-600 rounded border-rose-300"
-                      />
-                      <span className="font-semibold text-rose-950">Government IDs</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
               {/* Form Footer */}
               <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-3 sticky bottom-0 bg-white">
                 <span className="text-[11px] text-slate-500 font-mono">
@@ -3634,7 +4325,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
 
       {/* MODAL 5: Inspect Submitted Photo & AI Analysis */}
       {inspectPhotoTask && inspectPhotoTask.photoEvidence && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div>
@@ -3713,22 +4404,24 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
             </div>
 
             {/* Verification Actions */}
-            <div className="p-4 border-t border-slate-200 bg-white flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => handleVerifyPhoto(inspectPhotoTask.id, 'REJECT', 'Chairs need tighter alignment')}
-                className="px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
-              >
-                Reject & Request Retake
-              </button>
-              <button
-                type="button"
-                onClick={() => handleVerifyPhoto(inspectPhotoTask.id, 'APPROVE')}
-                className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"
-              >
-                Approve Evidence & Mark Completed
-              </button>
-            </div>
+            {hasPermission('tasks', 'edit') && (
+              <div className="p-4 border-t border-slate-200 bg-white flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleVerifyPhoto(inspectPhotoTask.id, 'REJECT', 'Chairs need tighter alignment')}
+                  className="px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+                >
+                  Reject & Request Retake
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVerifyPhoto(inspectPhotoTask.id, 'APPROVE')}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"
+                >
+                  Approve Evidence & Mark Completed
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -4172,8 +4865,8 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   <p className="text-xs text-slate-500 mt-0.5">
                     {activeDashboardModal === 'TOTAL_TASKS' && 'Complete list of all scheduled routines, water distributions, and closing tasks.'}
                     {activeDashboardModal === 'PENDING_TASKS' && 'Tasks currently in progress, available for pickup, or awaiting review.'}
-                    {activeDashboardModal === 'OVERDUE_TASKS' && 'Tasks that have exceeded their target shift completion time.'}
-                    {activeDashboardModal === 'TOTAL_REPORTS' && 'Live shift breakdown, weekly turnaround analytics, and official CSV exports.'}
+                    {activeDashboardModal === 'OVERDUE_TASKS' && 'Tasks that have exceeded their target completion time.'}
+                    {activeDashboardModal === 'TOTAL_REPORTS' && 'Live daily breakdown, weekly turnaround analytics, and official CSV exports.'}
                     {activeDashboardModal === 'COMPLETED_TASKS' && 'All finished tasks verified with timestamps and photo evidence.'}
                     {activeDashboardModal === 'ROOMS_READY' && 'Live status overview of all 15 executive cabins, meeting suites, and common areas.'}
                   </p>
@@ -4538,7 +5231,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           operating on schedule.
                         </p>
                         <div className="mt-4 p-3 bg-white rounded-xl border border-emerald-200 text-xs text-slate-600 font-mono">
-                          Shift Status: Running on time ({completedTasks.length} / {tasks.length} tasks completed)
+                          Operations Status: Running on time ({completedTasks.length} / {tasks.length} tasks completed)
                         </div>
                       </div>
                     ) : (
@@ -4629,7 +5322,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-slate-700" />
                         <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                          Report 1: Daily Shift Performance Report
+                          Report 1: Daily Operations Performance Report
                         </h4>
                       </div>
                       <span className="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-600">
@@ -4731,24 +5424,28 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                       Export permanent CSV snapshot of all {tasks.length} task records & audit timestamps
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveDashboardModal(null);
-                          setSubTab('REPORTS');
-                        }}
-                        className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                      >
-                        Open Full Reports Tab
-                      </button>
-                      <a
-                        href={api.getReportExportUrl()}
-                        download
-                        className="px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download CSV Report
-                      </a>
+                      {canViewReports && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveDashboardModal(null);
+                            setSubTab('REPORTS');
+                          }}
+                          className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                        >
+                          Open Full Reports Tab
+                        </button>
+                      )}
+                      {hasPermission('reports', 'export') && (
+                        <a
+                          href={api.getReportExportUrl()}
+                          download
+                          className="px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Download CSV Report
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -4921,7 +5618,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       {/* ----------------------------------------------------------------------- */}
       {showAttendanceHistoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in duration-200">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
               <div className="flex items-center gap-2.5">
@@ -4929,8 +5626,8 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                   <History className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Attendance & Location Verification History</h3>
-                  <p className="text-xs text-slate-500">Persistent IST check-in logs with high-accuracy GPS verification</p>
+                  <h3 className="text-base font-bold text-slate-900">Attendant Attendance History</h3>
+                  <p className="text-xs text-slate-500">Persistent IST check-in and session duration logs</p>
                 </div>
               </div>
               <button
@@ -4956,7 +5653,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 <div className="space-y-3">
                   <div className="text-xs text-slate-500 font-mono flex items-center justify-between">
                     <span>Total Logs: {attendanceHistoryList.length}</span>
-                    <span className="text-emerald-700 font-medium">✓ Privacy-safe one-time login verification</span>
+                    <span className="text-slate-500">Asia/Kolkata (IST)</span>
                   </div>
 
                   <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -4968,71 +5665,35 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           <th className="p-3">Login (IST)</th>
                           <th className="p-3">Logout (IST)</th>
                           <th className="p-3">Elapsed</th>
-                          <th className="p-3">Geofence Status</th>
-                          <th className="p-3">GPS Details</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {attendanceHistoryList.map((record) => {
-                          const v = record.locationVerification;
-                          const isInside = v?.status === 'INSIDE_OFFICE';
-                          const isOutside = v?.status === 'OUTSIDE_OFFICE';
-
-                          return (
-                            <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
-                              <td className="p-3 font-mono font-medium text-slate-900 whitespace-nowrap">
-                                {record.date}
-                              </td>
-                              <td className="p-3 whitespace-nowrap">
-                                <div className="font-bold text-slate-900">{record.userName}</div>
-                                <div className="text-[10px] text-slate-400 font-mono">{record.userEmail}</div>
-                              </td>
-                              <td className="p-3 font-mono text-emerald-700 font-semibold whitespace-nowrap">
-                                {record.loginTimeIST}
-                              </td>
-                              <td className="p-3 font-mono text-slate-600 whitespace-nowrap">
-                                {record.logoutTimeIST || (
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px]">
-                                    Active
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 font-mono text-slate-700 whitespace-nowrap">
-                                {record.elapsedMinutes
-                                  ? `${Math.floor(record.elapsedMinutes / 60)}h ${record.elapsedMinutes % 60}m`
-                                  : 'In Session'}
-                              </td>
-                              <td className="p-3 whitespace-nowrap">
-                                {isInside ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                                    <span>Inside Office</span>
-                                  </span>
-                                ) : isOutside ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                    <AlertTriangle className="w-3 h-3 text-rose-600" />
-                                    <span>Outside Office</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                    <MapPinOff className="w-3 h-3 text-amber-600" />
-                                    <span>Unverified</span>
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-[11px] text-slate-600 whitespace-nowrap">
-                                {v?.distanceFromOfficeMeters !== undefined ? (
-                                  <div>
-                                    <span className="font-mono font-bold text-slate-800">{v.distanceFromOfficeMeters}m</span> from HQ
-                                    {v.accuracyMeters ? ` (±${v.accuracyMeters}m)` : ''}
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-400 font-mono">{v?.source || 'No GPS'}</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {attendanceHistoryList.map((record) => (
+                          <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="p-3 font-mono font-medium text-slate-900 whitespace-nowrap">
+                              {record.date}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              <div className="font-bold text-slate-900">{record.userName}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{record.userEmail}</div>
+                            </td>
+                            <td className="p-3 font-mono text-emerald-700 font-semibold whitespace-nowrap">
+                              {record.loginTimeIST}
+                            </td>
+                            <td className="p-3 font-mono text-slate-600 whitespace-nowrap">
+                              {record.logoutTimeIST || (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px]">
+                                  Active
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 font-mono text-slate-700 whitespace-nowrap">
+                              {record.elapsedMinutes
+                                ? `${Math.floor(record.elapsedMinutes / 60)}h ${record.elapsedMinutes % 60}m`
+                                : 'In Session'}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -5055,141 +5716,465 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         </div>
       )}
 
-      {/* ----------------------------------------------------------------------- */}
-      {/* Office Geofence Configuration Modal                                     */}
-      {/* ----------------------------------------------------------------------- */}
-      {showOfficeConfigModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center">
-                  <Compass className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Office Geofence Settings</h3>
-                  <p className="text-xs text-slate-500">Target GPS coordinates & verification radius</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowOfficeConfigModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* MODAL: Task Detail View (Opened by exact task.id from Recent Activity or Notifications) */}
+      {selectedDetailTask && (() => {
+        const detailBadge = getTaskStatusBadge(selectedDetailTask.status);
+        const canEditTasks = hasPermission('tasks', 'edit');
+        const canDeleteTasks = hasPermission('tasks', 'delete');
+        const totalChecklist = selectedDetailTask.checklist?.length || 0;
+        const completedChecklist = selectedDetailTask.checklist?.filter((c) => c.completed).length || 0;
+        const checklistPct = totalChecklist > 0 ? Math.round((completedChecklist / totalChecklist) * 100) : 0;
+        const isTerminalStatus =
+          selectedDetailTask.status === 'COMPLETED' || selectedDetailTask.status === 'CANCELLED';
 
-            {/* Modal Form */}
-            <form onSubmit={handleSaveOfficeConfig}>
-              <div className="p-6 space-y-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Office Name</label>
-                  <input
-                    type="text"
-                    value={officeConfigForm.name}
-                    onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Office Street Address</label>
-                  <input
-                    type="text"
-                    value={officeConfigForm.address}
-                    onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, address: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Latitude (°N)</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={officeConfigForm.latitude}
-                      onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Longitude (°E)</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={officeConfigForm.longitude}
-                      onChange={(e) => setOfficeConfigForm((prev) => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Geofence Radius (meters)</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      min="10"
-                      max="5000"
-                      value={officeConfigForm.geofenceRadiusMeters}
-                      onChange={(e) =>
-                        setOfficeConfigForm((prev) => ({ ...prev, geofenceRadiusMeters: parseInt(e.target.value, 10) || 150 }))
-                      }
-                      className="w-32 px-3 py-2 border border-slate-200 rounded-lg font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-400 text-slate-900"
-                      required
-                    />
-                    <span className="text-slate-500 text-[11px]">
-                      Recommended: 150m for building and campus perimeter coverage
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs"
+            onClick={handleCloseTaskDetail}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="wcr-task-detail-title"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="px-5 sm:px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-white via-white to-amber-50/60 flex items-start justify-between gap-4 shrink-0">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <span
+                      className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded border ${
+                        selectedDetailTask.priority === 'URGENT' || selectedDetailTask.isUrgent
+                          ? 'bg-rose-50 text-rose-800 border-rose-200'
+                          : 'bg-slate-100 text-slate-800 border-slate-200'
+                      }`}
+                    >
+                      {selectedDetailTask.priority}
+                    </span>
+                    <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${detailBadge.bg}`}>
+                      {detailBadge.label}
+                    </span>
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80">
+                      {formatTaskTypeLabel(selectedDetailTask.taskType)}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ID: {selectedDetailTask.id}
                     </span>
                   </div>
+                  <h3 id="wcr-task-detail-title" className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                    {selectedDetailTask.title}
+                  </h3>
+                  <div className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="font-semibold text-slate-800">{selectedDetailTask.roomAreaName}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseTaskDetail}
+                  aria-label="Close task details"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+                {taskDetailError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{taskDetailError}</span>
+                  </div>
+                )}
+
+                {selectedDetailTask.blockedReason && selectedDetailTask.status === 'BLOCKED' && (
+                  <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                      Task Blocked
+                    </div>
+                    <p>{selectedDetailTask.blockedReason}</p>
+                  </div>
+                )}
+
+                {selectedDetailTask.rejectionReason && selectedDetailTask.status === 'REJECTED' && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      Verification Feedback / Retake Required
+                    </div>
+                    <p>{selectedDetailTask.rejectionReason}</p>
+                  </div>
+                )}
+
+                {selectedDetailTask.status === 'CANCELLED' && (
+                  <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-center justify-between gap-2">
+                    <span>
+                      Cancelled{selectedDetailTask.cancelledBy ? ` by ${selectedDetailTask.cancelledBy}` : ''}
+                    </span>
+                    {selectedDetailTask.cancelledAt && (
+                      <span className="font-mono text-[11px] text-slate-500">
+                        {formatISTTaskSchedule(selectedDetailTask.cancelledAt)}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Metadata Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/80 border border-slate-200/80 rounded-xl p-4 text-xs">
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Assigned Attendant</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{selectedDetailTask.assignedToName}</div>
+                    <div className="text-[11px] text-slate-500 truncate">{selectedDetailTask.assignedToEmail}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Assigned By</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{selectedDetailTask.createdByName}</div>
+                    <div className="text-[11px] text-slate-500 font-mono">
+                      Created {formatISTTaskSchedule(selectedDetailTask.createdAt)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Scheduled Time (IST)</div>
+                    <div className="font-bold text-slate-900 font-mono mt-0.5 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>{formatISTTaskSchedule(selectedDetailTask.scheduledFor)}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Due Window</div>
+                    <div className="font-bold text-slate-900 font-mono mt-0.5 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>{selectedDetailTask.dueTime}</span>
+                    </div>
+                  </div>
+                  {(selectedDetailTask.startedAt || selectedDetailTask.completedAt) && (
+                    <div className="sm:col-span-2 pt-2 border-t border-slate-200/80 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-slate-600 font-mono">
+                      {selectedDetailTask.startedAt && (
+                        <span>Started: {formatISTTaskSchedule(selectedDetailTask.startedAt)}</span>
+                      )}
+                      {selectedDetailTask.submittedAt && (
+                        <span>Submitted: {formatISTTaskSchedule(selectedDetailTask.submittedAt)}</span>
+                      )}
+                      {selectedDetailTask.completedAt && (
+                        <span className="text-emerald-700 font-semibold">
+                          Completed: {formatISTTaskSchedule(selectedDetailTask.completedAt)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <div className="pt-2">
+                {/* Task Instructions / Notes */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Instructions & Operational Scope</span>
+                  </h4>
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 leading-relaxed">
+                    {selectedDetailTask.description && selectedDetailTask.description.trim()
+                      ? selectedDetailTask.description
+                      : `Complete standard operational readiness protocol for ${selectedDetailTask.roomAreaName}.`}
+                  </div>
+                </div>
+
+                {/* Checklist Section */}
+                {totalChecklist > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <ListTodo className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Execution Checklist</span>
+                      </h4>
+                      <span className="text-xs font-mono font-semibold text-slate-600">
+                        {completedChecklist}/{totalChecklist} ({checklistPct}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-3">
+                      <div
+                        className="h-full bg-amber-500 transition-all duration-300"
+                        style={{ width: `${checklistPct}%` }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      {selectedDetailTask.checklist.map((item) => {
+                        const interactiveChecklist = canEditTasks && !isTerminalStatus;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            disabled={!interactiveChecklist}
+                            onClick={() =>
+                              interactiveChecklist &&
+                              handleDetailToggleChecklist(selectedDetailTask.id, item.id, !item.completed)
+                            }
+                            className={`w-full text-left p-2.5 rounded-xl border text-xs flex items-center gap-2.5 transition-colors ${
+                              item.completed
+                                ? 'bg-emerald-50/60 border-emerald-200 text-slate-700'
+                                : 'bg-white border-slate-200 text-slate-800'
+                            } ${
+                              interactiveChecklist
+                                ? 'hover:border-amber-300 cursor-pointer'
+                                : 'cursor-default'
+                            }`}
+                          >
+                            <span
+                              className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${
+                                item.completed
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : 'bg-white border-slate-300'
+                              }`}
+                            >
+                              {item.completed && <Check className="w-3 h-3" />}
+                            </span>
+                            <span className={item.completed ? 'line-through text-slate-500' : 'font-medium'}>
+                              {item.text}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Photo Evidence Section */}
+                {selectedDetailTask.photoEvidence && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Camera className="w-4 h-4 text-sky-600" />
+                        <span>Submitted Camera Evidence</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">
+                          {selectedDetailTask.photoEvidence.status}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInspectPhotoTask(selectedDetailTask)}
+                        className="text-xs font-semibold text-sky-700 hover:text-sky-900 flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Open Full Photo Audit</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="rounded-lg overflow-hidden bg-slate-900 max-h-52 flex items-center justify-center">
+                      <img
+                        src={selectedDetailTask.photoEvidence.photoUrl}
+                        alt={`Evidence for ${selectedDetailTask.title}`}
+                        className="max-h-52 w-full object-contain"
+                      />
+                    </div>
+                    {canEditTasks &&
+                      (selectedDetailTask.status === 'PENDING_VERIFICATION' ||
+                        selectedDetailTask.status === 'SUBMITTED' ||
+                        selectedDetailTask.photoEvidence.status === 'UPLOADED') && (
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            disabled={taskDetailActionLoading}
+                            onClick={() =>
+                              handleDetailVerifyPhoto(
+                                selectedDetailTask.id,
+                                'REJECT',
+                                'Requires closer alignment & surface check'
+                              )
+                            }
+                            className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                          >
+                            Reject & Request Retake
+                          </button>
+                          <button
+                            type="button"
+                            disabled={taskDetailActionLoading}
+                            onClick={() => handleDetailVerifyPhoto(selectedDetailTask.id, 'APPROVE')}
+                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                          >
+                            Approve & Complete
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                )}
+
+                {/* Change History Audit Log */}
+                {selectedDetailTask.changeHistory && selectedDetailTask.changeHistory.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <History className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Activity & Status History</span>
+                    </h4>
+                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                      {[...selectedDetailTask.changeHistory].reverse().map((entry, idx) => (
+                        <div
+                          key={`${entry.timestamp}-${idx}`}
+                          className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/70 text-[11px] flex items-start justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800">
+                              {entry.actorName}{' '}
+                              <span className="font-mono text-[10px] text-slate-500">
+                                ({entry.fromStatus} → {entry.toStatus})
+                              </span>
+                            </div>
+                            {entry.note && <div className="text-slate-600 mt-0.5">{entry.note}</div>}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400 whitespace-nowrap shrink-0">
+                            {formatISTTaskSchedule(entry.timestamp)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Authorized Actions Footer */}
+              <div className="px-5 sm:px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  {canEditTasks && selectedDetailTask.status !== 'COMPLETED' && (
+                    <button
+                      type="button"
+                      disabled={taskDetailActionLoading}
+                      onClick={() => handleOpenEditTask(selectedDetailTask)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Edit / Reschedule</span>
+                    </button>
+                  )}
+
+                  {canEditTasks &&
+                    (selectedDetailTask.status === 'SCHEDULED' ||
+                      selectedDetailTask.status === 'AVAILABLE' ||
+                      selectedDetailTask.status === 'OVERDUE' ||
+                      selectedDetailTask.status === 'BLOCKED' ||
+                      selectedDetailTask.status === 'REJECTED') && (
+                      <button
+                        type="button"
+                        disabled={taskDetailActionLoading}
+                        onClick={() =>
+                          handleDetailStatusChange(
+                            selectedDetailTask.id,
+                            'IN_PROGRESS',
+                            `Marked In Progress by ${currentUser?.name || 'Management'}`
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Start Task</span>
+                      </button>
+                    )}
+
+                  {canEditTasks && !isTerminalStatus && (
+                    <button
+                      type="button"
+                      disabled={taskDetailActionLoading}
+                      onClick={() =>
+                        selectedDetailTask.photoEvidence &&
+                        (selectedDetailTask.status === 'PENDING_VERIFICATION' ||
+                          selectedDetailTask.status === 'SUBMITTED')
+                          ? handleDetailVerifyPhoto(selectedDetailTask.id, 'APPROVE')
+                          : handleDetailStatusChange(
+                              selectedDetailTask.id,
+                              'COMPLETED',
+                              `Completed & verified by ${currentUser?.name || 'Management'}`
+                            )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Mark Completed</span>
+                    </button>
+                  )}
+
+                  {canEditTasks && isTerminalStatus && (
+                    <button
+                      type="button"
+                      disabled={taskDetailActionLoading}
+                      onClick={() =>
+                        handleDetailStatusChange(
+                          selectedDetailTask.id,
+                          'AVAILABLE',
+                          `Reopened by ${currentUser?.name || 'Management'}`
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reopen Task</span>
+                    </button>
+                  )}
+
+                  {canEditTasks && !isTerminalStatus && (
+                    <button
+                      type="button"
+                      disabled={taskDetailActionLoading}
+                      onClick={() => handleDetailCancelTask(selectedDetailTask)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white hover:bg-rose-50 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Cancel Task</span>
+                    </button>
+                  )}
+
+                  {!canEditTasks && !canDeleteTasks && (
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      View-only access · Task modification restricted by role permissions
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 ml-auto">
+                  {canDeleteTasks && (
+                    confirmDeleteTaskId === selectedDetailTask.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={taskDetailActionLoading}
+                          onClick={() => handleDetailDeleteTask(selectedDetailTask.id)}
+                          className="px-2.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          Confirm Delete
+                        </button>
+                        <button
+                          type="button"
+                          disabled={taskDetailActionLoading}
+                          onClick={() => setConfirmDeleteTaskId(null)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Keep
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={taskDetailActionLoading}
+                        onClick={() => setConfirmDeleteTaskId(selectedDetailTask.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                        title="Delete Task"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    )
+                  )}
+
                   <button
                     type="button"
-                    onClick={() =>
-                      setOfficeConfigForm({
-                        name: 'White Collar Realty Corporate HQ',
-                        address: 'Iris Broadway, Sector 85, Gurugram, Haryana 122004',
-                        latitude: 28.4069,
-                        longitude: 76.9691,
-                        geofenceRadiusMeters: 150,
-                      })
-                    }
-                    className="text-[11px] text-amber-700 hover:text-amber-900 font-semibold underline cursor-pointer"
+                    onClick={handleCloseTaskDetail}
+                    className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                   >
-                    Reset to Default WCR Headquarters (Iris Broadway, Gurugram)
+                    Close
                   </button>
                 </div>
               </div>
-
-              {/* Modal Footer */}
-              <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowOfficeConfigModal(false)}
-                  className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors cursor-pointer shadow-sm"
-                >
-                  Save Configuration
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

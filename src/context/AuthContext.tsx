@@ -1,57 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { UserAccount, AppNotification, Role, UserPermissions, AttendanceRecord, OfficeLocationConfig } from '../types/index.ts';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import type { UserAccount, AppNotification, Role, UserPermissions, AttendanceRecord } from '../types/index.ts';
 import { api, getSessionToken, clearSessionToken } from '../services/api.ts';
-
-// -----------------------------------------------------------------------------
-// Privacy-Protected High-Accuracy Location Capturer (Pantry Boy Role Only)
-// -----------------------------------------------------------------------------
-export async function capturePantryLocation(): Promise<{
-  latitude?: number;
-  longitude?: number;
-  accuracy?: number;
-  source: 'GPS' | 'DENIED' | 'TIMEOUT' | 'UNAVAILABLE' | 'NOT_SUPPORTED';
-  error?: string;
-}> {
-  if (typeof window === 'undefined' || !navigator.geolocation) {
-    return {
-      source: 'NOT_SUPPORTED',
-      error: 'Geolocation is not supported by this browser/device environment',
-    };
-  }
-
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy ? Math.round(position.coords.accuracy) : undefined,
-          source: 'GPS',
-        });
-      },
-      (err) => {
-        let source: 'DENIED' | 'TIMEOUT' | 'UNAVAILABLE' = 'UNAVAILABLE';
-        let error = 'Unable to acquire GPS fix';
-        if (err.code === 1 /* PERMISSION_DENIED */) {
-          source = 'DENIED';
-          error = 'Location permission was denied by device/browser';
-        } else if (err.code === 3 /* TIMEOUT */) {
-          source = 'TIMEOUT';
-          error = 'GPS location request timed out';
-        } else if (err.code === 2 /* POSITION_UNAVAILABLE */) {
-          source = 'UNAVAILABLE';
-          error = 'Location coordinates unavailable from GPS provider';
-        }
-        resolve({ source, error });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 9000,
-        maximumAge: 0,
-      }
-    );
-  });
-}
 
 export function getDefaultPermissions(role: Role): UserPermissions {
   if (role === 'ADMIN') {
@@ -80,11 +29,6 @@ export function getDefaultPermissions(role: Role): UserPermissions {
         visitors: { view: true, create: true, edit: true, delete: true },
         users: { view: true, create: true, edit: true, delete: true },
         reports: { view: true, export: true },
-      },
-      confidentialAccess: {
-        hrNotes: true,
-        resumes: true,
-        governmentIds: true,
       },
     };
   }
@@ -115,11 +59,6 @@ export function getDefaultPermissions(role: Role): UserPermissions {
         users: { view: true, create: true, edit: true, delete: false },
         reports: { view: true, export: true },
       },
-      confidentialAccess: {
-        hrNotes: true,
-        resumes: true,
-        governmentIds: true,
-      },
     };
   }
   // Default PANTRY_BOY
@@ -149,18 +88,15 @@ export function getDefaultPermissions(role: Role): UserPermissions {
       users: { view: false, create: false, edit: false, delete: false },
       reports: { view: false, export: false },
     },
-    confidentialAccess: {
-      hrNotes: false,
-      resumes: false,
-      governmentIds: false,
-    },
   };
 }
 
 interface AuthContextType {
   currentUser: UserAccount | null;
+  transitionUser: UserAccount | null;
   allUsers: UserAccount[];
   isLoading: boolean;
+  isAuthTransitioning: boolean;
   isDeactivated: boolean;
   notifications: AppNotification[];
   unreadNotifCount: number;
@@ -186,13 +122,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const nextPaint = () =>
+  new Promise<void>((resolve) => {
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      setTimeout(resolve, 16);
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+
+const waitMs = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [transitionUser, setTransitionUser] = useState<UserAccount | null>(null);
   const [allUsers, setAllUsers] = useState<UserAccount[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthTransitioning, setIsAuthTransitioning] = useState<boolean>(() => Boolean(getSessionToken()));
   const [isDeactivated, setIsDeactivated] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+  const authSeqRef = useRef(0);
 
   const refreshAttendance = useCallback(async () => {
     try {
@@ -245,19 +197,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const token = getSessionToken();
 
-        // Always fetch initial attendance status
-        api.getTodayAttendance().then((res) => {
-          if (mounted && res?.todayRecord) {
-            setTodayAttendance(res.todayRecord);
-          }
-        }).catch(() => {});
-
         if (!token) {
           const users = await api.getUsers().catch(() => []);
           if (!mounted) return;
           setAllUsers(users);
           setCurrentUser(null);
           setIsDeactivated(false);
+          setNotifications([]);
+          setTodayAttendance(null);
           return;
         }
 
@@ -270,22 +217,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAllUsers(users);
 
         if (user) {
+          setTransitionUser(user);
           setCurrentUser(user);
           setIsDeactivated(user.status === 'inactive');
+          const [attRes, notifs] = await Promise.all([
+            api.getTodayAttendance().catch(() => null),
+            api.getNotifications().catch(() => []),
+            waitMs(380),
+          ]);
+          if (mounted) {
+            setTodayAttendance(attRes?.todayRecord || null);
+            setNotifications(notifs);
+          }
         } else {
           clearSessionToken();
           setCurrentUser(null);
+          setTransitionUser(null);
           setIsDeactivated(false);
+          setNotifications([]);
+          setTodayAttendance(null);
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
         clearSessionToken();
         if (mounted) {
           setCurrentUser(null);
+          setTransitionUser(null);
           setIsDeactivated(false);
         }
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+          setIsAuthTransitioning(false);
+          setTransitionUser(null);
+        }
       }
     }
 
@@ -339,7 +304,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (event === 'room:updated' || event === 'task:updated' || event === 'pantry_request:created' || event === 'pantry_request:updated') {
         refreshNotifications();
       } else if (event === 'attendance:updated' && payload?.attendance) {
-        setTodayAttendance(payload.attendance);
+        if (currentUser.role !== 'PANTRY_BOY' || payload.attendance.userId === currentUser.id) {
+          setTodayAttendance(payload.attendance);
+        }
       }
     });
 
@@ -359,88 +326,108 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password?: string,
     onSuccess?: (user: UserAccount) => Promise<void> | void
   ) => {
+    const seq = ++authSeqRef.current;
     setIsLoading(true);
     try {
-      // Privacy Guard: High-accuracy GPS verification is ONLY requested for Pantry Attendants
-      let locationPayload: any = undefined;
-      const cleanEmail = email.toLowerCase().trim();
-      const targetUser = allUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-      if (cleanEmail.includes('pantry') || targetUser?.role === 'PANTRY_BOY') {
-        locationPayload = await capturePantryLocation();
-      }
+      const { user, attendance } = await api.login(email, password);
+      if (authSeqRef.current !== seq) return;
 
-      const { user, attendance } = await api.login(email, password, locationPayload);
-
-      // Allow UI components to display smooth transition / success micro-interactions
       if (onSuccess) {
         await onSuccess(user);
       }
+      if (authSeqRef.current !== seq) return;
 
+      // Paint the lightweight GPU transition curtain first before mounting heavy dashboard views
+      setTransitionUser(user);
+      setIsAuthTransitioning(true);
+      await nextPaint();
+      if (authSeqRef.current !== seq) return;
+
+      // Clear any previous session state and mount newly authenticated workspace underneath
+      setNotifications([]);
+      setTodayAttendance(null);
       setCurrentUser(user);
       setIsDeactivated(user.status === 'inactive');
-      if (attendance) {
-        setTodayAttendance(attendance);
-      } else {
-        refreshAttendance();
-      }
-      const users = await api.getUsers().catch(() => []);
+
+      const [users, notifs, attData] = await Promise.all([
+        api.getUsers().catch(() => []),
+        api.getNotifications().catch(() => []),
+        attendance ? Promise.resolve({ todayRecord: attendance }) : api.getTodayAttendance().catch(() => null),
+        waitMs(580),
+      ]);
+      if (authSeqRef.current !== seq) return;
+
       setAllUsers(users);
-      const notifs = await api.getNotifications().catch(() => []);
       setNotifications(notifs);
+      setTodayAttendance(attData?.todayRecord || null);
     } finally {
-      setIsLoading(false);
+      if (authSeqRef.current === seq) {
+        setIsAuthTransitioning(false);
+        setTransitionUser(null);
+        setIsLoading(false);
+      }
     }
   };
 
   const logout = async () => {
+    const seq = ++authSeqRef.current;
     setIsLoading(true);
     try {
-      let locationPayload: any = undefined;
-      // Privacy Guard: High-accuracy GPS verification is ONLY requested for Pantry Attendants on login & logout
-      if (currentUser?.role === 'PANTRY_BOY') {
-        try {
-          locationPayload = await capturePantryLocation();
-        } catch (err) {
-          console.warn('Location capture during logout failed:', err);
-        }
-      }
-      await api.logout(locationPayload);
+      await api.logout();
     } catch (e) {
       console.warn('Logout error:', e);
       clearSessionToken();
     } finally {
-      setCurrentUser(null);
-      setIsDeactivated(false);
-      setNotifications([]);
-      setTodayAttendance(null);
-      setIsLoading(false);
+      if (authSeqRef.current === seq) {
+        setCurrentUser(null);
+        setTransitionUser(null);
+        setIsDeactivated(false);
+        setNotifications([]);
+        setTodayAttendance(null);
+        setIsAuthTransitioning(false);
+        setIsLoading(false);
+      }
     }
   };
 
   const switchUser = async (userId: string) => {
+    const seq = ++authSeqRef.current;
+    const previewTarget = allUsers.find((u) => u.id === userId) || null;
     setIsLoading(true);
+    setTransitionUser(previewTarget);
+    setIsAuthTransitioning(true);
     try {
-      // Privacy Guard: High-accuracy GPS verification is ONLY requested for Pantry Attendants
-      let locationPayload: any = undefined;
-      const targetUser = allUsers.find((u) => u.id === userId);
-      if (targetUser?.role === 'PANTRY_BOY') {
-        locationPayload = await capturePantryLocation();
-      }
+      await nextPaint();
+      if (authSeqRef.current !== seq) return;
 
-      const { user, attendance } = await api.switchUser(userId, locationPayload);
+      // Clear previous user's state immediately so zero stale data carries over
+      setNotifications([]);
+      setTodayAttendance(null);
+
+      const { user, attendance } = await api.switchUser(userId);
+      if (authSeqRef.current !== seq) return;
+
+      setTransitionUser(user);
       setCurrentUser(user);
       setIsDeactivated(user.status === 'inactive');
-      if (attendance) {
-        setTodayAttendance(attendance);
-      } else {
-        refreshAttendance();
-      }
-      const users = await api.getUsers().catch(() => []);
+
+      const [users, notifs, attData] = await Promise.all([
+        api.getUsers().catch(() => []),
+        api.getNotifications().catch(() => []),
+        attendance ? Promise.resolve({ todayRecord: attendance }) : api.getTodayAttendance().catch(() => null),
+        waitMs(520),
+      ]);
+      if (authSeqRef.current !== seq) return;
+
       setAllUsers(users);
-      const notifs = await api.getNotifications().catch(() => []);
       setNotifications(notifs);
+      setTodayAttendance(attData?.todayRecord || null);
     } finally {
-      setIsLoading(false);
+      if (authSeqRef.current === seq) {
+        setIsAuthTransitioning(false);
+        setTransitionUser(null);
+        setIsLoading(false);
+      }
     }
   };
 
@@ -491,8 +478,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         currentUser,
+        transitionUser,
         allUsers,
         isLoading,
+        isAuthTransitioning,
         isDeactivated,
         notifications,
         unreadNotifCount,

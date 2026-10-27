@@ -121,9 +121,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
             </div>
           )}
 
-          <div className="text-xs text-slate-500 flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/80 rounded-full border border-slate-200/60">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>White Collar Realty HQ · {todayAttendance?.loginTimeIST ? `Attendant In: ${todayAttendance.loginTimeIST}` : 'Gurgaon'}</span>
+          <div
+            className="text-xs text-slate-500 flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/80 rounded-full border border-slate-200/60 max-w-xs xl:max-w-md"
+            title="6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India"
+          >
+            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span className="truncate">
+              White Collar Realty HQ ·{' '}
+              {todayAttendance?.loginTimeIST
+                ? `Attendant In: ${todayAttendance.loginTimeIST}`
+                : 'M3M Urbana Business Park, Sector 67, Gurugram'}
+            </span>
           </div>
         </nav>
 
@@ -284,7 +292,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
                           />
                           <div>
                             <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                              <span>{user.role === 'KIMMY_MAM' ? 'Kimmi' : user.name}</span>
+                              <span>{user.name}</span>
                               {isUserDeactivated && (
                                 <span className="text-[9px] font-mono text-rose-600 bg-rose-50 px-1 rounded">
                                   Inactive

@@ -14,7 +14,6 @@ import type {
   TaskStatus,
   PantryRequest,
   AttendanceRecord,
-  OfficeLocationConfig,
 } from '../types/index.ts';
 
 const BASE_URL = '/api';
@@ -51,6 +50,20 @@ function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<strin
   return headers;
 }
 
+// Authoritative Backend Server Clock Offset (serverNowMs - clientNowMs)
+let serverTimeOffsetMs = 0;
+
+export const syncServerTime = (serverIso?: string): void => {
+  if (!serverIso) return;
+  const parsedMs = new Date(serverIso).getTime();
+  if (!Number.isNaN(parsedMs)) {
+    serverTimeOffsetMs = parsedMs - Date.now();
+  }
+};
+
+export const getServerNowMs = (): number => Date.now() + serverTimeOffsetMs;
+export const getServerDate = (): Date => new Date(getServerNowMs());
+
 export const api = {
   // Auth
   async getCurrentUser(): Promise<UserAccount | null> {
@@ -73,11 +86,11 @@ export const api = {
     }
   },
 
-  async login(email: string, password?: string, location?: any): Promise<{ user: UserAccount; token: string; attendance?: AttendanceRecord }> {
+  async login(email: string, password?: string): Promise<{ user: UserAccount; token: string; attendance?: AttendanceRecord }> {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, location }),
+      body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -90,12 +103,12 @@ export const api = {
     return data;
   },
 
-  async logout(location?: any): Promise<void> {
+  async logout(): Promise<void> {
     try {
       await fetch(`${BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ location }),
+        body: JSON.stringify({}),
       });
     } catch (e) {
       console.warn('Server logout call failed:', e);
@@ -104,11 +117,11 @@ export const api = {
     }
   },
 
-  async switchUser(userId: string, location?: any): Promise<{ user: UserAccount; token: string; attendance?: AttendanceRecord }> {
+  async switchUser(userId: string): Promise<{ user: UserAccount; token: string; attendance?: AttendanceRecord }> {
     const res = await fetch(`${BASE_URL}/auth/switch-user`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ userId, location }),
+      body: JSON.stringify({ userId }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -305,6 +318,16 @@ export const api = {
   },
 
   // Tasks
+  async getServerTime(): Promise<{ serverTime: string; timezone: string }> {
+    const res = await fetch(`${BASE_URL}/server-time`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch server time');
+    const data = await res.json();
+    syncServerTime(data.serverTime);
+    return data;
+  },
+
   async getTasks(params?: {
     status?: string;
     priority?: string;
@@ -322,6 +345,9 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to fetch tasks');
     const data = await res.json();
+    if (data.serverTime) {
+      syncServerTime(data.serverTime);
+    }
     return data.tasks;
   },
 
@@ -329,7 +355,9 @@ export const api = {
     title: string;
     roomAreaId: string;
     priority?: TaskPriority;
+    scheduledFor?: string;
     dueTime?: string;
+    assignedToEmail?: string;
     description?: string;
     checklist?: string[];
     isUrgent?: boolean;
@@ -344,7 +372,49 @@ export const api = {
       throw new Error(err.error || 'Failed to create task');
     }
     const data = await res.json();
+    if (data.serverTime) {
+      syncServerTime(data.serverTime);
+    }
     return data.task;
+  },
+
+  async updateTask(
+    taskId: string,
+    payload: {
+      title?: string;
+      description?: string;
+      roomAreaId?: string;
+      priority?: TaskPriority;
+      isUrgent?: boolean;
+      scheduledFor?: string;
+      dueTime?: string;
+      assignedToEmail?: string;
+      status?: TaskStatus;
+      checklist?: string[];
+      cancelReason?: string;
+    }
+  ): Promise<Task> {
+    const res = await fetch(`${BASE_URL}/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update task');
+    }
+    const data = await res.json();
+    if (data.serverTime) {
+      syncServerTime(data.serverTime);
+    }
+    return data.task;
+  },
+
+  async cancelTask(taskId: string, reason?: string): Promise<Task> {
+    return this.updateTask(taskId, {
+      status: 'CANCELLED',
+      cancelReason: reason || 'Cancelled by authorized management',
+    });
   },
 
   async updateTaskStatus(
@@ -362,6 +432,9 @@ export const api = {
       throw new Error(err.error || 'Failed to update task status');
     }
     const data = await res.json();
+    if (data.serverTime) {
+      syncServerTime(data.serverTime);
+    }
     return data.task;
   },
 
@@ -588,7 +661,7 @@ export const api = {
   },
 
   // Scheduler simulation
-  async triggerSchedulerMilestone(milestone: '9AM_START' | '10AM_WATER' | '3PM_WATER' | '8PM_CLOSING'): Promise<void> {
+  async triggerSchedulerMilestone(milestone: '9AM_START' | '10AM_WATER' | '3PM_WATER' | 'CLOSING_AUDIT'): Promise<void> {
     const res = await fetch(`${BASE_URL}/scheduler/trigger`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -597,11 +670,10 @@ export const api = {
     if (!res.ok) throw new Error('Failed to trigger milestone');
   },
 
-  // Real-time Attendance & Geofence
+  // Real-time Attendance
   async getTodayAttendance(): Promise<{
     todayRecord: AttendanceRecord | null;
     allTodayRecords: AttendanceRecord[];
-    officeConfig: OfficeLocationConfig;
   }> {
     const res = await fetch(`${BASE_URL}/attendance/today`, {
       headers: getAuthHeaders(),
@@ -612,7 +684,6 @@ export const api = {
 
   async getAttendanceHistory(): Promise<{
     history: AttendanceRecord[];
-    officeConfig: OfficeLocationConfig;
   }> {
     const res = await fetch(`${BASE_URL}/attendance/history`, {
       headers: getAuthHeaders(),
@@ -621,11 +692,11 @@ export const api = {
     return res.json();
   },
 
-  async recordAttendanceLogin(location?: any): Promise<AttendanceRecord> {
+  async recordAttendanceLogin(): Promise<AttendanceRecord> {
     const res = await fetch(`${BASE_URL}/attendance/record-login`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ location }),
+      body: JSON.stringify({}),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -635,38 +706,15 @@ export const api = {
     return data.attendance;
   },
 
-  async recordAttendanceLogout(location?: any): Promise<AttendanceRecord | null> {
+  async recordAttendanceLogout(): Promise<AttendanceRecord | null> {
     const res = await fetch(`${BASE_URL}/attendance/record-logout`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ location }),
+      body: JSON.stringify({}),
     });
     if (!res.ok) return null;
     const data = await res.json();
     return data.attendance || null;
-  },
-
-  async getOfficeConfig(): Promise<OfficeLocationConfig> {
-    const res = await fetch(`${BASE_URL}/attendance/office-config`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch office config');
-    const data = await res.json();
-    return data.officeConfig;
-  },
-
-  async updateOfficeConfig(config: OfficeLocationConfig): Promise<OfficeLocationConfig> {
-    const res = await fetch(`${BASE_URL}/attendance/office-config`, {
-      method: 'PUT',
-      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(config),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to update office config');
-    }
-    const data = await res.json();
-    return data.officeConfig;
   },
 
   // Real-time Event Stream (SSE)
@@ -678,15 +726,29 @@ export const api = {
     const connect = () => {
       if (isDisposed) return;
       try {
-        es = new EventSource(`${BASE_URL}/realtime/stream`);
+        const token = getSessionToken();
+        const streamUrl = token
+          ? `${BASE_URL}/realtime/stream?token=${encodeURIComponent(token)}`
+          : `${BASE_URL}/realtime/stream`;
+        es = new EventSource(streamUrl);
 
         const handleMessage = (evtName: string) => (e: MessageEvent) => {
           try {
             const parsed = JSON.parse(e.data);
-            onEvent(evtName, parsed);
+            if (parsed?.timestamp) {
+              syncServerTime(parsed.timestamp);
+            } else if (parsed?.time) {
+              syncServerTime(parsed.time);
+            } else if (parsed?.payload?.serverTime) {
+              syncServerTime(parsed.payload.serverTime);
+            }
+            onEvent(evtName, parsed.payload !== undefined ? parsed.payload : parsed);
           } catch {}
         };
 
+        es.addEventListener('connected', handleMessage('connected'));
+        es.addEventListener('server:time', handleMessage('server:time'));
+        es.addEventListener('schedule:alert', handleMessage('schedule:alert'));
         es.addEventListener('room:created', handleMessage('room:created'));
         es.addEventListener('room:updated', handleMessage('room:updated'));
         es.addEventListener('task:updated', handleMessage('task:updated'));

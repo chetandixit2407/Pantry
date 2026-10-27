@@ -24,9 +24,6 @@ import type {
   PantryRequest,
   UserPermissions,
   AttendanceRecord,
-  LocationVerification,
-  OfficeLocationConfig,
-  GeofenceStatus,
 } from './src/types/index.ts';
 
 dotenv.config();
@@ -63,13 +60,49 @@ app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 // -----------------------------------------------------------------------------
 // Real-time Event Broadcaster (Server-Sent Events)
 // -----------------------------------------------------------------------------
-const sseClients = new Set<express.Response>();
+interface SSEClientEntry {
+  res: express.Response;
+  req: express.Request;
+}
+
+const sseClients = new Set<SSEClientEntry>();
 
 function broadcastRealtime(event: string, payload: any) {
-  const message = `event: ${event}\ndata: ${JSON.stringify({ event, payload, timestamp: new Date().toISOString() })}\n\n`;
+  const nowIso = new Date().toISOString();
+  const enrichedPayload =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? { ...payload, serverTime: payload.serverTime || nowIso }
+      : payload;
+  const message = `event: ${event}\ndata: ${JSON.stringify({ event, payload: enrichedPayload, timestamp: nowIso })}\n\n`;
   for (const client of sseClients) {
     try {
-      client.write(message);
+      client.res.write(message);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
+
+function broadcastToPantryBoy(assignedEmail: string, event: string, payload: any) {
+  const nowIso = new Date().toISOString();
+  const enrichedPayload =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? { ...payload, serverTime: payload.serverTime || nowIso }
+      : payload;
+  const message = `event: ${event}\ndata: ${JSON.stringify({ event, payload: enrichedPayload, timestamp: nowIso })}\n\n`;
+  const targetEmail = (assignedEmail || '').toLowerCase().trim();
+
+  for (const client of sseClients) {
+    try {
+      const user = getCurrentUser(client.req);
+      if (
+        user &&
+        user.role === 'PANTRY_BOY' &&
+        user.status === 'active' &&
+        (!targetEmail || user.email.toLowerCase() === targetEmail)
+      ) {
+        client.res.write(message);
+      }
     } catch {
       sseClients.delete(client);
     }
@@ -104,11 +137,6 @@ function getDefaultPermissions(role: Role): UserPermissions {
         users: { view: true, create: true, edit: true, delete: true },
         reports: { view: true, export: true },
       },
-      confidentialAccess: {
-        hrNotes: true,
-        resumes: true,
-        governmentIds: true,
-      },
     };
   }
   if (role === 'KIMMY_MAM' || role === 'HR') {
@@ -137,11 +165,6 @@ function getDefaultPermissions(role: Role): UserPermissions {
         visitors: { view: true, create: true, edit: true, delete: true },
         users: { view: true, create: true, edit: true, delete: false },
         reports: { view: true, export: true },
-      },
-      confidentialAccess: {
-        hrNotes: true,
-        resumes: true,
-        governmentIds: true,
       },
     };
   }
@@ -172,11 +195,6 @@ function getDefaultPermissions(role: Role): UserPermissions {
       users: { view: false, create: false, edit: false, delete: false },
       reports: { view: false, export: false },
     },
-    confidentialAccess: {
-      hrNotes: false,
-      resumes: false,
-      governmentIds: false,
-    },
   };
 }
 
@@ -189,17 +207,8 @@ interface DatabaseState {
   auditLogs: AuditLog[];
   notifications: AppNotification[];
   attendance: AttendanceRecord[];
-  officeConfig: OfficeLocationConfig;
   lastGeneratedDate: string;
 }
-
-const INITIAL_OFFICE_CONFIG: OfficeLocationConfig = {
-  name: 'White Collar Realty Corporate HQ',
-  address: 'Iris Broadway, 6th Floor, Sector 85, Gurugram, Haryana 122004',
-  latitude: 28.4069,
-  longitude: 76.9691,
-  geofenceRadiusMeters: 150,
-};
 
 // 15 Configurable Rooms/Areas for White Collar Realty
 const INITIAL_ROOMS: RoomArea[] = [
@@ -478,7 +487,7 @@ const INITIAL_USERS: UserAccount[] = [
   },
   {
     id: 'user-kimmy-1',
-    email: 'kimmy.mam@whitecollarrealty.com',
+    email: 'kimmi.mam@whitecollarrealty.com',
     name: 'Kimmi',
     role: 'KIMMY_MAM',
     department: 'Co-Founder',
@@ -544,9 +553,123 @@ const INITIAL_PANTRY_REQUESTS: PantryRequest[] = [
   },
 ];
 
-// Helper to generate today's tasks for all configured rooms (9:00 AM - 8:00 PM shift)
+// -----------------------------------------------------------------------------
+// Authoritative IST (Asia/Kolkata, UTC+05:30) Scheduling Helpers
+// -----------------------------------------------------------------------------
+function getISTDateFormatted(date: Date = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch {
+    const istMs = date.getTime() + 5.5 * 60 * 60 * 1000;
+    return new Date(istMs).toISOString().split('T')[0];
+  }
+}
+
+function buildISTIso(dateStr: string, hhmm24: string): string {
+  const cleanTime = hhmm24.length === 5 ? `${hhmm24}:00` : hhmm24;
+  const parsed = new Date(`${dateStr}T${cleanTime}+05:30`);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+function formatISTShortTime(dateOrIso: Date | string): string {
+  const d = typeof dateOrIso === 'string' ? new Date(dateOrIso) : dateOrIso;
+  if (Number.isNaN(d.getTime())) return 'Scheduled';
+  try {
+    return d
+      .toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })
+      .toUpperCase();
+  } catch {
+    return d.toISOString();
+  }
+}
+
+function formatISTScheduleLabel(dateOrIso: Date | string): string {
+  const d = typeof dateOrIso === 'string' ? new Date(dateOrIso) : dateOrIso;
+  if (Number.isNaN(d.getTime())) return 'Scheduled IST';
+  try {
+    const datePart = d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const timePart = formatISTShortTime(d);
+    return `${datePart}, ${timePart} IST`;
+  } catch {
+    return d.toISOString();
+  }
+}
+
+function parseScheduledForIST(rawInput?: string, fallbackDate: Date = new Date()): string {
+  if (!rawInput || !String(rawInput).trim()) {
+    return fallbackDate.toISOString();
+  }
+  const trimmed = String(rawInput).trim();
+  // Interpret timezone-less datetime-local strings (YYYY-MM-DDTHH:mm[:ss]) strictly in IST (+05:30)
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+    const withSec = trimmed.length === 16 ? `${trimmed}:00` : trimmed;
+    const d = new Date(`${withSec}+05:30`);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toISOString();
+    }
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? fallbackDate.toISOString() : parsed.toISOString();
+}
+
+const ROUTINE_SCHEDULE_SLOTS_IST: Record<string, { startHHMM: string; dueTime: string }> = {
+  reception: { startHHMM: '09:00', dueTime: '09:30 AM' },
+  desks: { startHHMM: '09:30', dueTime: '10:00 AM' },
+  'water-10am': { startHHMM: '10:00', dueTime: '10:30 AM' },
+  'exec-cabin': { startHHMM: '10:15', dueTime: '10:45 AM' },
+  'kimmi-cabin': { startHHMM: '10:45', dueTime: '11:15 AM' },
+  prestige: { startHHMM: '11:15', dueTime: '11:45 AM' },
+  skyline: { startHHMM: '11:45', dueTime: '12:15 PM' },
+  community: { startHHMM: '12:15', dueTime: '12:45 PM' },
+  dustbins: { startHHMM: '12:45', dueTime: '01:15 PM' },
+  summit: { startHHMM: '13:15', dueTime: '01:45 PM' },
+  'wcr-air': { startHHMM: '13:45', dueTime: '02:15 PM' },
+  elegance: { startHHMM: '14:15', dueTime: '02:45 PM' },
+  'prime-loft': { startHHMM: '14:35', dueTime: '03:00 PM' },
+  'water-3pm': { startHHMM: '15:00', dueTime: '03:45 PM' },
+  regency: { startHHMM: '15:45', dueTime: '04:15 PM' },
+  plants: { startHHMM: '16:30', dueTime: '05:00 PM' },
+  'outer-area': { startHHMM: '17:15', dueTime: '05:45 PM' },
+  closing: { startHHMM: '19:30', dueTime: '07:55 PM' },
+};
+
+function applyRoutineISTSchedule(tasksList: Task[], dateStr: string, nowMs: number = Date.now()): Task[] {
+  return tasksList.map((task) => {
+    const match = task.id.match(/^task-(\d{4}-\d{2}-\d{2})-(.+)$/);
+    const slug = match ? match[2] : '';
+    const slot = ROUTINE_SCHEDULE_SLOTS_IST[slug];
+    if (!slot) return task;
+    const scheduledFor = buildISTIso(match ? match[1] : dateStr, slot.startHHMM);
+    const schedMs = new Date(scheduledFor).getTime();
+    const isFuture = schedMs > nowMs + 5000;
+    return {
+      ...task,
+      createdAt: buildISTIso(match ? match[1] : dateStr, '09:00'),
+      scheduledFor,
+      dueTime: slot.dueTime,
+      status: isFuture ? 'SCHEDULED' : 'AVAILABLE',
+    };
+  });
+}
+
+// Helper to generate today's tasks for all configured rooms (IST schedule)
 function generateDailyTasks(): Task[] {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getISTDateFormatted();
   const assignedPantry = INITIAL_USERS[0];
 
   const tasks: Task[] = [
@@ -1009,11 +1132,11 @@ function generateDailyTasks(): Task[] {
       ],
       changeHistory: [],
     },
-    // 18. Mandatory Closing Inspection (Scheduled 7:30 PM, Due 7:55 PM before 8:00 PM Shift End)
+    // 18. Mandatory Closing Inspection (Scheduled 7:30 PM, Due 7:55 PM IST)
     {
       id: `task-${today}-closing`,
       title: '7:30 PM – Mandatory End-of-Day Office Closing Inspection',
-      description: 'Comprehensive check before 8:00 PM shift end: Reception, Desks, Cabins, Dustbins, and Appliance Lockdown.',
+      description: 'Comprehensive end-of-day check: Reception, Desks, Cabins, Dustbins, and Appliance Lockdown.',
       roomAreaId: 'room-1',
       roomAreaName: 'Reception & All Areas',
       priority: 'P1',
@@ -1021,7 +1144,7 @@ function generateDailyTasks(): Task[] {
       assignedToEmail: assignedPantry.email,
       assignedToName: assignedPantry.name,
       createdByEmail: 'system@whitecollarrealty.com',
-      createdByName: 'Automatic Shift-End Scheduler',
+      createdByName: 'Automatic Closing Scheduler',
       createdAt: `${today}T19:30:00.000Z`,
       scheduledFor: `${today}T19:30:00.000Z`,
       dueTime: '07:55 PM',
@@ -1040,7 +1163,7 @@ function generateDailyTasks(): Task[] {
     },
   ];
 
-  return tasks;
+  return applyRoutineISTSchedule(tasks, today);
 }
 
 // In-Memory Database initialization
@@ -1087,24 +1210,47 @@ let db: DatabaseState = {
       action: 'SYSTEM_BOOTSTRAP',
       entityType: 'SCHEDULE',
       entityId: 'schedule-today',
-      details: 'Initialized SmartPantry Pro with 15 configured office rooms and daily shift automation (Asia/Kolkata 9:00 AM – 8:00 PM).',
+      details: 'Initialized SmartPantry Pro with 15 configured office rooms and automated IST task scheduling.',
     },
   ],
   notifications: [
     {
       id: 'notif-1',
       recipientRole: 'PANTRY_BOY',
-      title: 'Daily Shift Active · 9:00 AM – 8:00 PM',
-      message: 'Good morning Raju! Today’s routine tasks have been generated. Start with Reception (P1). Shift completes at 8:00 PM.',
+      title: 'Daily Operations Active',
+      message: 'Good morning Raju! Today’s routine tasks have been generated. Start with Reception (P1).',
       type: 'TASK_ASSIGNED',
       read: false,
       timestamp: new Date().toISOString(),
     },
   ],
   attendance: [],
-  officeConfig: INITIAL_OFFICE_CONFIG,
   lastGeneratedDate: new Date().toISOString().split('T')[0],
 };
+
+function sanitizeLegacyString(val?: string): string {
+  if (!val || typeof val !== 'string') return val || '';
+  return val
+    .replace(/kimmy\.mam@whitecollarrealty\.com/gi, 'kimmi.mam@whitecollarrealty.com')
+    .replace(/Kimmy/g, 'Kimmi')
+    .replace(/kimmy/g, 'kimmi')
+    .replace(/\s*before 8:00 PM shift end/gi, '')
+    .replace(/Automatic Shift-End Scheduler/gi, 'Automatic Closing Scheduler')
+    .replace(/Daily Shift Active\s*·\s*9:00 AM\s*[–-]\s*8:00 PM(\s*IST)?/gi, 'Daily Operations Active')
+    .replace(/Daily Tasks Generated\s*·\s*9:00 AM\s*[–-]\s*8:00 PM(\s*IST)?/gi, 'Daily Tasks Generated (IST)')
+    .replace(/8:00 PM Shift Closing Audit/gi, 'End-of-Day Closing Audit')
+    .replace(/Shift closed at 8:00 PM\.\s*/gi, '')
+    .replace(/\s*Shift completes at 8:00 PM\.?/gi, '')
+    .replace(/daily shift automation \(Asia\/Kolkata 9:00 AM\s*[–-]\s*8:00 PM\)/gi, 'automated IST task scheduling')
+    .replace(/\s*\(9:00 AM\s*[–-]\s*8:00 PM[^)]*\)/gi, '')
+    .replace(/\s*·\s*9:00 AM\s*[–-]\s*8:00 PM(\s*IST)?/gi, '')
+    .replace(/\s*Geofence verification:.*$/i, '')
+    .replace(
+      /Iris Broadway,?\s*Gurugram/gi,
+      '6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India'
+    )
+    .trim();
+}
 
 // Try to load persisted state from disk
 try {
@@ -1118,11 +1264,15 @@ try {
       }
       // Remove Lalit Sir profile from existing state
       db.users = (db.users || []).filter((u: any) => u.id !== 'user-lalit-1' && !u.name?.toLowerCase().includes('lalit'));
-      // Update Kimmi's profile details
+      // Preserve canonical profile only for user-kimmy-1; never overwrite other accounts
       db.users.forEach((u: any) => {
-        if (u.id === 'user-kimmy-1' || u.role === 'KIMMY_MAM' || u.name?.toLowerCase().includes('kimmy') || u.name?.toLowerCase().includes('kimmi')) {
-          u.name = 'Kimmi';
-          u.department = 'Co-Founder';
+        if (u.id === 'user-kimmy-1') {
+          u.email = 'kimmi.mam@whitecollarrealty.com';
+          u.name = sanitizeLegacyString(u.name || 'Kimmi').replace(/\s+mam$/i, '') || 'Kimmi';
+          if (!u.department) u.department = 'Co-Founder';
+        } else {
+          if (u.name) u.name = sanitizeLegacyString(u.name);
+          if (u.email) u.email = sanitizeLegacyString(u.email);
         }
       });
       // Ensure admin user exists in loaded state
@@ -1133,6 +1283,8 @@ try {
       db.users.forEach((u: any) => {
         if (!u.permissions) {
           u.permissions = getDefaultPermissions(u.role);
+        } else if ('confidentialAccess' in u.permissions) {
+          delete u.permissions.confidentialAccess;
         }
         if (u.id === 'user-admin-1' || u.email === 'admin.director@whitecollarrealty.com') {
           u.isSuperAdmin = true;
@@ -1205,22 +1357,144 @@ try {
           db.rooms.push({ ...initRoom, status: 'AVAILABLE', assignmentHistory: [], statusHistory: [] });
         }
       }
+
+      // Normalize legacy UTC routine timestamps (e.g. T09:00:00.000Z) to true IST (+05:30) staggered slots
+      // while preserving existing statuses, checklists, photo evidence, and custom tasks
+      const bootNowMs = Date.now();
+      db.tasks.forEach((t: Task) => {
+        const routineMatch = t.id.match(/^task-(\d{4}-\d{2}-\d{2})-(.+)$/);
+        if (
+          routineMatch &&
+          t.createdByEmail === 'system@whitecollarrealty.com' &&
+          ROUTINE_SCHEDULE_SLOTS_IST[routineMatch[2]] &&
+          (t.scheduledFor.endsWith('T09:00:00.000Z') ||
+            t.scheduledFor.endsWith('T10:00:00.000Z') ||
+            t.scheduledFor.endsWith('T15:00:00.000Z') ||
+            t.scheduledFor.endsWith('T19:30:00.000Z'))
+        ) {
+          const slot = ROUTINE_SCHEDULE_SLOTS_IST[routineMatch[2]];
+          t.scheduledFor = buildISTIso(routineMatch[1], slot.startHHMM);
+          t.dueTime = slot.dueTime;
+          const schedMs = new Date(t.scheduledFor).getTime();
+          if (schedMs > bootNowMs + 5000 && t.status === 'AVAILABLE' && !t.startedAt) {
+            t.status = 'SCHEDULED';
+          }
+        }
+
+        // Prevent stale popups on server boot for tasks whose scheduled time already passed >60s ago
+        const schedMs = new Date(t.scheduledFor).getTime();
+        if (!Number.isNaN(schedMs) && schedMs <= bootNowMs - 60 * 1000) {
+          t.fiveMinAlertSentFor = t.scheduledFor;
+          t.dueAlertSentFor = t.scheduledFor;
+        }
+      });
     }
   }
 } catch (e) {
   console.warn('Could not read existing db file, using fresh state', e);
 }
 
-// Ensure officeConfig and attendance arrays exist
-if (!db.officeConfig) {
-  db.officeConfig = INITIAL_OFFICE_CONFIG;
-}
+// Sanitize persisted records (remove legacy location/geofence data, session timing strings, and normalize Kimmy -> Kimmi)
+delete (db as any).officeConfig;
 if (!Array.isArray(db.attendance)) {
   db.attendance = [];
 }
 
+db.rooms.forEach((r: any) => {
+  if (r.name) r.name = sanitizeLegacyString(r.name);
+  if (r.notes) r.notes = sanitizeLegacyString(r.notes);
+  if (r.currentAssignment) {
+    if (r.currentAssignment.assignedBy) r.currentAssignment.assignedBy = sanitizeLegacyString(r.currentAssignment.assignedBy);
+    if (r.currentAssignment.visitorName) r.currentAssignment.visitorName = sanitizeLegacyString(r.currentAssignment.visitorName);
+    if (r.currentAssignment.instructions) r.currentAssignment.instructions = sanitizeLegacyString(r.currentAssignment.instructions);
+  }
+  if (Array.isArray(r.assignmentHistory)) {
+    r.assignmentHistory.forEach((ah: any) => {
+      if (ah.assignedBy) ah.assignedBy = sanitizeLegacyString(ah.assignedBy);
+      if (ah.visitorName) ah.visitorName = sanitizeLegacyString(ah.visitorName);
+      if (ah.instructions) ah.instructions = sanitizeLegacyString(ah.instructions);
+    });
+  }
+  if (Array.isArray(r.statusHistory)) {
+    r.statusHistory.forEach((sh: any) => {
+      if (sh.actorEmail) sh.actorEmail = sanitizeLegacyString(sh.actorEmail);
+      if (sh.actorName) sh.actorName = sanitizeLegacyString(sh.actorName);
+      if (sh.note) sh.note = sanitizeLegacyString(sh.note);
+    });
+  }
+});
+
+db.tasks.forEach((t: any) => {
+  if (t.title) t.title = sanitizeLegacyString(t.title);
+  if (t.description) t.description = sanitizeLegacyString(t.description);
+  if (t.roomAreaName) t.roomAreaName = sanitizeLegacyString(t.roomAreaName);
+  if (t.assignedToEmail) t.assignedToEmail = sanitizeLegacyString(t.assignedToEmail);
+  if (t.assignedToName) t.assignedToName = sanitizeLegacyString(t.assignedToName);
+  if (t.createdByEmail) t.createdByEmail = sanitizeLegacyString(t.createdByEmail);
+  if (t.createdByName) t.createdByName = sanitizeLegacyString(t.createdByName);
+  if (Array.isArray(t.checklist)) {
+    t.checklist.forEach((c: any) => {
+      if (c.text) c.text = sanitizeLegacyString(c.text);
+    });
+  }
+  if (Array.isArray(t.changeHistory)) {
+    t.changeHistory.forEach((ch: any) => {
+      if (ch.actorEmail) ch.actorEmail = sanitizeLegacyString(ch.actorEmail);
+      if (ch.actorName) ch.actorName = sanitizeLegacyString(ch.actorName);
+      if (ch.note) ch.note = sanitizeLegacyString(ch.note);
+    });
+  }
+  if (t.photoEvidence) {
+    if (t.photoEvidence.uploadedBy) t.photoEvidence.uploadedBy = sanitizeLegacyString(t.photoEvidence.uploadedBy);
+    if (t.photoEvidence.verifiedBy) t.photoEvidence.verifiedBy = sanitizeLegacyString(t.photoEvidence.verifiedBy);
+  }
+});
+
+if (Array.isArray(db.visitors)) {
+  db.visitors.forEach((v: any) => {
+    if (v.visitorName) v.visitorName = sanitizeLegacyString(v.visitorName);
+    if (v.hostName) v.hostName = sanitizeLegacyString(v.hostName);
+    if (v.notes) v.notes = sanitizeLegacyString(v.notes);
+  });
+}
+
+if (Array.isArray(db.pantryRequests)) {
+  db.pantryRequests.forEach((pr: any) => {
+    if (pr.requesterName) pr.requesterName = sanitizeLegacyString(pr.requesterName);
+    if (pr.instructions) pr.instructions = sanitizeLegacyString(pr.instructions);
+    if (pr.servedBy) pr.servedBy = sanitizeLegacyString(pr.servedBy);
+  });
+}
+
+if (Array.isArray(db.notifications)) {
+  db.notifications.forEach((n: any) => {
+    if (n.title) n.title = sanitizeLegacyString(n.title);
+    if (n.message) n.message = sanitizeLegacyString(n.message);
+    if (n.recipientEmail) n.recipientEmail = sanitizeLegacyString(n.recipientEmail);
+  });
+}
+
+db.attendance.forEach((att: any) => {
+  delete att.locationVerification;
+  delete att.logoutLocationVerification;
+  if (att.userEmail) att.userEmail = sanitizeLegacyString(att.userEmail);
+  if (att.userName) att.userName = sanitizeLegacyString(att.userName);
+});
+
+if (Array.isArray(db.auditLogs)) {
+  db.auditLogs = db.auditLogs.filter((log: any) => log.action !== 'OFFICE_CONFIG_UPDATED');
+  db.auditLogs.forEach((log: any) => {
+    if (log.actorEmail) log.actorEmail = sanitizeLegacyString(log.actorEmail);
+    if (log.actorName) log.actorName = sanitizeLegacyString(log.actorName);
+    if (log.details) log.details = sanitizeLegacyString(log.details);
+    if (log.action === 'ATTENDANCE_LOGIN_VERIFIED') {
+      log.action = 'ATTENDANCE_LOGIN_RECORDED';
+    }
+  });
+}
+
 // -----------------------------------------------------------------------------
-// Real-time Geofence & Attendance Verification Engine
+// Real-time Attendance Engine (IST Timestamps)
 // -----------------------------------------------------------------------------
 function getISTTimeString(date: Date = new Date()): string {
   try {
@@ -1249,81 +1523,7 @@ function getISTDateString(date: Date = new Date()): string {
   }
 }
 
-function calculateHaversineDistanceMeters(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371e3; // Earth radius in meters
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return Math.round(R * c);
-}
-
-function verifyOfficeLocation(locationInput?: {
-  latitude?: number;
-  longitude?: number;
-  accuracy?: number;
-  source?: string;
-  error?: string;
-}): LocationVerification {
-  const now = new Date();
-  const cfg = db.officeConfig || INITIAL_OFFICE_CONFIG;
-
-  if (
-    !locationInput ||
-    typeof locationInput.latitude !== 'number' ||
-    typeof locationInput.longitude !== 'number' ||
-    isNaN(locationInput.latitude) ||
-    isNaN(locationInput.longitude)
-  ) {
-    return {
-      status: 'UNVERIFIED',
-      capturedAt: now.toISOString(),
-      capturedAtIST: getISTTimeString(now),
-      source: (locationInput?.source as any) || 'UNAVAILABLE',
-      errorMessage: locationInput?.error || 'GPS location not provided or device permission denied',
-      officeName: cfg.name,
-      geofenceRadiusMeters: cfg.geofenceRadiusMeters,
-    };
-  }
-
-  const distance = calculateHaversineDistanceMeters(
-    locationInput.latitude,
-    locationInput.longitude,
-    cfg.latitude,
-    cfg.longitude
-  );
-
-  const isInside = distance <= cfg.geofenceRadiusMeters;
-
-  return {
-    latitude: Number(locationInput.latitude.toFixed(6)),
-    longitude: Number(locationInput.longitude.toFixed(6)),
-    accuracyMeters: locationInput.accuracy ? Math.round(locationInput.accuracy) : undefined,
-    distanceFromOfficeMeters: distance,
-    status: isInside ? 'INSIDE_OFFICE' : 'OUTSIDE_OFFICE',
-    capturedAt: now.toISOString(),
-    capturedAtIST: getISTTimeString(now),
-    source: (locationInput.source as any) || 'GPS',
-    officeName: cfg.name,
-    geofenceRadiusMeters: cfg.geofenceRadiusMeters,
-  };
-}
-
-function recordPantryAttendance(
-  user: UserAccount,
-  locationInput?: any
-): AttendanceRecord {
+function recordPantryAttendance(user: UserAccount): AttendanceRecord {
   const today = getISTDateString();
   const now = new Date();
 
@@ -1336,13 +1536,7 @@ function recordPantryAttendance(
     (a) => a.userId === user.id && a.date === today && a.status === 'PRESENT' && !a.logoutTime
   );
 
-  const verification = verifyOfficeLocation(locationInput);
-
   if (activeSession) {
-    // PRESERVE original login timestamp on refresh or duplicate requests!
-    if (activeSession.locationVerification.status === 'UNVERIFIED' && verification.status !== 'UNVERIFIED') {
-      activeSession.locationVerification = verification;
-    }
     activeSession.updatedAt = now.toISOString();
     saveDb();
     broadcastRealtime('attendance:updated', { attendance: activeSession });
@@ -1356,7 +1550,6 @@ function recordPantryAttendance(
       ? `att-${today}-${user.id}-s${todaySessionCount + 1}`
       : `att-${today}-${user.id}`;
 
-  // Create persistent attendance record
   const newRecord: AttendanceRecord = {
     id: newRecordId,
     userId: user.id,
@@ -1367,7 +1560,6 @@ function recordPantryAttendance(
     loginTime: now.toISOString(),
     loginTimeIST: getISTTimeString(now),
     status: 'PRESENT',
-    locationVerification: verification,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
@@ -1378,22 +1570,21 @@ function recordPantryAttendance(
 
   addAuditLog(
     { email: user.email, name: user.name, role: user.role },
-    'ATTENDANCE_LOGIN_VERIFIED',
+    'ATTENDANCE_LOGIN_RECORDED',
     'USER',
     user.id,
-    `Pantry Boy logged in at ${newRecord.loginTimeIST} IST. Geofence verification: ${verification.status} (${verification.distanceFromOfficeMeters !== undefined ? `${verification.distanceFromOfficeMeters}m from HQ` : verification.errorMessage || 'GPS unverified'})`
+    `Pantry Boy logged in at ${newRecord.loginTimeIST} IST.`
   );
 
   return newRecord;
 }
 
-function recordPantryLogout(user: UserAccount, locationInput?: any): AttendanceRecord | null {
+function recordPantryLogout(user: UserAccount): AttendanceRecord | null {
   const today = getISTDateString();
   const now = new Date();
 
   if (!Array.isArray(db.attendance)) return null;
 
-  // Find active open session first, or most recent record of today
   const existing =
     db.attendance.find((a) => a.userId === user.id && a.date === today && a.status === 'PRESENT' && !a.logoutTime) ||
     db.attendance.find((a) => a.userId === user.id && a.date === today);
@@ -1403,10 +1594,6 @@ function recordPantryLogout(user: UserAccount, locationInput?: any): AttendanceR
   existing.logoutTime = now.toISOString();
   existing.logoutTimeIST = getISTTimeString(now);
   existing.status = 'COMPLETED';
-
-  if (locationInput) {
-    existing.logoutLocationVerification = verifyOfficeLocation(locationInput);
-  }
 
   const loginMs = new Date(existing.loginTime).getTime();
   const logoutMs = now.getTime();
@@ -1441,18 +1628,6 @@ if (!db.attendance.some((a) => a.date === currentToday && a.role === 'PANTRY_BOY
     loginTime: `${currentToday}T09:00:15.000Z`,
     loginTimeIST: '09:00:15 AM',
     status: 'PRESENT',
-    locationVerification: {
-      latitude: 28.40705,
-      longitude: 76.96921,
-      accuracyMeters: 14,
-      distanceFromOfficeMeters: 22,
-      status: 'INSIDE_OFFICE',
-      capturedAt: `${currentToday}T09:00:15.000Z`,
-      capturedAtIST: '09:00:15 AM',
-      source: 'GPS',
-      officeName: INITIAL_OFFICE_CONFIG.name,
-      geofenceRadiusMeters: INITIAL_OFFICE_CONFIG.geofenceRadiusMeters,
-    },
     createdAt: `${currentToday}T09:00:15.000Z`,
     updatedAt: `${currentToday}T09:00:15.000Z`,
   });
@@ -1466,12 +1641,13 @@ function saveDb() {
   }
 }
 
-// Automatic daily task generation check
+saveDb();
+
+// Automatic daily task generation check (synchronized to Asia/Kolkata IST date)
 function ensureDailyTasks() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getISTDateFormatted();
   if (db.lastGeneratedDate !== today) {
     const routineTasks = generateDailyTasks();
-    // Prepend new daily tasks that don't already exist
     routineTasks.forEach((t) => {
       if (!db.tasks.some((existing) => existing.id === t.id)) {
         db.tasks.unshift(t);
@@ -1479,8 +1655,8 @@ function ensureDailyTasks() {
     });
     db.lastGeneratedDate = today;
     notify(
-      'Daily Tasks Generated · 9:00 AM – 8:00 PM',
-      'All 15 office rooms and routines have been automatically scheduled for today.',
+      'Daily Tasks Generated (IST)',
+      'All 15 office rooms and routines have been automatically scheduled for today in IST.',
       'TASK_ASSIGNED',
       { role: 'PANTRY_BOY' }
     );
@@ -1489,6 +1665,189 @@ function ensureDailyTasks() {
 }
 
 ensureDailyTasks();
+
+function parseTaskDeadlineMs(task: Task): number {
+  const schedMs = new Date(task.scheduledFor).getTime();
+  const baseMs = Number.isNaN(schedMs) ? Date.now() : schedMs;
+  const dueText = (task.dueTime || '').trim();
+
+  const withinMatch = dueText.match(/within\s+(\d+)\s*min/i);
+  if (withinMatch) {
+    return baseMs + Math.max(5, parseInt(withinMatch[1], 10)) * 60 * 1000;
+  }
+
+  const clockMatch = dueText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (clockMatch) {
+    let hours = parseInt(clockMatch[1], 10);
+    const mins = parseInt(clockMatch[2], 10);
+    const meridiem = clockMatch[3].toUpperCase();
+    if (meridiem === 'PM' && hours < 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    const schedDateIST = getISTDateFormatted(new Date(baseMs));
+    const dueIso = buildISTIso(
+      schedDateIST,
+      `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+    );
+    const dueMs = new Date(dueIso).getTime();
+    if (!Number.isNaN(dueMs) && dueMs >= baseMs + 5 * 60 * 1000) {
+      return dueMs;
+    }
+  }
+
+  return baseMs + (task.isUrgent ? 20 : 30) * 60 * 1000;
+}
+
+// Server-Authoritative Real-Time Task Schedule & Alert Engine (1-second resolution, IST)
+function runTaskScheduleEngine(): void {
+  ensureDailyTasks();
+
+  const now = new Date();
+  const nowMs = now.getTime();
+  const nowIso = now.toISOString();
+  const FIVE_MIN_MS = 5 * 60 * 1000;
+  const LIVE_DUE_GRACE_MS = 2 * 60 * 1000;
+
+  let dbDirty = false;
+  let tasksChanged = false;
+
+  for (const task of db.tasks) {
+    if (
+      task.status === 'COMPLETED' ||
+      task.status === 'CANCELLED' ||
+      task.status === 'PENDING_VERIFICATION' ||
+      task.status === 'SUBMITTED'
+    ) {
+      continue;
+    }
+
+    const schedMs = new Date(task.scheduledFor).getTime();
+    if (Number.isNaN(schedMs)) continue;
+
+    const assignedUser = db.users.find(
+      (u) => u.email.toLowerCase() === task.assignedToEmail.toLowerCase()
+    );
+    const isAssignedToPantryBoy = !assignedUser || assignedUser.role === 'PANTRY_BOY';
+
+    const msUntilStart = schedMs - nowMs;
+
+    // 1. 5-Minute Pre-Task Warning Alert (Pantry Boy Only)
+    if (
+      isAssignedToPantryBoy &&
+      (task.status === 'SCHEDULED' || task.status === 'AVAILABLE') &&
+      msUntilStart > 0 &&
+      msUntilStart <= FIVE_MIN_MS &&
+      task.fiveMinAlertSentFor !== task.scheduledFor &&
+      task.dueAlertSentFor !== task.scheduledFor
+    ) {
+      task.fiveMinAlertSentFor = task.scheduledFor;
+      dbDirty = true;
+
+      const scheduledTimeIST = formatISTScheduleLabel(task.scheduledFor);
+      broadcastToPantryBoy(task.assignedToEmail, 'schedule:alert', {
+        alertId: `warn5-${task.id}-${task.scheduledFor}`,
+        alertType: 'WARNING_5MIN',
+        task,
+        scheduledFor: task.scheduledFor,
+        scheduledTimeIST,
+        serverTime: nowIso,
+      });
+
+      notify(
+        `⏰ Starts in 5 Mins: ${task.title}`,
+        `Upcoming scheduled task in ${task.roomAreaName} at ${scheduledTimeIST}. Prepare required supplies.`,
+        'TASK_UPCOMING_WARNING',
+        {
+          role: 'PANTRY_BOY',
+          email: task.assignedToEmail,
+          taskId: task.id,
+          roomId: task.roomAreaId,
+          roomName: task.roomAreaName,
+          priority: task.priority,
+        }
+      );
+    }
+
+    // 2. At-Task-Time Auto-Activation & Prominent Execution Alert (Pantry Boy Only)
+    if (nowMs >= schedMs) {
+      if (task.status === 'SCHEDULED') {
+        task.status = 'AVAILABLE';
+        task.changeHistory.push({
+          timestamp: nowIso,
+          actorEmail: 'system@whitecollarrealty.com',
+          actorName: 'IST Task Scheduler',
+          fromStatus: 'SCHEDULED',
+          toStatus: 'AVAILABLE',
+          note: `Task automatically activated at scheduled time (${formatISTScheduleLabel(task.scheduledFor)})`,
+        });
+        dbDirty = true;
+        tasksChanged = true;
+      }
+
+      if (
+        isAssignedToPantryBoy &&
+        task.status === 'AVAILABLE' &&
+        nowMs - schedMs <= LIVE_DUE_GRACE_MS &&
+        task.dueAlertSentFor !== task.scheduledFor
+      ) {
+        task.dueAlertSentFor = task.scheduledFor;
+        dbDirty = true;
+
+        const scheduledTimeIST = formatISTScheduleLabel(task.scheduledFor);
+        broadcastToPantryBoy(task.assignedToEmail, 'schedule:alert', {
+          alertId: `due-${task.id}-${task.scheduledFor}`,
+          alertType: 'TASK_DUE_NOW',
+          task,
+          scheduledFor: task.scheduledFor,
+          scheduledTimeIST,
+          serverTime: nowIso,
+        });
+
+        notify(
+          `🔔 Task Time Now: ${task.title}`,
+          `Scheduled task is due now in ${task.roomAreaName} (${scheduledTimeIST}). Start task and complete mandatory checklist.`,
+          'TASK_DUE_NOW',
+          {
+            role: 'PANTRY_BOY',
+            email: task.assignedToEmail,
+            taskId: task.id,
+            roomId: task.roomAreaId,
+            roomName: task.roomAreaName,
+            priority: task.priority,
+          }
+        );
+      }
+
+      // 3. Automatic Overdue Detection for unstarted scheduled tasks past deadline
+      const deadlineMs = parseTaskDeadlineMs(task);
+      if (
+        task.status === 'AVAILABLE' &&
+        nowMs > deadlineMs &&
+        task.overdueMarkedFor !== task.scheduledFor
+      ) {
+        const prevStatus = task.status;
+        task.status = 'OVERDUE';
+        task.overdueMarkedFor = task.scheduledFor;
+        task.changeHistory.push({
+          timestamp: nowIso,
+          actorEmail: 'system@whitecollarrealty.com',
+          actorName: 'IST Task Scheduler',
+          fromStatus: prevStatus,
+          toStatus: 'OVERDUE',
+          note: `Automatically marked OVERDUE past deadline (${task.dueTime})`,
+        });
+        dbDirty = true;
+        tasksChanged = true;
+      }
+    }
+  }
+
+  if (dbDirty) {
+    saveDb();
+  }
+  if (tasksChanged) {
+    broadcastRealtime('task:updated', { tasks: db.tasks, serverTime: nowIso });
+  }
+}
 
 function addAuditLog(
   actor: { email: string; name: string; role: Role },
@@ -1561,24 +1920,31 @@ interface ActiveSession {
 }
 
 const activeSessions = new Map<string, ActiveSession>();
+const revokedTokens = new Set<string>();
+
+function extractSessionToken(req?: express.Request): string {
+  if (!req) return '';
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7).trim();
+  }
+  if (req.headers['x-session-token']) {
+    return String(req.headers['x-session-token']).trim();
+  }
+  if (typeof req.query?.token === 'string') {
+    return req.query.token.trim();
+  }
+  return '';
+}
 
 function getCurrentUser(req?: express.Request): UserAccount | null {
-  if (!req) return null;
-
-  const authHeader = req.headers.authorization;
-  let token = '';
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7).trim();
-  } else if (req.headers['x-session-token']) {
-    token = String(req.headers['x-session-token']).trim();
-  }
-
-  if (!token) return null;
+  const token = extractSessionToken(req);
+  if (!token || revokedTokens.has(token)) return null;
 
   let session = activeSessions.get(token);
   if (!session) {
-    // If token is of format wcr_sess_{userId}_..., recover session gracefully
-    const match = token.match(/^wcr_sess_([^_]+)_/);
+    // Recover valid unrevoked session across dev server restarts using exact token format
+    const match = token.match(/^wcr_sess_(.+)_\d+_[a-z0-9]+$/);
     if (match) {
       const recoveredUserId = match[1];
       const targetUser = db.users.find((u) => u.id === recoveredUserId);
@@ -1600,12 +1966,14 @@ function getCurrentUser(req?: express.Request): UserAccount | null {
   // Check if session has expired
   if (new Date(session.expiresAt).getTime() < Date.now()) {
     activeSessions.delete(token);
+    revokedTokens.add(token);
     return null;
   }
 
   const user = db.users.find((u) => u.id === session.userId);
   if (!user || user.status === 'inactive') {
     activeSessions.delete(token);
+    revokedTokens.add(token);
     return null;
   }
 
@@ -1634,13 +2002,17 @@ app.get('/api/auth/current', (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { email, location } = req.body;
+  const { email } = req.body;
   if (!email) {
     return res.status(400).json({ error: 'Company email is required' });
   }
 
   const cleanEmail = String(email).trim().toLowerCase();
-  const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+  const user = db.users.find(
+    (u) =>
+      u.email.toLowerCase() === cleanEmail ||
+      (cleanEmail === 'kimmy.mam@whitecollarrealty.com' && u.id === 'user-kimmy-1')
+  );
 
   if (!user) {
     return res.status(403).json({
@@ -1676,48 +2048,44 @@ app.post('/api/auth/login', (req, res) => {
 
   let attendance: AttendanceRecord | undefined;
   if (user.role === 'PANTRY_BOY') {
-    attendance = recordPantryAttendance(user, location);
+    attendance = recordPantryAttendance(user);
   }
 
   res.json({ user, token, attendance });
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  const authHeader = req.headers.authorization;
-  let token = '';
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7).trim();
-  } else if (req.headers['x-session-token']) {
-    token = String(req.headers['x-session-token']).trim();
-  }
+  const token = extractSessionToken(req);
 
-  const { location } = req.body || {};
-
-  if (token && activeSessions.has(token)) {
-    const session = activeSessions.get(token);
-    if (session) {
-      const user = db.users.find((u) => u.id === session.userId);
-      if (user) {
-        if (user.role === 'PANTRY_BOY') {
-          recordPantryLogout(user, location);
-        }
-        addAuditLog(
-          { email: user.email, name: user.name, role: user.role },
-          'USER_LOGOUT',
-          'USER',
-          user.id,
-          `Logged out and revoked session token ${token.substring(0, 14)}...`
-        );
+  if (token) {
+    const user = getCurrentUser(req);
+    if (user) {
+      if (user.role === 'PANTRY_BOY') {
+        recordPantryLogout(user);
       }
+      addAuditLog(
+        { email: user.email, name: user.name, role: user.role },
+        'USER_LOGOUT',
+        'USER',
+        user.id,
+        `Logged out and revoked session token ${token.substring(0, 14)}...`
+      );
     }
     activeSessions.delete(token);
+    revokedTokens.add(token);
   }
 
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
 app.post('/api/auth/switch-user', (req, res) => {
-  const { userId, location } = req.body;
+  const prevToken = extractSessionToken(req);
+  if (prevToken) {
+    activeSessions.delete(prevToken);
+    revokedTokens.add(prevToken);
+  }
+
+  const { userId } = req.body;
   const user = db.users.find((u) => u.id === userId);
   if (!user) {
     return res.status(404).json({ error: 'User account not found' });
@@ -1747,24 +2115,39 @@ app.post('/api/auth/switch-user', (req, res) => {
 
   let attendance: AttendanceRecord | undefined;
   if (user.role === 'PANTRY_BOY') {
-    attendance = recordPantryAttendance(user, location);
+    attendance = recordPantryAttendance(user);
   }
 
   res.json({ user, token, attendance });
 });
 
 // -----------------------------------------------------------------------------
-// Real-time Attendance & Geofence Routes
+// Real-time Attendance Routes (IST)
 // -----------------------------------------------------------------------------
 app.get('/api/attendance/today', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.json({
+      todayRecord: null,
+      allTodayRecords: [],
+    });
+  }
+
   const today = getISTDateString();
   const records = (db.attendance || []).filter((a) => a.date === today);
-  const pantryRecord = records.find((a) => a.role === 'PANTRY_BOY') || records[0] || null;
 
+  if (actor.role === 'PANTRY_BOY') {
+    const ownRecords = records.filter((a) => a.userId === actor.id);
+    return res.json({
+      todayRecord: ownRecords[0] || null,
+      allTodayRecords: ownRecords,
+    });
+  }
+
+  const pantryRecord = records.find((a) => a.role === 'PANTRY_BOY') || records[0] || null;
   res.json({
     todayRecord: pantryRecord,
     allTodayRecords: records,
-    officeConfig: db.officeConfig || INITIAL_OFFICE_CONFIG,
   });
 });
 
@@ -1776,12 +2159,10 @@ app.get('/api/attendance/history', (req, res) => {
   if (user.role === 'PANTRY_BOY') {
     history = history.filter((a) => a.userId === user.id);
   }
-  // Sort latest first
   history.sort((a, b) => new Date(b.loginTime).getTime() - new Date(a.loginTime).getTime());
 
   res.json({
     history,
-    officeConfig: db.officeConfig || INITIAL_OFFICE_CONFIG,
   });
 });
 
@@ -1789,55 +2170,18 @@ app.post('/api/attendance/record-login', (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthenticated' });
   if (user.role !== 'PANTRY_BOY') {
-    return res.status(403).json({ error: 'Attendance location verification is only for Pantry Attendants' });
+    return res.status(403).json({ error: 'Attendance check-in is only for Pantry Attendants' });
   }
 
-  const { location } = req.body;
-  const record = recordPantryAttendance(user, location);
+  const record = recordPantryAttendance(user);
   res.json({ success: true, attendance: record });
 });
 
 app.post('/api/attendance/record-logout', (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthenticated' });
-  const { location } = req.body || {};
-  const record = recordPantryLogout(user, location);
+  const record = recordPantryLogout(user);
   res.json({ success: true, attendance: record });
-});
-
-app.get('/api/attendance/office-config', (req, res) => {
-  res.json({ officeConfig: db.officeConfig || INITIAL_OFFICE_CONFIG });
-});
-
-app.put('/api/attendance/office-config', (req, res) => {
-  const user = getCurrentUser(req);
-  if (!user || !isManagerOrAdmin(user.role)) {
-    return res.status(403).json({ error: 'Only Management or Admin can update office location parameters' });
-  }
-
-  const { name, address, latitude, longitude, geofenceRadiusMeters } = req.body;
-  if (!name || typeof latitude !== 'number' || typeof longitude !== 'number') {
-    return res.status(400).json({ error: 'Invalid office configuration parameters' });
-  }
-
-  db.officeConfig = {
-    name: String(name).trim(),
-    address: String(address || '').trim(),
-    latitude: Number(latitude),
-    longitude: Number(longitude),
-    geofenceRadiusMeters: Number(geofenceRadiusMeters) || 150,
-  };
-  saveDb();
-
-  addAuditLog(
-    { email: user.email, name: user.name, role: user.role },
-    'OFFICE_CONFIG_UPDATED',
-    'SCHEDULE',
-    'office-geofence',
-    `Updated office coordinates to (${latitude}, ${longitude}), radius ${db.officeConfig.geofenceRadiusMeters}m`
-  );
-
-  res.json({ success: true, officeConfig: db.officeConfig });
 });
 
 
@@ -1862,7 +2206,7 @@ app.get('/api/users', (req, res) => {
 
 app.post('/api/users/:id/toggle-status', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'edit'))) {
+  if (!actor || !checkUserPermission(actor, 'users', 'edit')) {
     return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can change employee status.' });
   }
 
@@ -1888,6 +2232,7 @@ app.post('/api/users/:id/toggle-status', (req, res) => {
     for (const [token, session] of activeSessions.entries()) {
       if (session.userId === targetUser.id) {
         activeSessions.delete(token);
+        revokedTokens.add(token);
       }
     }
 
@@ -1927,7 +2272,7 @@ app.post('/api/users/:id/toggle-status', (req, res) => {
 
 app.post('/api/users', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'create'))) {
+  if (!actor || !checkUserPermission(actor, 'users', 'create')) {
     return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can register company accounts.' });
   }
 
@@ -1942,6 +2287,18 @@ app.post('/api/users', (req, res) => {
   }
 
   const userRole: Role = role || 'PANTRY_BOY';
+  if (userRole === 'ADMIN' && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
+    return res.status(403).json({ error: 'Permission denied: Only an Administrator can create another Administrator account.' });
+  }
+
+  const sanitizedPermissions: UserPermissions = permissions
+    ? {
+        dashboards: permissions.dashboards,
+        sidebarItems: permissions.sidebarItems,
+        actions: permissions.actions,
+      }
+    : getDefaultPermissions(userRole);
+
   const newUser: UserAccount = {
     id: `user-${Date.now()}`,
     name,
@@ -1952,7 +2309,7 @@ app.post('/api/users', (req, res) => {
     avatarUrl: '/assets/wcr_logo.png',
     phone: phone || '',
     createdAt: new Date().toISOString(),
-    permissions: permissions || getDefaultPermissions(userRole),
+    permissions: sanitizedPermissions,
   };
 
   db.users.push(newUser);
@@ -1965,7 +2322,7 @@ app.post('/api/users', (req, res) => {
 
 app.put('/api/users/:id', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'edit'))) {
+  if (!actor || !checkUserPermission(actor, 'users', 'edit')) {
     return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can edit user accounts.' });
   }
 
@@ -1976,9 +2333,15 @@ app.put('/api/users/:id', (req, res) => {
 
   const { name, email, role, department, phone, permissions } = req.body;
 
-  // Protect Super Admin role from demotion
+  // Protect Super Admin account from non-Admin edits or role demotion
+  if ((targetUser.isSuperAdmin || targetUser.role === 'ADMIN') && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
+    return res.status(403).json({ error: 'Permission denied: Only an Administrator can modify Administrator accounts.' });
+  }
   if (targetUser.isSuperAdmin && role && role !== 'ADMIN') {
     return res.status(403).json({ error: 'Security policy: The Super Administrator role cannot be changed.' });
+  }
+  if (role === 'ADMIN' && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
+    return res.status(403).json({ error: 'Permission denied: Only an Administrator can grant Administrator role.' });
   }
 
   if (name) targetUser.name = name;
@@ -1993,7 +2356,11 @@ app.put('/api/users/:id', (req, res) => {
   if (department !== undefined) targetUser.department = department;
   if (phone !== undefined) targetUser.phone = phone;
   if (permissions) {
-    targetUser.permissions = permissions;
+    targetUser.permissions = {
+      dashboards: permissions.dashboards,
+      sidebarItems: permissions.sidebarItems,
+      actions: permissions.actions,
+    };
   }
 
   addAuditLog(
@@ -2012,8 +2379,8 @@ app.put('/api/users/:id', (req, res) => {
 
 app.delete('/api/users/:id', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'users', 'delete'))) {
-    return res.status(403).json({ error: 'Permission denied: Only Admin can delete company accounts.' });
+  if (!actor || !checkUserPermission(actor, 'users', 'delete')) {
+    return res.status(403).json({ error: 'Permission denied: Only Admin or users with delete permission can delete company accounts.' });
   }
 
   const targetIndex = db.users.findIndex((u) => u.id === req.params.id);
@@ -2040,6 +2407,7 @@ app.delete('/api/users/:id', (req, res) => {
   for (const [token, session] of activeSessions.entries()) {
     if (session.userId === targetUser.id) {
       activeSessions.delete(token);
+      revokedTokens.add(token);
     }
   }
 
@@ -2062,6 +2430,16 @@ app.delete('/api/users/:id', (req, res) => {
 // -----------------------------------------------------------------------------
 // Real-time Event Stream (SSE)
 // -----------------------------------------------------------------------------
+app.get('/api/server-time', (_req, res) => {
+  const now = new Date();
+  res.json({
+    serverTime: now.toISOString(),
+    timezone: 'Asia/Kolkata',
+    istTime: getISTTimeString(now),
+    istDate: getISTDateString(now),
+  });
+});
+
 app.get('/api/realtime/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -2069,22 +2447,32 @@ app.get('/api/realtime/stream', (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
 
-  sseClients.add(res);
+  const clientEntry: SSEClientEntry = { res, req };
+  sseClients.add(clientEntry);
 
-  res.write(`event: connected\ndata: ${JSON.stringify({ status: 'connected', time: new Date().toISOString() })}\n\n`);
+  const nowIso = new Date().toISOString();
+  res.write(
+    `event: connected\ndata: ${JSON.stringify({
+      status: 'connected',
+      time: nowIso,
+      serverTime: nowIso,
+      timezone: 'Asia/Kolkata',
+    })}\n\n`
+  );
 
   const heartbeat = setInterval(() => {
     try {
-      res.write(': ping\n\n');
+      const hbIso = new Date().toISOString();
+      res.write(`event: server:time\ndata: ${JSON.stringify({ serverTime: hbIso, timezone: 'Asia/Kolkata' })}\n\n`);
     } catch {
       clearInterval(heartbeat);
-      sseClients.delete(res);
+      sseClients.delete(clientEntry);
     }
   }, 15000);
 
   req.on('close', () => {
     clearInterval(heartbeat);
-    sseClients.delete(res);
+    sseClients.delete(clientEntry);
   });
 });
 
@@ -2095,8 +2483,8 @@ app.get('/api/rooms', (req, res) => {
 
 app.post('/api/rooms', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only management or admin can configure rooms.' });
+  if (!actor || !checkUserPermission(actor, 'rooms', 'create')) {
+    return res.status(403).json({ error: 'Permission denied: Only authorized users can create rooms.' });
   }
 
   const { name, category, defaultPriority, photoRequired, defaultChecklist, recurrence } = req.body;
@@ -2139,8 +2527,8 @@ app.post('/api/rooms', (req, res) => {
 
 app.put('/api/rooms/:id', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only management or admin can modify rooms.' });
+  if (!actor || !checkUserPermission(actor, 'rooms', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: Only authorized users can modify rooms.' });
   }
 
   const room = db.rooms.find((r) => r.id === req.params.id);
@@ -2157,8 +2545,8 @@ app.put('/api/rooms/:id', (req, res) => {
 // Toggle Room Active / Inactive
 app.post('/api/rooms/:id/toggle-active', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only management or admin can activate or deactivate rooms.' });
+  if (!actor || !checkUserPermission(actor, 'rooms', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: Only authorized users can activate or deactivate rooms.' });
   }
 
   const room = db.rooms.find((r) => r.id === req.params.id);
@@ -2186,8 +2574,8 @@ app.post('/api/rooms/:id/toggle-active', (req, res) => {
 // Assign Room (Visitor / Candidate) with Conflict Collision Prevention
 app.post('/api/rooms/:id/assign', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only management or admin can assign rooms.' });
+  if (!actor || !checkUserPermission(actor, 'rooms', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: Only authorized users can assign rooms.' });
   }
 
   const room = db.rooms.find((r) => r.id === req.params.id);
@@ -2364,8 +2752,16 @@ app.post('/api/rooms/:id/assign', (req, res) => {
 // Room Lifecycle Status Actions (Mark Occupied, Ready, Release/Vacant, Request Cleaning, Reopen)
 app.post('/api/rooms/:id/status-action', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only management or admin can perform room lifecycle actions.' });
+  if (!actor) {
+    return res.status(401).json({ error: 'Unauthenticated' });
+  }
+  const canRoomEdit = checkUserPermission(actor, 'rooms', 'edit');
+  const canPantryMarkReady =
+    actor.role === 'PANTRY_BOY' &&
+    req.body?.action === 'MARK_READY' &&
+    Boolean((actor.permissions || getDefaultPermissions(actor.role)).sidebarItems?.roomSupport);
+  if (!canRoomEdit && !canPantryMarkReady) {
+    return res.status(403).json({ error: 'Permission denied: You are not authorized to perform this room lifecycle action.' });
   }
 
   const room = db.rooms.find((r) => r.id === req.params.id);
@@ -2624,15 +3020,25 @@ app.get('/api/rooms/:id/history', (req, res) => {
 
 // 4. Tasks API
 app.get('/api/tasks', (req, res) => {
-  ensureDailyTasks();
+  runTaskScheduleEngine();
 
   const requester = getCurrentUser(req);
+  if (!requester) {
+    return res.status(401).json({ error: 'Unauthenticated' });
+  }
+  if (!checkUserPermission(requester, 'tasks', 'view')) {
+    return res.status(403).json({ error: 'Permission denied: Tasks view access not authorized.' });
+  }
+
   const { status, priority, roomAreaId, assignedTo } = req.query;
 
   let filtered = [...db.tasks];
 
-  // Strictly enforce Pantry Boy isolation
-  if (requester && requester.role === 'PANTRY_BOY') {
+  const requesterPerms = requester.permissions || getDefaultPermissions(requester.role);
+  const hasManagementDashboard = requester.role === 'ADMIN' || Boolean(requester.isSuperAdmin) || Boolean(requesterPerms.dashboards?.management);
+
+  // Strictly enforce Pantry Boy / non-management user task isolation
+  if (requester.role === 'PANTRY_BOY' || !hasManagementDashboard) {
     filtered = filtered.filter(
       (t) => t.assignedToEmail.toLowerCase() === requester.email.toLowerCase()
     );
@@ -2652,7 +3058,6 @@ app.get('/api/tasks', (req, res) => {
     filtered = filtered.filter((t) => t.roomAreaId === roomAreaId);
   }
 
-  // Deterministic priority ordering: URGENT > P1 > P2 > P3 > P4 > P5
   const priorityOrder: Record<string, number> = {
     URGENT: 0,
     P1: 1,
@@ -2662,24 +3067,41 @@ app.get('/api/tasks', (req, res) => {
     P5: 5,
   };
 
-  filtered.sort((a, b) => {
-    if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
-    const pA = priorityOrder[a.priority] ?? 99;
-    const pB = priorityOrder[b.priority] ?? 99;
-    if (pA !== pB) return pA - pB;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  if (requester.role === 'PANTRY_BOY' || !hasManagementDashboard) {
+    // Pantry Boy: Show active tasks ordered chronologically by scheduled date & time (IST)
+    const isTerminal = (s: TaskStatus) => s === 'COMPLETED' || s === 'CANCELLED';
+    filtered.sort((a, b) => {
+      const termA = isTerminal(a.status) ? 1 : 0;
+      const termB = isTerminal(b.status) ? 1 : 0;
+      if (termA !== termB) return termA - termB;
+      const schedA = new Date(a.scheduledFor).getTime() || 0;
+      const schedB = new Date(b.scheduledFor).getTime() || 0;
+      if (schedA !== schedB) return schedA - schedB;
+      if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
+      const pA = priorityOrder[a.priority] ?? 99;
+      const pB = priorityOrder[b.priority] ?? 99;
+      return pA - pB;
+    });
+  } else {
+    filtered.sort((a, b) => {
+      if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
+      const pA = priorityOrder[a.priority] ?? 99;
+      const pB = priorityOrder[b.priority] ?? 99;
+      if (pA !== pB) return pA - pB;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
 
-  res.json({ tasks: filtered });
+  res.json({ tasks: filtered, serverTime: new Date().toISOString() });
 });
 
 app.post('/api/tasks', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'tasks', 'create'))) {
+  if (!actor || !checkUserPermission(actor, 'tasks', 'create')) {
     return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can assign new tasks.' });
   }
 
-  const { title, roomAreaId, priority, dueTime, description, checklist, isUrgent } = req.body;
+  const { title, roomAreaId, priority, scheduledFor, dueTime, assignedToEmail, description, checklist, isUrgent } = req.body;
   if (!title || !roomAreaId) {
     return res.status(400).json({ error: 'Title and roomAreaId are required' });
   }
@@ -2689,12 +3111,31 @@ app.post('/api/tasks', (req, res) => {
     return res.status(404).json({ error: 'Room not found' });
   }
 
-  const assignedPantry = db.users.find((u) => u.role === 'PANTRY_BOY' && u.status === 'active') || db.users[0];
-  const now = new Date().toISOString();
+  const requestedAssignee = assignedToEmail
+    ? db.users.find((u) => u.email.toLowerCase() === String(assignedToEmail).toLowerCase() && u.status === 'active')
+    : undefined;
+  const assignedPantry =
+    requestedAssignee ||
+    db.users.find((u) => u.role === 'PANTRY_BOY' && u.status === 'active') ||
+    db.users[0];
+
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const resolvedScheduledFor = scheduledFor ? parseScheduledForIST(scheduledFor, nowDate) : now;
+  const scheduledMs = new Date(resolvedScheduledFor).getTime();
+  const isFutureScheduled = Boolean(scheduledFor) ? scheduledMs > nowDate.getTime() + 1000 : false;
+  const initialStatus: TaskStatus = isFutureScheduled ? 'SCHEDULED' : 'AVAILABLE';
+
+  const resolvedDueTime =
+    dueTime && String(dueTime).trim() && !(isFutureScheduled && dueTime === 'Within 30 mins')
+      ? String(dueTime).trim()
+      : isFutureScheduled
+      ? formatISTShortTime(new Date(scheduledMs + 30 * 60 * 1000))
+      : 'Immediate (within 30 mins)';
 
   const newTask: Task = {
-    id: `task-${Date.now()}`,
-    title,
+    id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    title: String(title).trim(),
     description: description || '',
     roomAreaId: room.id,
     roomAreaName: room.name,
@@ -2705,9 +3146,9 @@ app.post('/api/tasks', (req, res) => {
     createdByEmail: actor.email,
     createdByName: actor.name,
     createdAt: now,
-    scheduledFor: now,
-    dueTime: dueTime || 'Immediate (within 30 mins)',
-    status: 'AVAILABLE',
+    scheduledFor: resolvedScheduledFor,
+    dueTime: resolvedDueTime,
+    status: initialStatus,
     isUrgent: Boolean(isUrgent),
     checklist: Array.isArray(checklist) && checklist.length > 0
       ? checklist.map((item: string | ChecklistItem, idx: number) => ({
@@ -2726,8 +3167,8 @@ app.post('/api/tasks', (req, res) => {
         actorEmail: actor.email,
         actorName: actor.name,
         fromStatus: 'NONE',
-        toStatus: 'AVAILABLE',
-        note: `Created by ${actor.name} (${actor.role}) ${isUrgent ? '[URGENT PRIORITY]' : ''}`,
+        toStatus: initialStatus,
+        note: `Created by ${actor.name} (${actor.role}) · Scheduled for ${formatISTScheduleLabel(resolvedScheduledFor)} ${isUrgent ? '[URGENT PRIORITY]' : ''}`,
       },
     ],
   };
@@ -2739,24 +3180,234 @@ app.post('/api/tasks', (req, res) => {
     isUrgent ? 'TASK_URGENT_ASSIGNED' : 'TASK_ASSIGNED',
     'TASK',
     newTask.id,
-    `Assigned "${newTask.title}" for ${newTask.roomAreaName} with priority ${newTask.priority} to ${newTask.assignedToName}`
+    `Assigned "${newTask.title}" for ${newTask.roomAreaName} (${formatISTScheduleLabel(newTask.scheduledFor)}) with priority ${newTask.priority} to ${newTask.assignedToName}`
   );
 
   notify(
-    isUrgent ? `⚠️ URGENT TASK: ${newTask.title}` : `New Task Assigned: ${newTask.title}`,
-    `${actor.name} assigned ${newTask.title} in ${newTask.roomAreaName}. Due: ${newTask.dueTime}`,
+    isUrgent ? `⚠️ URGENT TASK: ${newTask.title}` : `New Task Scheduled: ${newTask.title}`,
+    `${actor.name} scheduled "${newTask.title}" in ${newTask.roomAreaName} for ${formatISTScheduleLabel(newTask.scheduledFor)} (Due: ${newTask.dueTime}).`,
     isUrgent ? 'URGENT_TASK' : 'TASK_ASSIGNED',
-    { role: 'PANTRY_BOY', taskId: newTask.id, roomName: newTask.roomAreaName }
+    {
+      role: 'PANTRY_BOY',
+      email: newTask.assignedToEmail,
+      taskId: newTask.id,
+      roomId: newTask.roomAreaId,
+      roomName: newTask.roomAreaName,
+      priority: newTask.priority,
+    }
   );
 
   saveDb();
-  res.json({ success: true, task: newTask });
+  broadcastRealtime('task:updated', { task: newTask, tasks: db.tasks, serverTime: now });
+
+  // Evaluate immediate or within-5-minute alert windows right away
+  runTaskScheduleEngine();
+
+  res.json({ success: true, task: newTask, serverTime: now });
 });
 
-// Update task status (Start task, Block task, etc.)
+// Edit, Reschedule, Reassign, or Cancel Task (Authorized Managers / Admin)
+app.put('/api/tasks/:id', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (actor.role === 'PANTRY_BOY' || !checkUserPermission(actor, 'tasks', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: Only authorized users with task edit permissions can modify, reschedule, or cancel tasks.' });
+  }
+
+  const task = db.tasks.find((t) => t.id === req.params.id);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  const {
+    title,
+    description,
+    roomAreaId,
+    priority,
+    isUrgent,
+    scheduledFor,
+    dueTime,
+    assignedToEmail,
+    status,
+    checklist,
+    cancelReason,
+  } = req.body;
+
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const prevStatus = task.status;
+  const prevScheduledFor = task.scheduledFor;
+  let wasRescheduled = false;
+
+  if (title !== undefined && String(title).trim()) {
+    task.title = String(title).trim();
+  }
+  if (description !== undefined) {
+    task.description = String(description);
+  }
+  if (roomAreaId && roomAreaId !== task.roomAreaId) {
+    const targetRoom = db.rooms.find((r) => r.id === roomAreaId);
+    if (targetRoom) {
+      task.roomAreaId = targetRoom.id;
+      task.roomAreaName = targetRoom.name;
+    }
+  }
+  if (isUrgent !== undefined) {
+    task.isUrgent = Boolean(isUrgent);
+  }
+  if (priority !== undefined) {
+    task.priority = task.isUrgent ? 'URGENT' : (priority as TaskPriority);
+  } else if (task.isUrgent) {
+    task.priority = 'URGENT';
+  }
+  if (assignedToEmail) {
+    const targetUser = db.users.find(
+      (u) => u.email.toLowerCase() === String(assignedToEmail).toLowerCase() && u.status === 'active'
+    );
+    if (targetUser) {
+      task.assignedToEmail = targetUser.email;
+      task.assignedToName = targetUser.name;
+    }
+  }
+  if (Array.isArray(checklist) && checklist.length > 0) {
+    task.checklist = checklist.map((item: string | ChecklistItem, idx: number) => {
+      if (typeof item === 'string') {
+        const existing = task.checklist.find((c) => c.text === item);
+        return { id: existing?.id || `item-${idx}`, text: item, completed: existing?.completed || false };
+      }
+      return item;
+    });
+  }
+
+  if (scheduledFor !== undefined && String(scheduledFor).trim()) {
+    const newScheduledIso = parseScheduledForIST(scheduledFor, nowDate);
+    if (newScheduledIso !== prevScheduledFor) {
+      wasRescheduled = true;
+      task.scheduledFor = newScheduledIso;
+      // Reset alert markers so new schedule fires fresh 5-min warning & due-now alerts
+      task.fiveMinAlertSentFor = undefined;
+      task.dueAlertSentFor = undefined;
+      task.overdueMarkedFor = undefined;
+
+      const newSchedMs = new Date(newScheduledIso).getTime();
+      if (status === undefined && task.status !== 'COMPLETED') {
+        task.cancelledAt = undefined;
+        task.cancelledBy = undefined;
+        if (newSchedMs > nowDate.getTime() + 1000) {
+          task.status = 'SCHEDULED';
+        } else if (
+          task.status === 'SCHEDULED' ||
+          task.status === 'OVERDUE' ||
+          task.status === 'CANCELLED'
+        ) {
+          task.status = 'AVAILABLE';
+        }
+      }
+
+      if (dueTime === undefined) {
+        task.dueTime = formatISTShortTime(new Date(newSchedMs + 30 * 60 * 1000));
+      }
+    }
+  }
+
+  if (dueTime !== undefined && String(dueTime).trim()) {
+    task.dueTime = String(dueTime).trim();
+  }
+
+  if (status !== undefined) {
+    task.status = status as TaskStatus;
+    if (status === 'CANCELLED') {
+      task.cancelledAt = now;
+      task.cancelledBy = actor.name;
+    } else if (prevStatus === 'CANCELLED') {
+      task.cancelledAt = undefined;
+      task.cancelledBy = undefined;
+    }
+  }
+
+  if (task.status === 'CANCELLED' && prevStatus !== 'CANCELLED') {
+    const reasonText = cancelReason ? String(cancelReason).trim() : `Cancelled by ${actor.name}`;
+    task.changeHistory.push({
+      timestamp: now,
+      actorEmail: actor.email,
+      actorName: actor.name,
+      fromStatus: prevStatus,
+      toStatus: 'CANCELLED',
+      note: reasonText,
+    });
+    addAuditLog(
+      actor,
+      'TASK_CANCELLED',
+      'TASK',
+      task.id,
+      `Cancelled task "${task.title}" in ${task.roomAreaName}. ${reasonText}`
+    );
+    notify(
+      `🚫 Task Cancelled: ${task.title}`,
+      `${actor.name} cancelled "${task.title}" (${task.roomAreaName}).`,
+      'TASK_CANCELLED',
+      {
+        role: 'PANTRY_BOY',
+        email: task.assignedToEmail,
+        taskId: task.id,
+        roomId: task.roomAreaId,
+        roomName: task.roomAreaName,
+      }
+    );
+  } else {
+    const noteText = wasRescheduled
+      ? `Rescheduled by ${actor.name} to ${formatISTScheduleLabel(task.scheduledFor)} (Due: ${task.dueTime})`
+      : `Updated by ${actor.name}`;
+    task.changeHistory.push({
+      timestamp: now,
+      actorEmail: actor.email,
+      actorName: actor.name,
+      fromStatus: prevStatus,
+      toStatus: task.status,
+      note: noteText,
+    });
+    addAuditLog(
+      actor,
+      wasRescheduled ? 'TASK_RESCHEDULED' : 'TASK_UPDATED',
+      'TASK',
+      task.id,
+      `${noteText} for "${task.title}" in ${task.roomAreaName}`
+    );
+    notify(
+      wasRescheduled ? `🔄 Task Rescheduled: ${task.title}` : `Task Updated: ${task.title}`,
+      wasRescheduled
+        ? `${actor.name} rescheduled "${task.title}" (${task.roomAreaName}) to ${formatISTScheduleLabel(task.scheduledFor)}.`
+        : `${actor.name} updated task details for "${task.title}" (${task.roomAreaName}).`,
+      wasRescheduled ? 'TASK_RESCHEDULED' : 'TASK_ASSIGNED',
+      {
+        role: 'PANTRY_BOY',
+        email: task.assignedToEmail,
+        taskId: task.id,
+        roomId: task.roomAreaId,
+        roomName: task.roomAreaName,
+        priority: task.priority,
+      }
+    );
+  }
+
+  saveDb();
+  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: now });
+
+  // Re-evaluate alert windows immediately in case rescheduled within 5 mins or due now
+  if (task.status !== 'CANCELLED' && task.status !== 'COMPLETED') {
+    runTaskScheduleEngine();
+  }
+
+  res.json({ success: true, task, serverTime: now });
+});
+
+// Update task status (Start task, Block task, Cancel task, etc.)
 app.patch('/api/tasks/:id/status', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (!checkUserPermission(actor, 'tasks', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: You do not have permission to update tasks.' });
+  }
 
   const { status, blockedReason, rejectionReason, note } = req.body;
   const task = db.tasks.find((t) => t.id === req.params.id);
@@ -2769,6 +3420,9 @@ app.patch('/api/tasks/:id/status', (req, res) => {
 
   // Role authorization checks
   if (actor.role === 'PANTRY_BOY') {
+    if (task.assignedToEmail.toLowerCase() !== actor.email.toLowerCase()) {
+      return res.status(403).json({ error: 'Permission denied: You can only update tasks assigned to your account.' });
+    }
     const allowed = ['IN_PROGRESS', 'BLOCKED', 'SUBMITTED'];
     if (!allowed.includes(status)) {
       return res.status(403).json({ error: 'Pantry Boy can only start, block, or submit tasks.' });
@@ -2812,6 +3466,16 @@ app.patch('/api/tasks/:id/status', (req, res) => {
       broadcastRealtime('room:updated', { room, rooms: db.rooms });
     }
   }
+  if (status === 'CANCELLED') {
+    task.cancelledAt = now;
+    task.cancelledBy = actor.name;
+    notify(
+      `🚫 Task Cancelled: ${task.title}`,
+      `${actor.name} cancelled "${task.title}" (${task.roomAreaName}).`,
+      'TASK_CANCELLED',
+      { role: 'PANTRY_BOY', email: task.assignedToEmail, taskId: task.id, roomName: task.roomAreaName }
+    );
+  }
   if (status === 'REJECTED') {
     task.rejectionReason = rejectionReason || 'Photo evidence rejected: does not show clean alignment';
   }
@@ -2834,18 +3498,25 @@ app.patch('/api/tasks/:id/status', (req, res) => {
   );
 
   saveDb();
-  broadcastRealtime('task:updated', { task, tasks: db.tasks });
-  res.json({ success: true, task });
+  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: now });
+  res.json({ success: true, task, serverTime: now });
 });
 
 // Update Checklist Item
 app.patch('/api/tasks/:id/checklist', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (!checkUserPermission(actor, 'tasks', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: You do not have permission to update task checklists.' });
+  }
 
   const { itemId, completed, note } = req.body;
   const task = db.tasks.find((t) => t.id === req.params.id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  if (actor.role === 'PANTRY_BOY' && task.assignedToEmail.toLowerCase() !== actor.email.toLowerCase()) {
+    return res.status(403).json({ error: 'Permission denied: You can only update checklists on tasks assigned to you.' });
+  }
 
   const item = task.checklist.find((c) => c.id === itemId);
   if (!item) return res.status(404).json({ error: 'Checklist item not found' });
@@ -2860,7 +3531,7 @@ app.patch('/api/tasks/:id/checklist', (req, res) => {
 
 app.delete('/api/tasks/:id', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || (!isManagerOrAdmin(actor.role) && !checkUserPermission(actor, 'tasks', 'delete'))) {
+  if (!actor || !checkUserPermission(actor, 'tasks', 'delete')) {
     return res.status(403).json({ error: 'Permission denied: You do not have permission to delete tasks.' });
   }
 
@@ -2880,6 +3551,9 @@ app.delete('/api/tasks/:id', (req, res) => {
 app.post('/api/tasks/:id/photo', async (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (!checkUserPermission(actor, 'tasks', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: You do not have permission to submit task photos.' });
+  }
 
   const { photoData, metadata } = req.body;
   if (!photoData || typeof photoData !== 'string') {
@@ -2888,6 +3562,10 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
 
   const task = db.tasks.find((t) => t.id === req.params.id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  if (actor.role === 'PANTRY_BOY' && task.assignedToEmail.toLowerCase() !== actor.email.toLowerCase()) {
+    return res.status(403).json({ error: 'Permission denied: You can only upload photos for tasks assigned to you.' });
+  }
 
   const serverTimestamp = new Date().toISOString();
   const photoId = `photo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -2993,8 +3671,8 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
 // Verify / Approve / Reject photo evidence (HR & Kimmi & Admin)
 app.post('/api/tasks/:id/verify', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only HR, Kimmi, or Admin can verify photo evidence.' });
+  if (!actor || actor.role === 'PANTRY_BOY' || !checkUserPermission(actor, 'tasks', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: Only authorized management or admin can verify photo evidence.' });
   }
 
   const { decision, reason } = req.body;
@@ -3112,11 +3790,12 @@ app.post('/api/tasks/:id/verify', (req, res) => {
 // 6. Visitor Arrival & Departure Automation
 app.get('/api/visitors', (req, res) => {
   const actor = getCurrentUser(req);
-  const hasConfidential =
-    actor?.role === 'ADMIN' ||
-    actor?.role === 'HR' ||
-    actor?.role === 'KIMMY_MAM' ||
-    Boolean(actor?.permissions?.confidentialAccess?.hrNotes);
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
+  if (!checkUserPermission(actor, 'visitors', 'view')) {
+    return res.status(403).json({ error: 'Permission denied: Visitor records access not authorized.' });
+  }
+
+  const hasConfidential = isManagerOrAdmin(actor.role) || Boolean(actor.isSuperAdmin);
 
   const sanitized = db.visitors.map((v) => {
     if (!hasConfidential) {
@@ -3212,6 +3891,9 @@ app.patch('/api/pantry-requests/:id/status', (req, res) => {
 app.post('/api/visitors/arrival', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (!checkUserPermission(actor, 'visitors', 'create')) {
+    return res.status(403).json({ error: 'Permission denied: You cannot register visitor arrivals.' });
+  }
 
   const { visitorId, visitorName, companyName, hostName, roomAreaId, guestCount, notes } = req.body;
   const now = new Date().toISOString();
@@ -3304,12 +3986,18 @@ app.post('/api/visitors/arrival', (req, res) => {
   );
 
   saveDb();
+  broadcastRealtime('room:updated', { room, rooms: db.rooms });
+  broadcastRealtime('task:updated', { task: prepTask, tasks: db.tasks });
+  runTaskScheduleEngine();
   res.json({ success: true, visitor, prepTask });
 });
 
 app.post('/api/visitors/departure', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (!checkUserPermission(actor, 'visitors', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: You cannot update visitor departures.' });
+  }
 
   const { visitorId } = req.body;
   const visitor = db.visitors.find((v) => v.id === visitorId);
@@ -3372,11 +4060,20 @@ app.post('/api/visitors/departure', (req, res) => {
   );
 
   saveDb();
+  if (room) broadcastRealtime('room:updated', { room, rooms: db.rooms });
+  broadcastRealtime('task:updated', { task: resetTask, tasks: db.tasks });
+  runTaskScheduleEngine();
   res.json({ success: true, visitor, resetTask });
 });
 
-// 7. Daily & Weekly Reports (Shift timing 9:00 AM – 8:00 PM Asia/Kolkata)
+// 7. Daily & Weekly Reports (Asia/Kolkata IST)
 app.get('/api/reports/daily', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
+  if (!checkUserPermission(actor, 'reports', 'view')) {
+    return res.status(403).json({ error: 'Permission denied: Reports view access not authorized.' });
+  }
+
   ensureDailyTasks();
 
   const today = new Date().toISOString().split('T')[0];
@@ -3422,6 +4119,12 @@ app.get('/api/reports/daily', (req, res) => {
 });
 
 app.get('/api/reports/weekly', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
+  if (!checkUserPermission(actor, 'reports', 'view')) {
+    return res.status(403).json({ error: 'Permission denied: Reports view access not authorized.' });
+  }
+
   const allTasks = db.tasks;
   const totalAssigned = allTasks.length;
   const totalCompleted = allTasks.filter((t) => t.status === 'COMPLETED').length;
@@ -3466,7 +4169,7 @@ app.get('/api/reports/weekly', (req, res) => {
     keyRecommendations: [
       'Prestige Loft candidate interviews occasionally extend into cleaning windows. Routine cleaning is automatically staged prior to 11:30 AM interview schedules.',
       'Water bottle distribution achieved 100% desk coverage during the 10:00 AM round, with afternoon 3:00 PM rechecks verifying fresh bottle supply across Main Bay and Prime Loft.',
-      'End-of-day office closing checklist triggers at 7:30 PM, ensuring room lockdown and sanitary readiness before the 8:00 PM shift conclusion.',
+      'End-of-day office closing checklist triggers at 7:30 PM, ensuring room lockdown and sanitary readiness at day end.',
     ],
   };
 
@@ -3474,6 +4177,12 @@ app.get('/api/reports/weekly', (req, res) => {
 });
 
 app.get('/api/reports/export', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
+  if (!checkUserPermission(actor, 'reports', 'export')) {
+    return res.status(403).json({ error: 'Permission denied: Report export access not authorized.' });
+  }
+
   const headers = [
     'Task ID',
     'Task Title',
@@ -3531,6 +4240,8 @@ app.get('/api/notifications', (req, res) => {
 });
 
 app.patch('/api/notifications/:id/read', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
   const notif = db.notifications.find((n) => n.id === req.params.id);
   if (notif) notif.read = true;
   saveDb();
@@ -3539,8 +4250,13 @@ app.patch('/api/notifications/:id/read', (req, res) => {
 
 app.get('/api/audit', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.json({ auditLogs: [] });
+  if (!actor) {
+    return res.status(401).json({ error: 'Unauthenticated', auditLogs: [] });
+  }
+  const perms = actor.permissions || getDefaultPermissions(actor.role);
+  const canViewAudit = actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin) || Boolean(perms.sidebarItems?.audit);
+  if (!canViewAudit) {
+    return res.status(403).json({ error: 'Permission denied: Audit trail access not authorized.', auditLogs: [] });
   }
   res.json({ auditLogs: db.auditLogs });
 });
@@ -3548,7 +4264,7 @@ app.get('/api/audit', (req, res) => {
 // 9. Deterministic Natural Language Task Interpreter (Zero Gemini dependency)
 app.post('/api/ai/parse-task', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
+  if (!actor || !checkUserPermission(actor, 'tasks', 'create')) {
     return res.status(403).json({ error: 'Unauthorized to generate tasks.' });
   }
 
@@ -3632,7 +4348,7 @@ app.post('/api/ai/parse-task', (req, res) => {
 // Deterministic Operational Insights (Zero Gemini dependency)
 app.get('/api/ai/operational-insights', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
+  if (!actor || !checkUserPermission(actor, 'reports', 'view')) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
@@ -3655,27 +4371,27 @@ app.get('/api/ai/operational-insights', (req, res) => {
   const recommendations: string[] = [
     'Reception and Main Bay morning routine tasks are on schedule; continue 10:00 AM desk water bottle cycle.',
     'Pre-stage visitor glassware in The Community pantry to maintain under 10-minute visitor prep SLA.',
-    'Ensure 7:30 PM closing inspection is verified prior to 8:00 PM shift conclusion.',
+    'Ensure 7:30 PM closing inspection is verified with live camera evidence at end of day.',
   ];
 
   res.json({
     success: true,
     insights: {
-      executiveSummary: `Shift Operational Status: ${completedCount} of ${totalCount} daily tasks completed (${totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100}%). ${blockedCount} blocked rooms logged. Shift hours: 9:00 AM – 8:00 PM (Asia/Kolkata).`,
+      executiveSummary: `Daily Operational Status: ${completedCount} of ${totalCount} daily tasks completed (${totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100}%). ${blockedCount} blocked rooms logged.`,
       bottlenecks,
       recommendations,
     },
   });
 });
 
-// 10. Scheduler Trigger (Simulate daily shift milestones)
+// 10. Scheduler Trigger (Daily task milestones)
 app.post('/api/scheduler/trigger', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !isManagerOrAdmin(actor.role)) {
-    return res.status(403).json({ error: 'Only management or admin can trigger scheduled milestone routines.' });
+  if (!actor || !checkUserPermission(actor, 'tasks', 'create')) {
+    return res.status(403).json({ error: 'Only authorized users with task creation permission can trigger scheduled milestone routines.' });
   }
 
-  const { milestone } = req.body; // '9AM_START' | '10AM_WATER' | '3PM_WATER' | '8PM_CLOSING'
+  const { milestone } = req.body; // '9AM_START' | '10AM_WATER' | '3PM_WATER' | 'CLOSING_AUDIT'
 
   if (milestone === '9AM_START') {
     const routineTasks = generateDailyTasks().filter((t) => t.taskType === 'ROUTINE_CLEANING');
@@ -3703,7 +4419,7 @@ app.post('/api/scheduler/trigger', (req, res) => {
       }
     }
     notify('3:00 PM Water Recheck', 'Check desks for water bottle refills and chair alignment.', 'TASK_ASSIGNED', { role: 'PANTRY_BOY' });
-  } else if (milestone === '8PM_CLOSING') {
+  } else if (milestone === 'CLOSING_AUDIT' || milestone === '8PM_CLOSING') {
     const closingTask = generateDailyTasks().find((t) => t.taskType === 'CLOSING_INSPECTION');
     if (closingTask) {
       const existing = db.tasks.find((t) => t.id === closingTask.id);
@@ -3714,15 +4430,14 @@ app.post('/api/scheduler/trigger', (req, res) => {
         db.tasks.unshift(closingTask);
       }
     }
-    // Mark remaining unfinished routine tasks as OVERDUE at 8:00 PM shift end
     db.tasks.forEach((t) => {
       if (t.status === 'AVAILABLE' || t.status === 'IN_PROGRESS') {
         t.status = 'OVERDUE';
       }
     });
     notify(
-      '8:00 PM Shift Closing Audit',
-      'Shift closed at 8:00 PM. Unfinished tasks marked OVERDUE. End-of-day closing checklist is mandatory.',
+      'End-of-Day Closing Audit',
+      'Unfinished tasks marked OVERDUE. End-of-day closing checklist is mandatory.',
       'TASK_OVERDUE',
       { role: 'PANTRY_BOY' }
     );
@@ -3730,8 +4445,18 @@ app.post('/api/scheduler/trigger', (req, res) => {
 
   addAuditLog(actor, 'SCHEDULER_MILESTONE_TRIGGERED', 'SCHEDULE', `milestone-${milestone}`, `Manually triggered ${milestone} scheduler milestone`);
   saveDb();
+  broadcastRealtime('task:updated', { tasks: db.tasks });
   res.json({ success: true, message: `Triggered ${milestone}` });
 });
+
+// Start 1-second server-authoritative IST task schedule & alert ticker
+setInterval(() => {
+  try {
+    runTaskScheduleEngine();
+  } catch (err) {
+    console.error('Task schedule engine error:', err);
+  }
+}, 1000);
 
 // -----------------------------------------------------------------------------
 // Vite Middleware / Static Asset Serving
@@ -3740,7 +4465,7 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);

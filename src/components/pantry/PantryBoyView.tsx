@@ -1,9 +1,19 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { Task, TaskStatus, RoomArea, PantryRequest, AppNotification, TaskPriority, AttendanceRecord } from '../../types/index.ts';
-import { api } from '../../services/api.ts';
+import type {
+  Task,
+  TaskStatus,
+  RoomArea,
+  PantryRequest,
+  AppNotification,
+  TaskPriority,
+  AttendanceRecord,
+  ScheduleAlertPayload,
+} from '../../types/index.ts';
+import { api, getServerNowMs } from '../../services/api.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { CameraCaptureModal } from '../common/CameraCaptureModal.tsx';
+import { Card3D } from '../common/Card3D.tsx';
 import {
   LayoutDashboard,
   ListTodo,
@@ -21,8 +31,6 @@ import {
   ArrowRight,
   Sparkles,
   MapPin,
-  MapPinOff,
-  Compass,
   X,
   ChevronLeft,
   ChevronRight,
@@ -37,6 +45,7 @@ import {
   Layers,
   ShieldCheck,
   Info,
+  Building2,
 } from 'lucide-react';
 
 type PantryViewTab =
@@ -48,8 +57,164 @@ type PantryViewTab =
   | 'taskHistory'
   | 'myProfile';
 
-export const PantryBoyView: React.FC = () => {
-  const { currentUser, logout, hasSidebarAccess, notifications, unreadNotifCount, markNotificationRead, todayAttendance } = useAuth();
+const getISTDateKey = (ms: number): string => {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toISOString().split('T')[0];
+  }
+};
+
+const formatISTScheduleBadge = (isoStr: string, refNowMs: number): string => {
+  const ms = new Date(isoStr).getTime();
+  if (Number.isNaN(ms)) return 'Scheduled Today';
+  const d = new Date(ms);
+  const timePart = d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+  if (getISTDateKey(ms) === getISTDateKey(refNowMs)) {
+    return `Today · ${timePart} IST`;
+  }
+  const datePart = d.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+  });
+  return `${datePart} · ${timePart} IST`;
+};
+
+const formatISTFullDateTime = (isoStr: string): string => {
+  const ms = new Date(isoStr).getTime();
+  if (Number.isNaN(ms)) return isoStr;
+  const d = new Date(ms);
+  const datePart = d.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const timePart = d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${datePart}, ${timePart} IST`;
+};
+
+const formatCountdownLabel = (scheduledFor: string, serverNowMs: number): string => {
+  const schedMs = new Date(scheduledFor).getTime();
+  if (Number.isNaN(schedMs)) return '';
+  const diffMs = schedMs - serverNowMs;
+  if (diffMs <= 0) {
+    return Math.abs(diffMs) <= 2 * 60 * 1000 ? 'Due Now' : 'Ready Now';
+  }
+  const totalSecs = Math.ceil(diffMs / 1000);
+  const days = Math.floor(totalSecs / 86400);
+  const hours = Math.floor((totalSecs % 86400) / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  if (days > 0) return `Starts in ${days}d ${hours}h ${mins}m`;
+  if (hours > 0) {
+    return `Starts in ${hours}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  }
+  return `Starts in ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+};
+
+const playAlertTone = (kind: 'WARNING_5MIN' | 'TASK_DUE_NOW'): void => {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const notes = kind === 'TASK_DUE_NOW' ? [587.33, 783.99, 1046.5] : [523.25, 659.25];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const startAt = ctx.currentTime + idx * 0.14;
+      gain.gain.setValueAtTime(0.001, startAt);
+      gain.gain.exponentialRampToValueAtTime(kind === 'TASK_DUE_NOW' ? 0.14 : 0.08, startAt + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.24);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + 0.26);
+    });
+    setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, 1200);
+  } catch {}
+};
+
+const PRIORITY_SORT_WEIGHT: Record<string, number> = {
+  URGENT: 0,
+  P1: 1,
+  P2: 2,
+  P3: 3,
+  P4: 4,
+  P5: 5,
+};
+
+const sortTasksChronologically = (list: Task[]): Task[] => {
+  const isTerminal = (s: TaskStatus) => s === 'COMPLETED' || s === 'CANCELLED';
+  return [...list].sort((a, b) => {
+    const termA = isTerminal(a.status) ? 1 : 0;
+    const termB = isTerminal(b.status) ? 1 : 0;
+    if (termA !== termB) return termA - termB;
+    const schedA = new Date(a.scheduledFor).getTime() || 0;
+    const schedB = new Date(b.scheduledFor).getTime() || 0;
+    if (schedA !== schedB) return schedA - schedB;
+    if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
+    return (PRIORITY_SORT_WEIGHT[a.priority] ?? 99) - (PRIORITY_SORT_WEIGHT[b.priority] ?? 99);
+  });
+};
+
+export interface PantryBoyViewProps {
+  isPreviewMode?: boolean;
+}
+
+export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = false }) => {
+  const { currentUser, logout, hasSidebarAccess, hasPermission, notifications, unreadNotifCount, markNotificationRead, todayAttendance } = useAuth();
+  const canEditTasks = hasPermission('tasks', 'edit');
+
+  // Strict Pantry-Boy-only guard for task execution popup alerts
+  const isExclusivelyPantryBoy = Boolean(
+    currentUser && currentUser.role === 'PANTRY_BOY' && currentUser.status === 'active'
+  );
+
+  const roleTitle =
+    currentUser?.role === 'KIMMY_MAM'
+      ? 'Co-Founder'
+      : currentUser?.role === 'ADMIN'
+      ? 'System Administrator'
+      : currentUser?.role === 'HR'
+      ? 'HR & Facilities Manager'
+      : 'Pantry & Hospitality Attendant';
+
+  const roleCodeLabel =
+    currentUser?.role === 'KIMMY_MAM'
+      ? 'Co-Founder'
+      : currentUser?.role === 'ADMIN'
+      ? 'System Administrator'
+      : currentUser?.role === 'HR'
+      ? 'HR Operations'
+      : 'Pantry Attendant';
+
+  const getUserInitials = (name?: string) => {
+    if (!name) return 'WC';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   // Navigation tab state
   const [activeTab, setActiveTab] = useState<PantryViewTab>('dashboard');
@@ -93,37 +258,111 @@ export const PantryBoyView: React.FC = () => {
   };
 
   // Task list filter
-  const [taskFilterStatus, setTaskFilterStatus] = useState<'ALL' | 'AVAILABLE' | 'IN_PROGRESS' | 'PENDING' | 'COMPLETED'>('ALL');
+  const [taskFilterStatus, setTaskFilterStatus] = useState<
+    'ALL' | 'SCHEDULED' | 'AVAILABLE' | 'IN_PROGRESS' | 'OVERDUE' | 'PENDING' | 'COMPLETED' | 'CANCELLED'
+  >('ALL');
   const [taskSearch, setTaskSearch] = useState<string>('');
   const [hoveredSidebarTab, setHoveredSidebarTab] = useState<string | null>(null);
 
-  // Live IST Clock
-  const [currentTime, setCurrentTime] = useState<string>(() =>
-    new Date().toLocaleTimeString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    })
+  // Server-synchronized IST Clock & Real-time Timestamp
+  const [serverNowMs, setServerNowMs] = useState<number>(() => getServerNowMs());
+  const currentTime = useMemo(
+    () =>
+      new Date(serverNowMs).toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }),
+    [serverNowMs]
   );
 
   useEffect(() => {
+    api
+      .getServerTime()
+      .then(() => setServerNowMs(getServerNowMs()))
+      .catch(() => {});
+
     const timer = setInterval(() => {
-      setCurrentTime(
-        new Date().toLocaleTimeString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        })
-      );
+      setServerNowMs(getServerNowMs());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Real-time elapsed shift timer
+  // Real-time Pantry-Boy-Only Alert Queues & Deduplication Registry
+  const [warningAlerts, setWarningAlerts] = useState<Task[]>([]);
+  const [dueAlerts, setDueAlerts] = useState<Task[]>([]);
+  const shownAlertKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setWarningAlerts([]);
+    setDueAlerts([]);
+    if (!isExclusivelyPantryBoy || !currentUser?.id) {
+      shownAlertKeysRef.current = new Set();
+      return;
+    }
+    try {
+      const raw = sessionStorage.getItem(`wcr_pantry_alerts_${currentUser.id}`);
+      const parsed = raw ? JSON.parse(raw) : [];
+      shownAlertKeysRef.current = new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      shownAlertKeysRef.current = new Set();
+    }
+  }, [currentUser?.id, isExclusivelyPantryBoy]);
+
+  const markAlertKeyShown = useCallback(
+    (key: string) => {
+      shownAlertKeysRef.current.add(key);
+      if (!currentUser?.id) return;
+      try {
+        const serialized = Array.from(shownAlertKeysRef.current).slice(-300);
+        sessionStorage.setItem(`wcr_pantry_alerts_${currentUser.id}`, JSON.stringify(serialized));
+      } catch {}
+    },
+    [currentUser?.id]
+  );
+
+  const triggerScheduleAlert = useCallback(
+    (task: Task, alertType: 'WARNING_5MIN' | 'TASK_DUE_NOW') => {
+      if (!isExclusivelyPantryBoy || !currentUser?.email) return;
+      if (task.assignedToEmail.toLowerCase() !== currentUser.email.toLowerCase()) return;
+      if (task.status !== 'SCHEDULED' && task.status !== 'AVAILABLE') return;
+
+      const key = `${task.id}::${task.scheduledFor}::${alertType}`;
+      if (shownAlertKeysRef.current.has(key)) return;
+
+      if (alertType === 'WARNING_5MIN') {
+        const dueKey = `${task.id}::${task.scheduledFor}::TASK_DUE_NOW`;
+        if (shownAlertKeysRef.current.has(dueKey)) return;
+        markAlertKeyShown(key);
+        playAlertTone('WARNING_5MIN');
+        setWarningAlerts((prev) => {
+          const filtered = prev.filter((t) => t.id !== task.id);
+          return [...filtered, task];
+        });
+      } else {
+        markAlertKeyShown(key);
+        playAlertTone('TASK_DUE_NOW');
+        setWarningAlerts((prev) => prev.filter((t) => t.id !== task.id));
+        setDueAlerts((prev) => {
+          const filtered = prev.filter((t) => t.id !== task.id);
+          return [task, ...filtered];
+        });
+      }
+    },
+    [isExclusivelyPantryBoy, currentUser?.email, markAlertKeyShown]
+  );
+
+  const dismissWarningAlert = useCallback((taskId: string) => {
+    setWarningAlerts((prev) => prev.filter((t) => t.id !== taskId));
+  }, []);
+
+  const dismissDueAlert = useCallback((taskId: string) => {
+    setDueAlerts((prev) => prev.filter((t) => t.id !== taskId));
+  }, []);
+
+  // Real-time elapsed session timer
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
   useEffect(() => {
@@ -135,7 +374,7 @@ export const PantryBoyView: React.FC = () => {
       const start = new Date(todayAttendance.loginTime).getTime();
       const end = todayAttendance.logoutTime
         ? new Date(todayAttendance.logoutTime).getTime()
-        : Date.now();
+        : getServerNowMs();
       const diffSec = Math.max(0, Math.floor((end - start) / 1000));
       setElapsedSeconds(diffSec);
     };
@@ -160,29 +399,75 @@ export const PantryBoyView: React.FC = () => {
         api.getRooms(),
         api.getPantryRequests(),
       ]);
-      setTasks(fetchedTasks);
+      const ordered = sortTasksChronologically(fetchedTasks);
+      setTasks(ordered);
       setRooms(fetchedRooms);
       setPantryRequests(fetchedRequests);
+      setServerNowMs(getServerNowMs());
 
-      if (selectedTask) {
-        const updated = fetchedTasks.find((t) => t.id === selectedTask.id);
-        if (updated) setSelectedTask(updated);
-      }
+      setSelectedTask((prevSelected) => {
+        if (!prevSelected) return null;
+        const updated = ordered.find((t) => t.id === prevSelected.id);
+        return updated || null;
+      });
     } catch (err) {
       console.error('Failed to load pantry data:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedTask?.id]);
+  }, []);
 
   useEffect(() => {
     loadData();
 
-    const unsubscribe = api.subscribeRealtime((event) => {
+    const unsubscribe = api.subscribeRealtime((event, payload) => {
+      if (event === 'connected' || event === 'server:time') {
+        setServerNowMs(getServerNowMs());
+        return;
+      }
+
+      if (event === 'schedule:alert' && payload) {
+        setServerNowMs(getServerNowMs());
+        const alertPayload = payload as ScheduleAlertPayload;
+        if (alertPayload.task) {
+          setTasks((prev) => {
+            const exists = prev.some((t) => t.id === alertPayload.task.id);
+            const nextList = exists
+              ? prev.map((t) => (t.id === alertPayload.task.id ? alertPayload.task : t))
+              : [alertPayload.task, ...prev];
+            return sortTasksChronologically(nextList);
+          });
+          triggerScheduleAlert(alertPayload.task, alertPayload.alertType);
+        }
+        return;
+      }
+
+      if (event === 'task:updated') {
+        setServerNowMs(getServerNowMs());
+        if (payload && Array.isArray(payload.tasks) && currentUser) {
+          const rawTasks: Task[] = payload.tasks;
+          const visibleTasks =
+            currentUser.role === 'PANTRY_BOY'
+              ? rawTasks.filter(
+                  (t) => t.assignedToEmail.toLowerCase() === currentUser.email.toLowerCase()
+                )
+              : rawTasks;
+          const ordered = sortTasksChronologically(visibleTasks);
+          setTasks(ordered);
+          setSelectedTask((prevSelected) => {
+            if (!prevSelected) return null;
+            return ordered.find((t) => t.id === prevSelected.id) || null;
+          });
+        } else {
+          loadData();
+        }
+        return;
+      }
+
       if (
-        event === 'task:updated' ||
         event === 'room:updated' ||
+        event === 'room:created' ||
         event === 'pantry_request:created' ||
         event === 'pantry_request:updated'
       ) {
@@ -195,7 +480,91 @@ export const PantryBoyView: React.FC = () => {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [loadData]);
+  }, [loadData, triggerScheduleAlert, currentUser?.id, currentUser?.role, currentUser?.email]);
+
+  // 1-second IST Server-Clock Alert Evaluation & Automatic Schedule Advancement
+  useEffect(() => {
+    if (!isExclusivelyPantryBoy || !currentUser?.email) {
+      if (warningAlerts.length > 0) setWarningAlerts([]);
+      if (dueAlerts.length > 0) setDueAlerts([]);
+      return;
+    }
+
+    const FIVE_MIN_MS = 5 * 60 * 1000;
+    const DUE_GRACE_MS = 90 * 1000;
+    let shouldActivateScheduled = false;
+
+    for (const task of tasks) {
+      if (task.assignedToEmail.toLowerCase() !== currentUser.email.toLowerCase()) continue;
+      if (task.status !== 'SCHEDULED' && task.status !== 'AVAILABLE') continue;
+
+      const schedMs = new Date(task.scheduledFor).getTime();
+      if (Number.isNaN(schedMs)) continue;
+      const msUntil = schedMs - serverNowMs;
+
+      if (msUntil > 0 && msUntil <= FIVE_MIN_MS) {
+        triggerScheduleAlert(task, 'WARNING_5MIN');
+      } else if (msUntil <= 0) {
+        if (task.status === 'SCHEDULED') {
+          shouldActivateScheduled = true;
+        }
+        if (Math.abs(msUntil) <= DUE_GRACE_MS) {
+          triggerScheduleAlert(task, 'TASK_DUE_NOW');
+        }
+      }
+    }
+
+    if (shouldActivateScheduled) {
+      setTasks((prev) =>
+        sortTasksChronologically(
+          prev.map((t) => {
+            const schedMs = new Date(t.scheduledFor).getTime();
+            if (t.status === 'SCHEDULED' && !Number.isNaN(schedMs) && schedMs <= serverNowMs) {
+              return { ...t, status: 'AVAILABLE' };
+            }
+            return t;
+          })
+        )
+      );
+    }
+
+    // Reconcile open warning & due modals against live task state (reschedule, cancel, start, complete, delete)
+    setWarningAlerts((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev
+        .map((a) => tasks.find((t) => t.id === a.id))
+        .filter((t): t is Task => {
+          if (!t) return false;
+          if (t.assignedToEmail.toLowerCase() !== currentUser.email.toLowerCase()) return false;
+          if (t.status !== 'SCHEDULED' && t.status !== 'AVAILABLE') return false;
+          const diff = new Date(t.scheduledFor).getTime() - serverNowMs;
+          return diff > 0 && diff <= FIVE_MIN_MS + 2000;
+        });
+      return next.length === prev.length && next.every((t, i) => t === prev[i]) ? prev : next;
+    });
+
+    setDueAlerts((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev
+        .map((a) => tasks.find((t) => t.id === a.id))
+        .filter((t): t is Task => {
+          if (!t) return false;
+          if (t.assignedToEmail.toLowerCase() !== currentUser.email.toLowerCase()) return false;
+          if (t.status !== 'AVAILABLE' && t.status !== 'SCHEDULED' && t.status !== 'OVERDUE') return false;
+          const schedMs = new Date(t.scheduledFor).getTime();
+          return !Number.isNaN(schedMs) && schedMs <= serverNowMs + 2000;
+        });
+      return next.length === prev.length && next.every((t, i) => t === prev[i]) ? prev : next;
+    });
+  }, [
+    tasks,
+    serverNowMs,
+    isExclusivelyPantryBoy,
+    currentUser?.email,
+    triggerScheduleAlert,
+    warningAlerts.length,
+    dueAlerts.length,
+  ]);
 
   // Handle manual refresh
   const handleManualRefresh = async () => {
@@ -267,19 +636,65 @@ export const PantryBoyView: React.FC = () => {
     }
   };
 
-  // Filtered Task Computations
+  // Chronologically Ordered Active & Scheduled Tasks
   const activeTasks = useMemo(
-    () => tasks.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED'),
+    () =>
+      sortTasksChronologically(
+        tasks.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED')
+      ),
     [tasks]
   );
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === 'COMPLETED'), [tasks]);
 
+  // Upcoming future scheduled tasks ordered by IST timestamp (auto-advances as serverNowMs crosses scheduledFor)
+  const upcomingScheduledTasks = useMemo(
+    () =>
+      activeTasks.filter((t) => {
+        if (t.status !== 'SCHEDULED' && t.status !== 'AVAILABLE') return false;
+        const schedMs = new Date(t.scheduledFor).getTime();
+        return !Number.isNaN(schedMs) && schedMs > serverNowMs;
+      }),
+    [activeTasks, serverNowMs]
+  );
+
+  const nextUpcomingTask = upcomingScheduledTasks[0] || null;
+
+  // Immediate execution focus task (in-progress -> newly due/available -> overdue -> next upcoming)
+  const nextEligibleTask = useMemo(() => {
+    const inProgress = activeTasks.find((t) => t.status === 'IN_PROGRESS');
+    if (inProgress) return inProgress;
+
+    const dueAvailable = activeTasks.filter((t) => {
+      if (t.status !== 'AVAILABLE') return false;
+      const schedMs = new Date(t.scheduledFor).getTime();
+      return Number.isNaN(schedMs) || schedMs <= serverNowMs;
+    });
+    if (dueAvailable.length > 0) {
+      // Surface urgent or most recently reached scheduled slot first
+      const sortedDue = [...dueAvailable].sort((a, b) => {
+        if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
+        return (new Date(b.scheduledFor).getTime() || 0) - (new Date(a.scheduledFor).getTime() || 0);
+      });
+      return sortedDue[0];
+    }
+
+    const overdueOrRejected = activeTasks.find(
+      (t) => t.status === 'OVERDUE' || t.status === 'REJECTED' || t.status === 'BLOCKED'
+    );
+    if (overdueOrRejected) return overdueOrRejected;
+
+    return nextUpcomingTask || activeTasks[0] || null;
+  }, [activeTasks, serverNowMs, nextUpcomingTask]);
+
   const filteredTasks = useMemo(() => {
-    return tasks.filter((t) => {
+    return sortTasksChronologically(tasks).filter((t) => {
+      if (taskFilterStatus === 'SCHEDULED' && t.status !== 'SCHEDULED') return false;
       if (taskFilterStatus === 'AVAILABLE' && t.status !== 'AVAILABLE') return false;
       if (taskFilterStatus === 'IN_PROGRESS' && t.status !== 'IN_PROGRESS') return false;
+      if (taskFilterStatus === 'OVERDUE' && t.status !== 'OVERDUE') return false;
       if (taskFilterStatus === 'PENDING' && t.status !== 'PENDING_VERIFICATION') return false;
       if (taskFilterStatus === 'COMPLETED' && t.status !== 'COMPLETED') return false;
+      if (taskFilterStatus === 'CANCELLED' && t.status !== 'CANCELLED') return false;
       if (taskSearch.trim()) {
         const query = taskSearch.toLowerCase();
         return (
@@ -291,11 +706,6 @@ export const PantryBoyView: React.FC = () => {
       return true;
     });
   }, [tasks, taskFilterStatus, taskSearch]);
-
-  // Next high-priority actionable task
-  const nextEligibleTask = useMemo(() => {
-    return activeTasks.find((t) => t.status === 'IN_PROGRESS') || activeTasks[0];
-  }, [activeTasks]);
 
   // Priority Styling Helper
   const getPriorityStyle = (priority: TaskPriority) => {
@@ -317,8 +727,12 @@ export const PantryBoyView: React.FC = () => {
 
   const getStatusBadge = (status: TaskStatus) => {
     switch (status) {
+      case 'SCHEDULED':
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-800">Scheduled</span>;
       case 'IN_PROGRESS':
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">In Progress</span>;
+      case 'OVERDUE':
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">Overdue</span>;
       case 'BLOCKED':
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">Blocked</span>;
       case 'PENDING_VERIFICATION':
@@ -327,8 +741,10 @@ export const PantryBoyView: React.FC = () => {
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">Completed</span>;
       case 'REJECTED':
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">Photo Rejected</span>;
+      case 'CANCELLED':
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-slate-200 text-slate-600 line-through">Cancelled</span>;
       default:
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Available</span>;
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">Due / Available</span>;
     }
   };
 
@@ -355,10 +771,12 @@ export const PantryBoyView: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row antialiased text-slate-800">
       {/* ----------------------------------------------------------------------- */}
-      {/* Collapsible Animated Sidebar (Desktop & Tablet)                         */}
+      {/* Fixed Collapsible Animated Sidebar (Desktop & Tablet, 100dvh Locked)    */}
       {/* ----------------------------------------------------------------------- */}
       <aside
-        className={`hidden md:flex flex-col bg-white border-r border-slate-200 transition-[width] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-30 shrink-0 ${
+        className={`hidden md:flex flex-col fixed left-0 ${
+          isPreviewMode ? 'top-24 wcr-h-dvh-preview' : 'top-0 wcr-h-dvh'
+        } bg-white border-r border-slate-200 transition-[width] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-30 shrink-0 ${
           sidebarCollapsed ? 'w-20' : 'w-64'
         }`}
       >
@@ -413,9 +831,11 @@ export const PantryBoyView: React.FC = () => {
           </button>
         </div>
 
-        {/* Sidebar Nav Items with Apple-Style Gliding Hover & Active Pill */}
+        {/* Sidebar Nav Items (Independent Scroll Only If Needed) */}
         <nav
-          className="p-3 space-y-1.5 flex-1 overflow-y-auto overflow-x-hidden"
+          className={`p-3 space-y-1.5 flex-1 min-h-0 wcr-sidebar-scroll ${
+            sidebarCollapsed ? 'md:overflow-visible overflow-y-auto' : 'overflow-y-auto overflow-x-hidden'
+          }`}
           onMouseLeave={() => setHoveredSidebarTab(null)}
         >
           {authorizedNavItems.map((item) => {
@@ -465,7 +885,10 @@ export const PantryBoyView: React.FC = () => {
                   >
                     <motion.div
                       whileHover={{ scale: 1.15, rotate: [0, -3, 3, 0] }}
-                      transition={{ type: 'spring', stiffness: 450, damping: 20 }}
+                      transition={{
+                        scale: { type: 'spring', stiffness: 450, damping: 20 },
+                        rotate: { type: 'tween', duration: 0.35, ease: 'easeInOut' },
+                      }}
                       className="shrink-0 flex items-center justify-center"
                     >
                       <Icon
@@ -528,17 +951,61 @@ export const PantryBoyView: React.FC = () => {
           })}
         </nav>
 
-        {/* Sidebar Footer Logout */}
-        <div className="p-3 border-t border-slate-200 shrink-0 relative group">
+        {/* Sidebar Bottom User Profile & Logout (Fixed at Bottom of 100dvh) */}
+        <div className="p-3 border-t border-slate-200 bg-slate-50/70 shrink-0 mt-auto space-y-2.5 relative group">
+          <div
+            onClick={() => {
+              if (hasSidebarAccess('myProfile')) setActiveTab('myProfile');
+            }}
+            className={`flex items-center transition-all duration-300 cursor-pointer rounded-xl ${
+              sidebarCollapsed ? 'justify-center p-1' : 'gap-2.5 px-1.5 py-1 hover:bg-white/90'
+            }`}
+            title={sidebarCollapsed && currentUser ? `${currentUser.name} · ${roleCodeLabel}` : undefined}
+          >
+            {currentUser?.avatarUrl && currentUser.avatarUrl !== '/assets/wcr_logo.png' ? (
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400 shrink-0 shadow-2xs"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-900 ring-2 ring-amber-400/80 flex items-center justify-center text-xs font-extrabold tracking-tight shrink-0 shadow-2xs select-none">
+                {getUserInitials(currentUser?.name)}
+              </div>
+            )}
+
+            <AnimatePresence mode="wait">
+              {!sidebarCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.18 }}
+                  className="min-w-0 flex-1"
+                >
+                  <div className="text-xs font-bold text-slate-900 truncate">
+                    {currentUser?.name || 'Pantry Attendant'}
+                  </div>
+                  <div className="text-[10px] text-amber-700 font-semibold truncate">
+                    {roleCodeLabel}
+                  </div>
+                  <div className="text-[9.5px] text-slate-400 font-mono truncate">
+                    {currentUser?.email}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button
             type="button"
             onClick={() => logout()}
             className={`w-full flex items-center ${
-              sidebarCollapsed ? 'justify-center' : 'gap-3'
-            } px-3 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer`}
-            title={sidebarCollapsed ? 'Log Out' : undefined}
+              sidebarCollapsed ? 'justify-center' : 'gap-2.5'
+            } px-3 py-2 text-xs font-semibold text-rose-600 bg-white hover:bg-rose-50 border border-slate-200/80 hover:border-rose-200 rounded-xl transition-colors cursor-pointer shadow-2xs`}
+            title={sidebarCollapsed ? 'Sign Out' : undefined}
           >
-            <motion.div whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}>
+            <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.92 }}>
               <LogOut className="w-4 h-4 shrink-0 text-rose-500" />
             </motion.div>
             <AnimatePresence mode="wait">
@@ -556,11 +1023,13 @@ export const PantryBoyView: React.FC = () => {
             </AnimatePresence>
           </button>
 
-          {/* Collapsed Tooltip for Sign Out */}
+          {/* Collapsed Tooltip for User Profile & Sign Out */}
           {sidebarCollapsed && (
-            <div className="hidden md:flex absolute left-full ml-3 bottom-2 px-3 py-1.5 bg-rose-900 text-rose-100 text-xs font-semibold rounded-xl shadow-xl pointer-events-none whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 items-center gap-2">
-              <span>Sign Out</span>
-              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-rose-900" />
+            <div className="hidden md:flex absolute left-full ml-3 bottom-3 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-xl pointer-events-none whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 transition-all duration-200 flex-col gap-0.5">
+              <span className="font-bold text-white">{currentUser?.name || 'Pantry Attendant'}</span>
+              <span className="text-[10px] text-amber-400 font-semibold">{roleCodeLabel}</span>
+              <span className="text-[9.5px] text-slate-400 font-mono">{currentUser?.email}</span>
+              <div className="absolute right-full bottom-4 border-4 border-transparent border-r-slate-900" />
             </div>
           )}
         </div>
@@ -582,15 +1051,15 @@ export const PantryBoyView: React.FC = () => {
               onClick={() => setMobileDrawerOpen(false)}
             />
 
-            {/* Slide-out Panel */}
+            {/* Slide-out Panel (100dvh Locked) */}
             <motion.div
               initial={{ x: -280 }}
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 26, stiffness: 280 }}
-              className="relative w-72 bg-white h-full flex flex-col p-4 shadow-2xl z-10"
+              className="relative w-72 bg-white wcr-h-dvh flex flex-col p-4 shadow-2xl z-10"
             >
-              <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-3 shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
                     <img src="/assets/wcr_logo.png" alt="WCR" className="w-full h-full object-contain" />
@@ -609,7 +1078,7 @@ export const PantryBoyView: React.FC = () => {
                 </button>
               </div>
 
-              <nav className="space-y-1 flex-1 overflow-y-auto">
+              <nav className="space-y-1 flex-1 min-h-0 overflow-y-auto wcr-sidebar-scroll">
                 {authorizedNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
@@ -646,11 +1115,29 @@ export const PantryBoyView: React.FC = () => {
                 })}
               </nav>
 
-              <div className="pt-3 border-t border-slate-200">
+              <div className="pt-3 mt-3 border-t border-slate-200 shrink-0 space-y-2.5">
+                <div className="flex items-center gap-2.5 px-1">
+                  {currentUser?.avatarUrl && currentUser.avatarUrl !== '/assets/wcr_logo.png' ? (
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.name}
+                      className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-900 ring-2 ring-amber-400/80 flex items-center justify-center text-xs font-extrabold shrink-0">
+                      {getUserInitials(currentUser?.name)}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-slate-900 truncate">{currentUser?.name}</div>
+                    <div className="text-[10px] text-amber-700 font-semibold truncate">{roleCodeLabel}</div>
+                    <div className="text-[9.5px] text-slate-400 font-mono truncate">{currentUser?.email}</div>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => logout()}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 bg-rose-50/60 hover:bg-rose-50 border border-rose-200/70 rounded-xl transition-colors"
                 >
                   <LogOut className="w-4 h-4 text-rose-500" />
                   <span>Sign Out</span>
@@ -662,11 +1149,21 @@ export const PantryBoyView: React.FC = () => {
       </AnimatePresence>
 
       {/* ----------------------------------------------------------------------- */}
-      {/* Main Content Area                                                       */}
+      {/* Main Content Area (Offset by Fixed Desktop Sidebar Width)               */}
       {/* ----------------------------------------------------------------------- */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main
+        className={`flex-1 flex flex-col min-w-0 ${
+          isPreviewMode ? 'min-h-[calc(100dvh-6rem)]' : 'min-h-screen'
+        } transition-[padding] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+          sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'
+        }`}
+      >
         {/* Mobile Top Navbar with Hamburger */}
-        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shrink-0">
+        <div
+          className={`md:hidden sticky ${
+            isPreviewMode ? 'top-24' : 'top-0'
+          } z-20 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md border-b border-slate-200 shrink-0`}
+        >
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -691,7 +1188,7 @@ export const PantryBoyView: React.FC = () => {
           {/* Reference Dark Navy Header Banner                                   */}
           {/* ------------------------------------------------------------------- */}
           <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-6 shadow-xl border border-slate-800 relative overflow-hidden">
-            {/* Top Shift Status & Live IST Clock */}
+            {/* Top Attendance Status & Live IST Clock */}
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800/80">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
@@ -720,7 +1217,7 @@ export const PantryBoyView: React.FC = () => {
               </div>
             </div>
 
-            {/* Profile, Shift Info & Remaining Tasks */}
+            {/* Profile, Session Info & Remaining Tasks */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-white p-1.5 flex items-center justify-center shrink-0 shadow-md overflow-hidden border-2 border-white/20">
@@ -733,7 +1230,7 @@ export const PantryBoyView: React.FC = () => {
                 <div>
                   <h1 className="text-xl font-bold text-white tracking-tight">{currentUser?.name}</h1>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-amber-300 font-medium">Pantry & Hospitality Attendant</span>
+                    <span className="text-xs text-amber-300 font-medium">{roleTitle}</span>
                     <span className="text-xs text-slate-500">•</span>
                     <span className="text-xs text-slate-400">{currentUser?.department || 'Operations'}</span>
                   </div>
@@ -760,7 +1257,7 @@ export const PantryBoyView: React.FC = () => {
               </div>
             </div>
 
-            {/* Real-time Login Attendance & Office Location Verification Strip */}
+            {/* Real-time Login Attendance Strip */}
             <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="text-slate-400 font-mono text-[11px]">Logged in at:</span>
@@ -774,24 +1271,13 @@ export const PantryBoyView: React.FC = () => {
                 </span>
               </div>
 
-              {/* Geofence Status Pill */}
-              <div className="flex items-center gap-2">
-                {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-2xs">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Inside Office · {todayAttendance.locationVerification.officeName || 'White Collar Realty HQ'}</span>
-                  </span>
-                ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-2xs">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Outside Office ({todayAttendance?.locationVerification?.distanceFromOfficeMeters}m away)</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-2xs">
-                    <MapPinOff className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Location Unverified</span>
-                  </span>
-                )}
+              <div className="flex items-center gap-2 text-[11px] font-mono text-slate-300">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span>
+                  {todayAttendance?.logoutTimeIST
+                    ? `Session Completed · ${todayAttendance.logoutTimeIST}`
+                    : 'Active Session · Asia/Kolkata'}
+                </span>
               </div>
             </div>
           </div>
@@ -803,122 +1289,300 @@ export const PantryBoyView: React.FC = () => {
             <div className="space-y-6 animate-in fade-in duration-200">
               {/* Operational Stat Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+                <Card3D className="p-4 rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                    <span>Attendance & Location</span>
+                    <span>Today's Attendance</span>
                     <Clock className="w-4 h-4 text-emerald-600" />
                   </div>
-                  <div className="text-lg font-bold text-slate-900 font-mono">
+                  <div className="text-lg font-bold text-slate-900 font-mono tabular-nums">
                     {todayAttendance?.loginTimeIST?.split(' ')[0] || '09:00:15'}
                     <span className="text-xs font-normal text-slate-500 ml-1">
                       {todayAttendance?.loginTimeIST?.split(' ')[1] || 'AM'}
                     </span>
                   </div>
-                  <div className="text-[11px] font-medium mt-1 flex items-center gap-1">
-                    {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
-                      <span className="text-emerald-700 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Inside Office (Verified)
-                      </span>
-                    ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
-                      <span className="text-rose-700 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                        Outside Office Geofence
-                      </span>
-                    ) : (
-                      <span className="text-amber-700 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        Location Unverified
-                      </span>
-                    )}
+                  <div className="text-[11px] font-medium mt-1 text-emerald-700 font-mono tabular-nums">
+                    {todayAttendance?.logoutTimeIST
+                      ? `Logged out ${todayAttendance.logoutTimeIST}`
+                      : `Elapsed · ${elapsedDuration}`}
                   </div>
-                </div>
+                </Card3D>
 
-                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+                <Card3D className="p-4 rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
                     <span>Active Tasks</span>
                     <ListTodo className="w-4 h-4 text-amber-600" />
                   </div>
-                  <div className="text-lg font-bold text-slate-900 font-mono">{activeTasks.length}</div>
+                  <div className="text-lg font-bold text-slate-900 font-mono tabular-nums">{activeTasks.length}</div>
                   <div className="text-[11px] text-slate-500 mt-1">{completedTasks.length} verified today</div>
-                </div>
+                </Card3D>
 
-                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+                <Card3D className="p-4 rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
                     <span>Room Action</span>
                     <DoorOpen className="w-4 h-4 text-blue-600" />
                   </div>
-                  <div className="text-lg font-bold text-slate-900 font-mono">
+                  <div className="text-lg font-bold text-slate-900 font-mono tabular-nums">
                     {rooms.filter((r) => r.status === 'PREPARATION_REQUIRED' || r.status === 'CLEANING_REQUIRED').length}
                   </div>
                   <div className="text-[11px] text-blue-600 font-medium mt-1">Need Prep / Cleaning</div>
-                </div>
+                </Card3D>
 
-                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+                <Card3D className="p-4 rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
                     <span>Pantry Orders</span>
                     <Coffee className="w-4 h-4 text-purple-600" />
                   </div>
-                  <div className="text-lg font-bold text-slate-900 font-mono">
+                  <div className="text-lg font-bold text-slate-900 font-mono tabular-nums">
                     {pantryRequests.filter((p) => p.status === 'PENDING').length}
                   </div>
                   <div className="text-[11px] text-purple-600 font-medium mt-1">Pending Beverage Orders</div>
-                </div>
+                </Card3D>
               </div>
 
-              {/* Prominent Next Task Card */}
-              {nextEligibleTask ? (
-                <div className="p-5 rounded-2xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-50/70 via-white to-white shadow-sm">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      {nextEligibleTask.status === 'IN_PROGRESS' ? 'Currently In Progress' : 'Immediate Priority Task'}
-                    </span>
-                    <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(nextEligibleTask.priority)}`}>
-                      {nextEligibleTask.priority}
-                    </span>
-                  </div>
+              {/* Current Focus Task & Live Next Upcoming Scheduled Countdown */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className={nextUpcomingTask && nextEligibleTask?.id !== nextUpcomingTask.id ? 'lg:col-span-2' : 'lg:col-span-3'}>
+                  {nextEligibleTask ? (
+                    <Card3D
+                      variant="amber"
+                      maxTilt={2}
+                      liftPx={3}
+                      className="h-full p-5 rounded-2xl border-2 border-amber-500/50 flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                            {nextEligibleTask.status === 'IN_PROGRESS'
+                              ? 'Currently In Progress'
+                              : nextEligibleTask.status === 'SCHEDULED'
+                              ? 'Next Scheduled Task'
+                              : nextEligibleTask.status === 'OVERDUE'
+                              ? 'Overdue · Action Required'
+                              : 'Current Due Task'}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {new Date(nextEligibleTask.scheduledFor).getTime() > serverNowMs && (
+                              <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-md bg-slate-900 text-amber-300 tabular-nums">
+                                {formatCountdownLabel(nextEligibleTask.scheduledFor, serverNowMs)}
+                              </span>
+                            )}
+                            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(nextEligibleTask.priority)}`}>
+                              {nextEligibleTask.priority}
+                            </span>
+                            {getStatusBadge(nextEligibleTask.status)}
+                          </div>
+                        </div>
 
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-1.5">{nextEligibleTask.title}</h2>
+                        <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-1.5">{nextEligibleTask.title}</h2>
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 mb-3">
-                    <span className="font-semibold text-slate-800 flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      {nextEligibleTask.roomAreaName}
-                    </span>
-                    <span>•</span>
-                    <span className="font-mono text-slate-700">Due {nextEligibleTask.dueTime}</span>
-                    <span>•</span>
-                    <span>Assigned by {nextEligibleTask.createdByName}</span>
-                  </div>
+                        <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-600 mb-3">
+                          <span className="font-semibold text-slate-800 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            {nextEligibleTask.roomAreaName}
+                          </span>
+                          <span>•</span>
+                          <span className="font-mono font-semibold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-indigo-600" />
+                            {formatISTScheduleBadge(nextEligibleTask.scheduledFor, serverNowMs)}
+                          </span>
+                          <span>•</span>
+                          <span className="font-mono text-slate-700">Due {nextEligibleTask.dueTime}</span>
+                          <span>•</span>
+                          <span>Assigned by {nextEligibleTask.createdByName}</span>
+                        </div>
 
-                  {nextEligibleTask.description && (
-                    <p className="text-xs text-slate-600 leading-relaxed mb-4 bg-white/70 p-3 rounded-xl border border-amber-200/50">
-                      {nextEligibleTask.description}
-                    </p>
+                        {nextEligibleTask.description && (
+                          <p className="text-xs text-slate-600 leading-relaxed mb-4 bg-white/70 p-3 rounded-xl border border-amber-200/50">
+                            {nextEligibleTask.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 pt-3 border-t border-amber-200/70">
+                        <div className="text-xs text-slate-600">
+                          {nextEligibleTask.checklist.filter((c) => c.completed).length} of {nextEligibleTask.checklist.length} checklist items done
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTask(nextEligibleTask)}
+                          className="px-4 py-2 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          {nextEligibleTask.status === 'IN_PROGRESS' ? 'Continue Checklist' : 'Open / Start Task'}
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </Card3D>
+                  ) : (
+                    <Card3D maxTilt={2} className="p-8 text-center rounded-2xl border border-slate-200">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+                      <h3 className="text-sm font-bold text-slate-900">All Scheduled Tasks Completed!</h3>
+                      <p className="text-xs text-slate-500 mt-1">Outstanding work. All routine cleaning and room setup tasks are verified.</p>
+                    </Card3D>
                   )}
+                </div>
 
-                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-amber-200/70">
-                    <div className="text-xs text-slate-600">
-                      {nextEligibleTask.checklist.filter((c) => c.completed).length} of {nextEligibleTask.checklist.length} checklist items done
+                {/* Live Next Upcoming Scheduled Countdown Card (Auto-Advances in Real Time) */}
+                {nextUpcomingTask && nextEligibleTask?.id !== nextUpcomingTask.id && (
+                  <Card3D
+                    variant="dark"
+                    maxTilt={2.4}
+                    liftPx={3}
+                    className="p-5 rounded-2xl border border-slate-700/80 text-white flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          Up Next on Schedule
+                        </span>
+                        {new Date(nextUpcomingTask.scheduledFor).getTime() - serverNowMs <= 5 * 60 * 1000 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-400 text-slate-950 animate-pulse">
+                            5m Warning Window
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-lg font-mono font-bold text-amber-300 tabular-nums mb-2">
+                        {formatCountdownLabel(nextUpcomingTask.scheduledFor, serverNowMs)}
+                      </div>
+
+                      <h3 className="text-sm font-bold text-white leading-snug mb-1.5 line-clamp-2">
+                        {nextUpcomingTask.title}
+                      </h3>
+
+                      <div className="space-y-1 text-xs text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span className="truncate font-semibold">{nextUpcomingTask.roomAreaName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400">
+                          <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                          <span>{formatISTScheduleBadge(nextUpcomingTask.scheduledFor, serverNowMs)}</span>
+                        </div>
+                      </div>
                     </div>
 
+                    <div className="pt-3 mt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {upcomingScheduledTasks.length} upcoming
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTask(nextUpcomingTask)}
+                        className="px-3 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors cursor-pointer"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </Card3D>
+                )}
+              </div>
+
+              {/* Chronological Scheduled Tasks Queue (IST Synchronized) */}
+              {activeTasks.length > 0 && (
+                <Card3D maxTilt={1.2} liftPx={2.5} className="rounded-2xl p-5 border border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-indigo-600" />
+                        <span>Scheduled Tasks Timeline (IST)</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Ordered by scheduled date &amp; time · Live server-synced countdowns
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setSelectedTask(nextEligibleTask)}
-                      className="px-4 py-2 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm"
+                      onClick={() => setActiveTab('myTasks')}
+                      className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 cursor-pointer self-start sm:self-auto"
                     >
-                      {nextEligibleTask.status === 'IN_PROGRESS' ? 'Continue Checklist' : 'Start Task'}
+                      <span>View Full Task List ({activeTasks.length})</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-xs">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                  <h3 className="text-sm font-bold text-slate-900">All Scheduled Tasks Completed!</h3>
-                  <p className="text-xs text-slate-500 mt-1">Outstanding work. All routine cleaning and room setup tasks are verified.</p>
-                </div>
+
+                  <div className="space-y-2.5">
+                    {activeTasks.slice(0, 8).map((task) => {
+                      const schedMs = new Date(task.scheduledFor).getTime();
+                      const msUntil = schedMs - serverNowMs;
+                      const isUpcomingSoon =
+                        (task.status === 'SCHEDULED' || task.status === 'AVAILABLE') &&
+                        msUntil > 0 &&
+                        msUntil <= 5 * 60 * 1000;
+                      const isDueRightNow =
+                        task.status === 'AVAILABLE' && msUntil <= 0 && Math.abs(msUntil) <= 2 * 60 * 1000;
+
+                      return (
+                        <div
+                          key={task.id}
+                          className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                            task.status === 'IN_PROGRESS'
+                              ? 'border-amber-300 bg-amber-50/40'
+                              : isDueRightNow
+                              ? 'border-emerald-400 bg-emerald-50/40 ring-1 ring-emerald-200'
+                              : isUpcomingSoon
+                              ? 'border-amber-300 bg-amber-50/30'
+                              : task.status === 'OVERDUE'
+                              ? 'border-rose-200 bg-rose-50/30'
+                              : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-900 text-amber-300">
+                                {formatISTScheduleBadge(task.scheduledFor, serverNowMs)}
+                              </span>
+                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(task.priority)}`}>
+                                {task.priority}
+                              </span>
+                              {getStatusBadge(task.status)}
+                              {(task.status === 'SCHEDULED' || task.status === 'AVAILABLE') && msUntil > 0 && (
+                                <span
+                                  className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded tabular-nums ${
+                                    isUpcomingSoon
+                                      ? 'bg-amber-200 text-amber-950'
+                                      : 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                                  }`}
+                                >
+                                  {formatCountdownLabel(task.scheduledFor, serverNowMs)}
+                                </span>
+                              )}
+                              {isDueRightNow && (
+                                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-600 text-white">
+                                  Due Now
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">{task.title}</div>
+
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                              <span className="font-semibold text-slate-700 flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                {task.roomAreaName}
+                              </span>
+                              <span>•</span>
+                              <span className="font-mono">Deadline: {task.dueTime}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTask(task)}
+                              className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>{task.status === 'IN_PROGRESS' ? 'Continue' : 'Open'}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card3D>
               )}
 
               {/* Quick Room Status Glance */}
@@ -931,7 +1595,7 @@ export const PantryBoyView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveTab('roomSupport')}
-                    className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1"
+                    className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 cursor-pointer"
                   >
                     <span>View All Rooms</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -940,14 +1604,16 @@ export const PantryBoyView: React.FC = () => {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
                   {rooms.slice(0, 10).map((room) => (
-                    <div
+                    <Card3D
                       key={room.id}
                       onClick={() => setActiveTab('roomSupport')}
-                      className="p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer text-xs"
+                      maxTilt={3.2}
+                      liftPx={3}
+                      className="p-2.5 rounded-xl border border-slate-200 cursor-pointer text-xs active:scale-[0.99]"
                     >
                       <div className="font-semibold text-slate-900 truncate">{room.name}</div>
                       <div className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{room.status}</div>
-                    </div>
+                    </Card3D>
                   ))}
                 </div>
               </div>
@@ -976,10 +1642,13 @@ export const PantryBoyView: React.FC = () => {
                   <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
                     {[
                       { key: 'ALL', label: `All (${tasks.length})` },
-                      { key: 'AVAILABLE', label: 'Available' },
+                      { key: 'SCHEDULED', label: 'Scheduled' },
+                      { key: 'AVAILABLE', label: 'Due / Available' },
                       { key: 'IN_PROGRESS', label: 'In Progress' },
+                      { key: 'OVERDUE', label: 'Overdue' },
                       { key: 'PENDING', label: 'Review' },
                       { key: 'COMPLETED', label: 'Completed' },
+                      { key: 'CANCELLED', label: 'Cancelled' },
                     ].map((tab) => {
                       const isActive = taskFilterStatus === tab.key;
                       return (
@@ -1018,24 +1687,37 @@ export const PantryBoyView: React.FC = () => {
                   {filteredTasks.map((task) => {
                     const completedItems = task.checklist.filter((c) => c.completed).length;
                     const totalItems = task.checklist.length;
+                    const schedMs = new Date(task.scheduledFor).getTime();
+                    const msUntil = schedMs - serverNowMs;
                     return (
-                      <div
+                      <Card3D
                         key={task.id}
-                        className={`p-4 bg-white rounded-2xl border shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between ${
-                          task.isUrgent ? 'border-l-4 border-l-rose-600' : 'border-slate-200'
+                        maxTilt={2.2}
+                        liftPx={3}
+                        className={`p-4 rounded-2xl border flex flex-col justify-between ${
+                          task.status === 'CANCELLED'
+                            ? 'opacity-65 border-slate-200 bg-slate-50'
+                            : task.isUrgent
+                            ? 'border-l-4 border-l-rose-600 border-slate-200'
+                            : 'border-slate-200'
                         }`}
                       >
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-2">
-                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(task.priority)}`}>
-                              {task.priority}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(task.priority)}`}>
+                                {task.priority}
+                              </span>
+                              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                {formatISTScheduleBadge(task.scheduledFor, serverNowMs)}
+                              </span>
+                            </div>
                             <div className="shrink-0">{getStatusBadge(task.status)}</div>
                           </div>
 
                           <h3 className="text-sm font-bold text-slate-900 mb-1 leading-snug">{task.title}</h3>
 
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2">
                             <span className="font-semibold text-slate-700 flex items-center gap-1">
                               <MapPin className="w-3.5 h-3.5 text-slate-400" />
                               {task.roomAreaName}
@@ -1044,6 +1726,14 @@ export const PantryBoyView: React.FC = () => {
                             <span className="font-mono text-[11px] flex items-center gap-1">
                               <Clock className="w-3 h-3 text-slate-400" /> Due {task.dueTime}
                             </span>
+                            {(task.status === 'SCHEDULED' || task.status === 'AVAILABLE') && msUntil > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className="font-mono font-bold text-[11px] text-amber-700 tabular-nums">
+                                  {formatCountdownLabel(task.scheduledFor, serverNowMs)}
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           {task.description && (
@@ -1061,13 +1751,13 @@ export const PantryBoyView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedTask(task)}
-                            className="px-3.5 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1"
+                            className="px-3.5 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                           >
                             <span>Open Task</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      </div>
+                      </Card3D>
                     );
                   })}
                 </div>
@@ -1096,9 +1786,11 @@ export const PantryBoyView: React.FC = () => {
                 {rooms.map((room) => {
                   const isNeedsAttention = room.status === 'PREPARATION_REQUIRED' || room.status === 'CLEANING_REQUIRED';
                   return (
-                    <div
+                    <Card3D
                       key={room.id}
-                      className={`p-4 bg-white rounded-2xl border transition-all ${
+                      maxTilt={2.4}
+                      liftPx={3}
+                      className={`p-4 rounded-2xl border ${
                         isNeedsAttention ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'
                       }`}
                     >
@@ -1136,7 +1828,7 @@ export const PantryBoyView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleMarkRoomReady(room.id)}
-                            className="w-full py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                            className="w-full py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>Mark Ready</span>
@@ -1147,7 +1839,7 @@ export const PantryBoyView: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </Card3D>
                   );
                 })}
               </div>
@@ -1362,7 +2054,7 @@ export const PantryBoyView: React.FC = () => {
                     <h2 className="text-lg font-bold text-slate-900">{currentUser?.name}</h2>
                     <div className="text-xs text-slate-500 font-mono">{currentUser?.email}</div>
                     <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800">
-                      Pantry & Hospitality Attendant
+                      {roleTitle}
                     </div>
                   </div>
                 </div>
@@ -1377,7 +2069,7 @@ export const PantryBoyView: React.FC = () => {
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
                     <div className="text-slate-400 font-medium">Company Role</div>
-                    <div className="text-slate-900 font-bold mt-0.5">Pantry Attendant (PANTRY_BOY)</div>
+                    <div className="text-slate-900 font-bold mt-0.5">{roleCodeLabel}</div>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
                     <div className="text-slate-400 font-medium">Department</div>
@@ -1385,33 +2077,27 @@ export const PantryBoyView: React.FC = () => {
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
                     <div className="text-slate-400 font-medium">Contact Phone</div>
-                    <div className="text-slate-900 font-mono mt-0.5">{currentUser?.phone || '+91 98765 43210'}</div>
+                    <div className="text-slate-900 font-mono mt-0.5">{currentUser?.phone || 'Not provided'}</div>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 sm:col-span-2">
+                    <div className="text-slate-400 font-medium flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Office Address</span>
+                    </div>
+                    <div className="text-slate-900 font-semibold mt-0.5 leading-relaxed">
+                      6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India
+                    </div>
                   </div>
                 </div>
 
-                {/* Attendance & Geofence Verification Status */}
+                {/* Attendance Summary */}
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Compass className="w-4 h-4 text-indigo-600" />
-                      <span className="font-bold text-slate-900 text-xs">Today's Attendance & Office Location</span>
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span className="font-bold text-slate-900 text-xs">Today's Attendance Summary</span>
                     </div>
-                    {todayAttendance?.locationVerification?.status === 'INSIDE_OFFICE' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                        Inside Office
-                      </span>
-                    ) : todayAttendance?.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
-                        <AlertTriangle className="w-3 h-3 text-rose-600" />
-                        Outside Office
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                        <MapPinOff className="w-3 h-3 text-amber-600" />
-                        Location Unverified
-                      </span>
-                    )}
+                    <span className="text-[11px] font-mono text-slate-500">Asia/Kolkata (IST)</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -1434,20 +2120,15 @@ export const PantryBoyView: React.FC = () => {
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400">Geofence Distance:</span>{' '}
+                      <span className="text-slate-400">Logout IST:</span>{' '}
                       <span className="font-mono font-bold text-slate-900">
-                        {todayAttendance?.locationVerification?.distanceFromOfficeMeters !== undefined
-                          ? `${todayAttendance.locationVerification.distanceFromOfficeMeters}m from HQ`
-                          : 'Unavailable'}
+                        {todayAttendance?.logoutTimeIST || 'Active'}
                       </span>
                     </div>
                   </div>
 
                   <div className="pt-2 border-t border-slate-200/80 text-[10px] text-slate-500 flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-3 h-3 text-indigo-500 shrink-0" />
-                      <span>Privacy Notice: Your location was verified only once upon login. Continuous background tracking is disabled.</span>
-                    </div>
+                    <span>Automatic IST login and logout timestamps recorded per session.</span>
                     <button
                       type="button"
                       onClick={handleOpenAttendanceHistory}
@@ -1464,13 +2145,34 @@ export const PantryBoyView: React.FC = () => {
                     <span>White Collar Realty Company Policy</span>
                   </div>
                   <p className="text-[11px] text-amber-800 leading-relaxed">
-                    Daily attendance login/logout is recorded automatically with IST timestamps and location verification. All 15 room morning routines (9:00 AM), water bottle distribution (10:00 AM), recheck (3:00 PM), and closing inspection (7:30 PM) require live photo verification.
+                    Daily attendance login/logout is recorded automatically with IST timestamps. All 15 room morning routines (9:00 AM), water bottle distribution (10:00 AM), recheck (3:00 PM), and closing inspection (7:30 PM) require live photo verification.
                   </p>
                 </div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Responsive Corporate Office Footer */}
+        <footer className="mt-auto border-t border-slate-200/80 bg-white/80 px-4 sm:px-6 lg:px-8 py-3.5 shrink-0">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500">
+            <div className="font-semibold text-slate-700 flex items-center gap-1.5 shrink-0">
+              <Building2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>White Collar Realty</span>
+            </div>
+            <div
+              className="text-center sm:text-right text-slate-500 leading-relaxed"
+              title="6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India"
+            >
+              <span className="sm:hidden">
+                6th Floor, Tower A, M3M Urbana Business Park, Sector 67, Gurugram 122101
+              </span>
+              <span className="hidden sm:inline">
+                6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India
+              </span>
+            </div>
+          </div>
+        </footer>
       </main>
 
       {/* Attendance History Modal */}
@@ -1493,7 +2195,7 @@ export const PantryBoyView: React.FC = () => {
 
             <div className="p-5 overflow-y-auto space-y-4 flex-1">
               <div className="text-xs text-slate-500 flex items-center justify-between">
-                <span>Showing daily server IST attendance records and GPS verification statuses</span>
+                <span>Showing daily server IST attendance records</span>
                 <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                   {attendanceHistory.length} total records
                 </span>
@@ -1548,25 +2250,13 @@ export const PantryBoyView: React.FC = () => {
                       </div>
 
                       <div className="flex flex-col items-start sm:items-end text-xs space-y-1 shrink-0">
-                        {rec.locationVerification?.status === 'INSIDE_OFFICE' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                            Inside Office ({rec.locationVerification.distanceFromOfficeMeters}m)
-                          </span>
-                        ) : rec.locationVerification?.status === 'OUTSIDE_OFFICE' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300">
-                            <AlertTriangle className="w-3 h-3 text-rose-600" />
-                            Outside Office ({rec.locationVerification.distanceFromOfficeMeters}m)
+                        {rec.elapsedMinutes !== undefined ? (
+                          <span className="text-[11px] font-mono font-semibold text-slate-700">
+                            Elapsed: {Math.floor(rec.elapsedMinutes / 60)}h {rec.elapsedMinutes % 60}m
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
-                            <MapPinOff className="w-3 h-3 text-amber-600" />
-                            Location Unverified
-                          </span>
-                        )}
-                        {rec.elapsedMinutes !== undefined && (
-                          <span className="text-[10px] font-mono text-slate-500">
-                            Elapsed: {Math.floor(rec.elapsedMinutes / 60)}h {rec.elapsedMinutes % 60}m
+                          <span className="text-[11px] font-mono text-emerald-700 font-semibold">
+                            In Session
                           </span>
                         )}
                       </div>
@@ -1598,11 +2288,14 @@ export const PantryBoyView: React.FC = () => {
             {/* Header */}
             <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between bg-slate-50 shrink-0">
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(selectedTask.priority)}`}>
                     {selectedTask.priority}
                   </span>
                   <span className="text-xs font-bold text-slate-800">{selectedTask.roomAreaName}</span>
+                  <span className="text-xs font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                    {formatISTScheduleBadge(selectedTask.scheduledFor, serverNowMs)}
+                  </span>
                   <span className="text-xs text-slate-400">• Due {selectedTask.dueTime}</span>
                 </div>
                 <h3 className="text-base font-bold text-slate-900 leading-snug">{selectedTask.title}</h3>
@@ -1656,8 +2349,9 @@ export const PantryBoyView: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={item.completed}
-                        onChange={(e) => handleToggleChecklist(selectedTask, item.id, e.target.checked)}
-                        className="mt-0.5 w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 cursor-pointer"
+                        disabled={!canEditTasks}
+                        onChange={(e) => canEditTasks && handleToggleChecklist(selectedTask, item.id, e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 cursor-pointer disabled:opacity-50"
                       />
                       <span className={`leading-snug ${item.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                         {item.text}
@@ -1694,7 +2388,7 @@ export const PantryBoyView: React.FC = () => {
                           })}
                         </div>
                       </div>
-                      {selectedTask.status !== 'COMPLETED' && (
+                      {selectedTask.status !== 'COMPLETED' && canEditTasks && (
                         <button
                           type="button"
                           onClick={() => setCameraModalTask(selectedTask)}
@@ -1711,14 +2405,16 @@ export const PantryBoyView: React.FC = () => {
                     <p className="text-xs text-slate-600 mb-3">
                       Capture clean room arrangement, chair alignment, and water bottles using the live camera.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setCameraModalTask(selectedTask)}
-                      className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Camera className="w-4 h-4" />
-                      Open Live Camera
-                    </button>
+                    {canEditTasks && (
+                      <button
+                        type="button"
+                        onClick={() => setCameraModalTask(selectedTask)}
+                        className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Camera className="w-4 h-4" />
+                        Open Live Camera
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1726,19 +2422,23 @@ export const PantryBoyView: React.FC = () => {
 
             {/* Modal Actions */}
             <div className="p-4 border-t border-slate-200 bg-white shrink-0 flex items-center justify-between gap-3">
-              {selectedTask.status === 'AVAILABLE' && (
-                <button
-                  type="button"
-                  onClick={() => handleStartTask(selectedTask)}
-                  disabled={actionLoading}
-                  className="w-full py-2.5 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  Start This Task
-                </button>
-              )}
+              {(selectedTask.status === 'AVAILABLE' ||
+                selectedTask.status === 'SCHEDULED' ||
+                selectedTask.status === 'OVERDUE' ||
+                selectedTask.status === 'REJECTED') &&
+                canEditTasks && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartTask(selectedTask)}
+                    disabled={actionLoading}
+                    className="w-full py-2.5 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    Start This Task
+                  </button>
+                )}
 
-              {selectedTask.status === 'IN_PROGRESS' && (
+              {selectedTask.status === 'IN_PROGRESS' && canEditTasks && (
                 <>
                   <button
                     type="button"
@@ -1759,7 +2459,7 @@ export const PantryBoyView: React.FC = () => {
                 </>
               )}
 
-              {selectedTask.status === 'BLOCKED' && (
+              {selectedTask.status === 'BLOCKED' && canEditTasks && (
                 <button
                   type="button"
                   onClick={() => handleStartTask(selectedTask)}
@@ -1780,6 +2480,12 @@ export const PantryBoyView: React.FC = () => {
                 <div className="w-full text-center py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   Task Completed & Photo Verified
+                </div>
+              )}
+
+              {selectedTask.status === 'CANCELLED' && (
+                <div className="w-full text-center py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl border border-slate-200">
+                  Task Cancelled by {selectedTask.cancelledBy || 'Management'}
                 </div>
               )}
             </div>
@@ -1890,6 +2596,257 @@ export const PantryBoyView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ----------------------------------------------------------------------- */}
+      {/* PANTRY-BOY-ONLY ALERT 1: 5-Minute Pre-Task Warning Popup                */}
+      {/* ----------------------------------------------------------------------- */}
+      <AnimatePresence>
+        {isExclusivelyPantryBoy && warningAlerts.length > 0 && dueAlerts.length === 0 && (
+          <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-xs">
+            {(() => {
+              const warnTask = warningAlerts[0];
+              return (
+                <motion.div
+                  key={`warn-modal-${warnTask.id}`}
+                  initial={{ opacity: 0, scale: 0.94, y: 12 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.94, y: 12 }}
+                  transition={{ type: 'spring', stiffness: 360, damping: 28 }}
+                  className="w-full max-w-md bg-white rounded-2xl shadow-2xl border-2 border-amber-400 overflow-hidden"
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby="pantry-warn-5min-title"
+                >
+                  <div className="px-5 py-4 bg-amber-500 text-slate-950 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center shrink-0">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-900">
+                          Upcoming Task · 5-Minute Warning
+                        </div>
+                        <div id="pantry-warn-5min-title" className="text-sm font-bold text-slate-950">
+                          {formatCountdownLabel(warnTask.scheduledFor, serverNowMs)}
+                        </div>
+                      </div>
+                    </div>
+                    {warningAlerts.length > 1 && (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-950 text-amber-300">
+                        1 of {warningAlerts.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-5 space-y-4">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                        Scheduled Task
+                      </div>
+                      <h4 className="text-base font-bold text-slate-900 leading-snug">{warnTask.title}</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-500 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                          Location
+                        </span>
+                        <span className="font-bold text-slate-900 text-right">{warnTask.roomAreaName}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-500 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                          Scheduled Time
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 text-right">
+                          {formatISTFullDateTime(warnTask.scheduledFor)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-500">Priority</span>
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(warnTask.priority)}`}>
+                          {warnTask.priority}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Please wrap up current activity and prepare cleaning or hospitality supplies for{' '}
+                      <strong className="text-slate-900">{warnTask.roomAreaName}</strong>.
+                    </p>
+
+                    <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => dismissWarningAlert(warnTask.id)}
+                        className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                      >
+                        Acknowledge
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTask(warnTask);
+                          dismissWarningAlert(warnTask.id);
+                        }}
+                        className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>View Task Details</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ----------------------------------------------------------------------- */}
+      {/* PANTRY-BOY-ONLY ALERT 2: At-Task-Time Prominent Execution Popup         */}
+      {/* ----------------------------------------------------------------------- */}
+      <AnimatePresence>
+        {isExclusivelyPantryBoy && dueAlerts.length > 0 && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+            {(() => {
+              const dueTask = dueAlerts[0];
+              return (
+                <motion.div
+                  key={`due-modal-${dueTask.id}`}
+                  initial={{ opacity: 0, scale: 0.92, y: 16 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: 16 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+                  className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border-2 border-amber-500 overflow-hidden"
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby="pantry-due-now-title"
+                >
+                  {/* Prominent High-Contrast Header */}
+                  <div className="px-5 py-4 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-xl bg-amber-400 opacity-50" />
+                        <div className="relative w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-md">
+                          <Bell className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+                          Scheduled Task Time Reached · Action Required
+                        </div>
+                        <div id="pantry-due-now-title" className="text-base font-bold text-white">
+                          Execute Scheduled Task Now
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {dueAlerts.length > 1 && (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
+                          1 of {dueAlerts.length}
+                        </span>
+                      )}
+                      <span className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded border ${getPriorityStyle(dueTask.priority)}`}>
+                        {dueTask.priority}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Task Details & Required Actions */}
+                  <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+                    <div>
+                      <h4 className="text-lg font-bold text-slate-900 leading-snug">{dueTask.title}</h4>
+                      {dueTask.description && (
+                        <p className="text-xs text-slate-600 mt-1.5 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
+                          {dueTask.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase text-slate-500">Location / Room</div>
+                        <div className="font-bold text-slate-900 mt-0.5 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>{dueTask.roomAreaName}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase text-slate-500">Scheduled Time (IST)</div>
+                        <div className="font-mono font-bold text-slate-900 mt-0.5">
+                          {formatISTFullDateTime(dueTask.scheduledFor)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase text-slate-500">Completion Window</div>
+                        <div className="font-mono font-semibold text-slate-800 mt-0.5">Due {dueTask.dueTime}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase text-slate-500">Assigned By</div>
+                        <div className="font-semibold text-slate-800 mt-0.5">{dueTask.createdByName}</div>
+                      </div>
+                    </div>
+
+                    {/* Required Action Checklist Preview */}
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                        Required Action Checklist ({dueTask.checklist.length} steps + Live Photo)
+                      </div>
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {dueTask.checklist.map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className="flex items-start gap-2 text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80"
+                          >
+                            <span className="font-mono font-bold text-amber-700 shrink-0">{idx + 1}.</span>
+                            <span className="leading-snug">{item.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2.5 pt-3 border-t border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => dismissDueAlert(dueTask.id)}
+                        className="px-4 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTask(dueTask);
+                          dismissDueAlert(dueTask.id);
+                        }}
+                        className="px-4 py-2.5 text-xs font-bold text-slate-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition-colors cursor-pointer"
+                      >
+                        Open Checklist
+                      </button>
+                      {canEditTasks && (
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={async () => {
+                            dismissDueAlert(dueTask.id);
+                            await handleStartTask(dueTask);
+                          }}
+                          className="px-5 py-2.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Start Task Now</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

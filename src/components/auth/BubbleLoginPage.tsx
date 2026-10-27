@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   Mail,
   Lock,
   Eye,
   EyeOff,
   LogIn,
-  Loader2,
   ShieldAlert,
   HelpCircle,
   X,
   Check,
   UserCheck,
   ArrowRight,
-  Clock,
   Building2,
 } from 'lucide-react';
 import type { UserAccount } from '../../types/index.ts';
@@ -33,6 +31,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
   onLogin,
   isLoading,
 }) => {
+  const prefersReducedMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<'CREDENTIALS' | 'QUICK_ACCESS'>('CREDENTIALS');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -46,7 +45,16 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
   const [showSupportModal, setShowSupportModal] = useState<boolean>(false);
 
-  // Form submit handler with fluid button micro-interaction
+  const runVerifiedHandoff = async (user: UserAccount) => {
+    setAuthenticatedUser(user);
+    setAuthSuccess(true);
+    if (!prefersReducedMotion) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 140));
+    }
+    setIsExiting(true);
+  };
+
+  // Form submit handler — hands off smoothly to cinematic transition on verified login
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
@@ -58,15 +66,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
     setAuthSuccess(false);
     setIsExiting(false);
     try {
-      await onLogin(email.trim(), password || undefined, async (user) => {
-        setAuthenticatedUser(user);
-        setAuthSuccess(true);
-        // Delightful verified pause so the user perceives the success state
-        await new Promise((resolve) => setTimeout(resolve, 520));
-        setIsExiting(true);
-        // Smooth card lift-and-dissolve into the dashboard
-        await new Promise((resolve) => setTimeout(resolve, 240));
-      });
+      await onLogin(email.trim(), password || undefined, runVerifiedHandoff);
     } catch (err: any) {
       setAuthSuccess(false);
       setIsExiting(false);
@@ -84,13 +84,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
     setAuthSuccess(false);
     setIsExiting(false);
     try {
-      await onLogin(userEmail, undefined, async (user) => {
-        setAuthenticatedUser(user);
-        setAuthSuccess(true);
-        await new Promise((resolve) => setTimeout(resolve, 520));
-        setIsExiting(true);
-        await new Promise((resolve) => setTimeout(resolve, 240));
-      });
+      await onLogin(userEmail, undefined, runVerifiedHandoff);
     } catch (err: any) {
       setAuthSuccess(false);
       setIsExiting(false);
@@ -115,40 +109,48 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
         background: 'radial-gradient(ellipse at 50% 30%, #0d1527 0%, #060b14 65%, #02050a 100%)',
       }}
     >
-      {/* Ambient background light gradients (no floating bubble objects) */}
+      {/* Ambient background light gradients (GPU radial gradients, no heavy blur filters) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {/* Soft amber glow center-left */}
         <div
-          className="absolute -top-32 -left-32 w-80 sm:w-[480px] h-80 sm:h-[480px] rounded-full blur-[120px] opacity-25"
+          className="absolute -top-36 -left-36 w-96 sm:w-[560px] h-96 sm:h-[560px] rounded-full opacity-35"
           style={{
-            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.45) 0%, rgba(217, 119, 6, 0.15) 50%, transparent 80%)',
+            background:
+              'radial-gradient(circle, rgba(245, 158, 11, 0.32) 0%, rgba(217, 119, 6, 0.1) 45%, transparent 72%)',
           }}
         />
 
         {/* Deep sapphire / cyan glow center-right */}
         <div
-          className="absolute -bottom-32 -right-32 w-80 sm:w-[520px] h-80 sm:h-[520px] rounded-full blur-[130px] opacity-20"
+          className="absolute -bottom-36 -right-36 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full opacity-30"
           style={{
-            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, rgba(30, 64, 175, 0.2) 50%, transparent 80%)',
+            background:
+              'radial-gradient(circle, rgba(59, 130, 246, 0.34) 0%, rgba(30, 64, 175, 0.12) 45%, transparent 72%)',
           }}
         />
 
         {/* Warm center highlight */}
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[380px] rounded-full blur-[140px] opacity-10 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #f59e0b 0%, #1e293b 60%, transparent 90%)' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[620px] h-[440px] rounded-full opacity-20 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, rgba(30, 41, 59, 0.2) 55%, transparent 75%)',
+          }}
         />
       </div>
 
-      {/* Main Compact Glassmorphic Login Card (Optimized viewport fit) */}
+      {/* Main Compact Glassmorphic Login Card (Pure transform & opacity motion) */}
       <motion.div
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.98 }}
         animate={
           isExiting
-            ? { opacity: 0, y: -12, scale: 0.98, filter: 'blur(6px)' }
-            : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }
+            ? prefersReducedMotion
+              ? { opacity: 0 }
+              : { opacity: 0, y: -8, scale: 0.975 }
+            : { opacity: 1, y: 0, scale: 1 }
         }
-        transition={{ duration: isExiting ? 0.32 : 0.45, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: isExiting ? 0.28 : 0.42, ease: [0.22, 1, 0.36, 1] }}
+        style={{ willChange: 'transform, opacity' }}
         className="interactive-card relative z-30 w-full max-w-[430px] my-auto"
       >
         {/* Ambient Card Backing Blur & Specular Ring */}
@@ -203,14 +205,21 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                 setActiveTab('CREDENTIALS');
                 setLoginError(null);
               }}
-              className={`flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`relative flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-md transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'CREDENTIALS'
-                  ? 'bg-white/15 text-white shadow-xs border border-white/20'
+                  ? 'text-white'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Direct Sign In</span>
+              {activeTab === 'CREDENTIALS' && (
+                <motion.div
+                  layoutId="wcr-login-tab-indicator"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute inset-0 rounded-md bg-white/15 border border-white/20 shadow-xs"
+                />
+              )}
+              <LogIn className="relative z-10 w-3.5 h-3.5" />
+              <span className="relative z-10">Direct Sign In</span>
             </button>
             <button
               type="button"
@@ -218,14 +227,21 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                 setActiveTab('QUICK_ACCESS');
                 setLoginError(null);
               }}
-              className={`flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`relative flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-md transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'QUICK_ACCESS'
-                  ? 'bg-amber-500/20 text-amber-300 shadow-xs border border-amber-400/30'
+                  ? 'text-amber-300'
                   : 'text-slate-400 hover:text-amber-200'
               }`}
             >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Staff Quick-Access</span>
+              {activeTab === 'QUICK_ACCESS' && (
+                <motion.div
+                  layoutId="wcr-login-tab-indicator"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute inset-0 rounded-md bg-amber-500/20 border border-amber-400/30 shadow-xs"
+                />
+              )}
+              <UserCheck className="relative z-10 w-3.5 h-3.5" />
+              <span className="relative z-10">Staff Quick-Access</span>
             </button>
           </div>
 
@@ -246,9 +262,17 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Tab 1: Direct Corporate Credentials Form */}
-          {activeTab === 'CREDENTIALS' ? (
-            <form onSubmit={handleSubmit} className="space-y-2.5">
+          <AnimatePresence mode="wait" initial={false}>
+            {/* Tab 1: Direct Corporate Credentials Form */}
+            {activeTab === 'CREDENTIALS' ? (
+              <motion.div
+                key="tab-credentials"
+                initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <form onSubmit={handleSubmit} className="space-y-2.5">
               {/* Email Input */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-200 mb-1">
@@ -308,7 +332,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
               </div>
 
               {/* Remember Me Toggle */}
-              <div className="flex items-center justify-between pt-0.5">
+              <div className="flex items-center justify-start pt-0.5">
                 <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300">
                   <input
                     type="checkbox"
@@ -327,11 +351,6 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                   </div>
                   <span>Remember session</span>
                 </label>
-
-                <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                  <Clock className="w-2.5 h-2.5 text-amber-400" />
-                  <span>9:00 AM – 8:00 PM</span>
-                </div>
               </div>
 
               {/* Submit Button with Ultra-Smooth Animation & Subtle Loading Effect */}
@@ -347,7 +366,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                     ? { scale: [1, 1.02, 1] }
                     : {}
                 }
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ type: 'tween', duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="relative group w-full h-11 rounded-xl font-bold text-xs overflow-hidden transition-all duration-300 disabled:opacity-95 cursor-pointer shadow-md mt-1 flex items-center justify-center select-none"
                 style={{
                   background: authSuccess
@@ -424,7 +443,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                           className="absolute inset-0 w-4 h-4 rounded-full border-2 border-transparent border-t-slate-950"
                         />
                       </div>
-                      <span className="tracking-wide">Authenticating Session...</span>
+                      <span className="tracking-wide">Signing In...</span>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -442,10 +461,84 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                   )}
                 </AnimatePresence>
               </motion.button>
-            </form>
-          ) : (
-            /* Tab 2: Pre-Approved Staff 1-Click Access */
-            <div className="space-y-1.5">
+                </form>
+
+                {/* Quick Staff Pill Bar (Compact 2x2 Grid) */}
+                <div className="mt-3 pt-2.5 border-t border-white/10">
+                  <div className="text-[9.5px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5 flex items-center justify-between">
+                    <span>Quick Role Sign-In</span>
+                    <span className="text-[9px] text-amber-400/90 font-mono">1-Click</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {allUsers.slice(0, 4).map((u) => {
+                      const isBeingLoggedIn = submitting && selectedUserEmail === u.email;
+                      return (
+                        <button
+                          key={`quick-pill-${u.id}`}
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => handleQuickLogin(u.email)}
+                          className={`p-1.5 rounded-lg border text-left transition-all duration-300 flex items-center gap-1.5 cursor-pointer disabled:opacity-85 ${
+                            isBeingLoggedIn
+                              ? authSuccess
+                                ? 'bg-emerald-500/25 border-emerald-400/50 shadow-xs text-emerald-200'
+                                : 'bg-amber-500/20 border-amber-400/50 shadow-xs'
+                              : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/10'
+                          }`}
+                        >
+                          <div className="w-4 h-4 rounded-full overflow-hidden bg-slate-800 shrink-0 flex items-center justify-center">
+                            {isBeingLoggedIn ? (
+                              authSuccess ? (
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                                >
+                                  <Check className="w-2.5 h-2.5 text-emerald-300 stroke-[3]" />
+                                </motion.div>
+                              ) : (
+                                <div className="w-2.5 h-2.5 relative flex items-center justify-center">
+                                  <motion.div
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 0.75, repeat: Infinity, ease: 'linear' }}
+                                    className="w-2.5 h-2.5 rounded-full border border-amber-300/30 border-t-amber-300"
+                                  />
+                                </div>
+                              )
+                            ) : (
+                              <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
+                            )}
+                          </div>
+                          <div className="truncate">
+                            <div className="text-[10px] font-medium text-white truncate leading-tight">
+                              {u.name}
+                            </div>
+                            <div className="text-[8.5px] text-slate-400 font-mono truncate">
+                              {u.role === 'PANTRY_BOY'
+                                ? 'Pantry'
+                                : u.role === 'KIMMY_MAM'
+                                ? 'Co-Founder'
+                                : u.role === 'ADMIN'
+                                ? 'Admin'
+                                : 'HR'}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              /* Tab 2: Pre-Approved Staff 1-Click Access */
+              <motion.div
+                key="tab-quick-access"
+                initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                className="space-y-1.5"
+              >
               <p className="text-[10px] text-slate-300 leading-normal mb-1.5">
                 Select an authorized company profile for immediate 1-click login:
               </p>
@@ -485,7 +578,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                         {/* Name & Role */}
                         <div className="min-w-0">
                           <div className="text-[11px] font-semibold text-white flex items-center gap-1 truncate">
-                            <span>{u.role === 'KIMMY_MAM' ? 'Kimmi' : u.name}</span>
+                            <span>{u.name}</span>
                             {isDeactivated && (
                               <span className="text-[8px] font-mono text-rose-400 bg-rose-500/20 px-1 py-0.2 rounded">
                                 Revoked
@@ -571,85 +664,27 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                   Or pre-fill form with default credentials
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Quick Staff Pill Bar (Compact 2x2 Grid) */}
-          {activeTab === 'CREDENTIALS' && (
-            <div className="mt-3 pt-2.5 border-t border-white/10">
-              <div className="text-[9.5px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5 flex items-center justify-between">
-                <span>Quick Role Sign-In</span>
-                <span className="text-[9px] text-amber-400/90 font-mono">1-Click</span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {allUsers.slice(0, 4).map((u) => {
-                  const isBeingLoggedIn = submitting && selectedUserEmail === u.email;
-                  return (
-                    <button
-                      key={`quick-pill-${u.id}`}
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => handleQuickLogin(u.email)}
-                      className={`p-1.5 rounded-lg border text-left transition-all duration-300 flex items-center gap-1.5 cursor-pointer disabled:opacity-85 ${
-                        isBeingLoggedIn
-                          ? authSuccess
-                            ? 'bg-emerald-500/25 border-emerald-400/50 shadow-xs text-emerald-200'
-                            : 'bg-amber-500/20 border-amber-400/50 shadow-xs'
-                          : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/10'
-                      }`}
-                    >
-                      <div className="w-4 h-4 rounded-full overflow-hidden bg-slate-800 shrink-0 flex items-center justify-center">
-                        {isBeingLoggedIn ? (
-                          authSuccess ? (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                            >
-                              <Check className="w-2.5 h-2.5 text-emerald-300 stroke-[3]" />
-                            </motion.div>
-                          ) : (
-                            <div className="w-2.5 h-2.5 relative flex items-center justify-center">
-                              <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 0.75, repeat: Infinity, ease: 'linear' }}
-                                className="w-2.5 h-2.5 rounded-full border border-amber-300/30 border-t-amber-300"
-                              />
-                            </div>
-                          )
-                        ) : (
-                          <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
-                        )}
-                      </div>
-                      <div className="truncate">
-                        <div className="text-[10px] font-medium text-white truncate leading-tight">
-                          {u.role === 'KIMMY_MAM' ? 'Kimmi' : u.name}
-                        </div>
-                        <div className="text-[8.5px] text-slate-400 font-mono truncate">
-                          {u.role === 'PANTRY_BOY'
-                            ? 'Pantry'
-                            : u.role === 'KIMMY_MAM'
-                            ? 'Co-Founder'
-                            : u.role === 'ADMIN'
-                            ? 'Admin'
-                            : 'HR'}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Bottom Trust & Corporate Footer */}
-          <div className="mt-2.5 text-center flex items-center justify-center gap-2 text-[10px] text-slate-400 font-medium">
-            <span className="flex items-center gap-1">
-              <Building2 className="w-2.5 h-2.5 text-slate-400" />
-              <span>Iris Broadway, Gurugram</span>
-            </span>
-            <span>·</span>
-            <span className="text-slate-400">Ver 2.4</span>
+          <div className="mt-2.5 pt-2 border-t border-white/10 text-center space-y-1 text-[10px] text-slate-400 font-medium">
+            <div
+              className="flex items-start justify-center gap-1.5 leading-relaxed text-slate-300/90"
+              title="6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India"
+            >
+              <Building2 className="w-2.5 h-2.5 text-amber-400/80 shrink-0 mt-0.5" />
+              <span className="sm:hidden">
+                6th Floor, Tower A, M3M Urbana Business Park, Sector 67, Gurugram 122101
+              </span>
+              <span className="hidden sm:inline">
+                6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India
+              </span>
+            </div>
+            <div className="text-[9.5px] text-slate-400/80">
+              White Collar Realty · Ver 2.4
+            </div>
           </div>
         </div>
       </motion.div>
@@ -699,7 +734,7 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                   </div>
                   <div className="flex justify-between items-center text-rose-300">
                     <span>Kimmi (Co-Founder)</span>
-                    <span className="bg-rose-400/10 px-1 py-0.5 rounded">kimmy.mam@...</span>
+                    <span className="bg-rose-400/10 px-1 py-0.5 rounded">kimmi.mam@...</span>
                   </div>
                   <div className="flex justify-between items-center text-purple-300">
                     <span>Operations Admin</span>
@@ -710,6 +745,16 @@ export const BubbleLoginPage: React.FC<BubbleLoginPageProps> = ({
                 <div className="text-[10px] text-slate-400 leading-relaxed">
                   * Note: Passwords are pre-verified. You can use the{' '}
                   <strong className="text-amber-300">Staff Quick-Access</strong> tab to switch personas seamlessly.
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-white/10 flex items-start gap-2 text-[10px] text-slate-300 leading-relaxed">
+                  <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-white mb-0.5">Official Office Address</div>
+                    <div>
+                      6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India
+                    </div>
+                  </div>
                 </div>
               </div>
 
