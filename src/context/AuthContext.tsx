@@ -301,7 +301,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsDeactivated(true);
           clearSessionToken();
         }
-      } else if (event === 'room:updated' || event === 'task:updated' || event === 'pantry_request:created' || event === 'pantry_request:updated') {
+      } else if (event === 'task:deleted') {
+        if (payload?.deletedTaskId) {
+          setNotifications((prev) => prev.filter((n) => n.taskId !== payload.deletedTaskId));
+        }
+        refreshNotifications();
+      } else if (
+        event === 'room:updated' ||
+        event === 'task:created' ||
+        event === 'task:updated' ||
+        event === 'pantry_request:created' ||
+        event === 'pantry_request:updated'
+      ) {
         refreshNotifications();
       } else if (event === 'attendance:updated' && payload?.attendance) {
         if (currentUser.role !== 'PANTRY_BOY' || payload.attendance.userId === currentUser.id) {
@@ -444,6 +455,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       action: 'view' | 'create' | 'edit' | 'delete' | 'export'
     ): boolean => {
       if (!currentUser) return false;
+      // Pantry Boy role must never show or allow task deletion
+      if (currentUser.role === 'PANTRY_BOY' && module === 'tasks' && action === 'delete') {
+        return false;
+      }
       if (currentUser.role === 'ADMIN' || currentUser.isSuperAdmin) return true;
       const perms = currentUser.permissions || getDefaultPermissions(currentUser.role);
       if (action === 'export') {

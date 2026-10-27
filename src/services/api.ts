@@ -15,6 +15,12 @@ import type {
   PantryRequest,
   AttendanceRecord,
 } from '../types/index.ts';
+import {
+  normalizeDisplayText,
+  normalizeRoomName,
+  normalizeRoomRecord,
+  normalizeTaskRecord,
+} from '../utils/textNormalizer.ts';
 
 const BASE_URL = '/api';
 const TOKEN_KEY = 'wcr_auth_session_token';
@@ -209,39 +215,47 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to fetch rooms');
     const data = await res.json();
-    return data.rooms;
+    return Array.isArray(data.rooms) ? data.rooms.map((r: RoomArea) => normalizeRoomRecord(r)) : [];
   },
 
   async addRoom(payload: Partial<RoomArea>): Promise<RoomArea> {
+    const cleanedPayload = {
+      ...payload,
+      name: payload.name !== undefined ? normalizeRoomName(payload.name) : payload.name,
+    };
     const res = await fetch(`${BASE_URL}/rooms`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(cleanedPayload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to add room');
     }
     const data = await res.json();
-    return data.room;
+    return normalizeRoomRecord(data.room);
   },
 
   async updateRoom(id: string, payload: Partial<RoomArea>): Promise<RoomArea> {
-    const res = await fetch(`${BASE_URL}/rooms/${id}`, {
+    const cleanedPayload = {
+      ...payload,
+      name: payload.name !== undefined ? normalizeRoomName(payload.name) : payload.name,
+    };
+    const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(cleanedPayload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to update room');
     }
     const data = await res.json();
-    return data.room;
+    return normalizeRoomRecord(data.room);
   },
 
   async toggleRoomActive(id: string): Promise<RoomArea> {
-    const res = await fetch(`${BASE_URL}/rooms/${id}/toggle-active`, {
+    const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(id)}/toggle-active`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -250,7 +264,7 @@ export const api = {
       throw new Error(err.error || 'Failed to toggle room active state');
     }
     const data = await res.json();
-    return data.room;
+    return normalizeRoomRecord(data.room);
   },
 
   async assignRoom(
@@ -280,7 +294,12 @@ export const api = {
       errorObj.currentStatus = err.currentStatus;
       throw errorObj;
     }
-    return res.json();
+    const data = await res.json();
+    return {
+      ...data,
+      room: data.room ? normalizeRoomRecord(data.room) : data.room,
+      prepTask: data.prepTask ? normalizeTaskRecord(data.prepTask) : data.prepTask,
+    };
   },
 
   async roomStatusAction(
@@ -297,7 +316,11 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to execute ${action}`);
     }
-    return res.json();
+    const data = await res.json();
+    return {
+      ...data,
+      room: data.room ? normalizeRoomRecord(data.room) : data.room,
+    };
   },
 
   async getRoomHistory(id: string): Promise<{
@@ -314,7 +337,11 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to fetch room history');
     }
-    return res.json();
+    const data = await res.json();
+    return {
+      ...data,
+      room: data.room ? normalizeRoomRecord(data.room) : data.room,
+    };
   },
 
   // Tasks
@@ -348,7 +375,7 @@ export const api = {
     if (data.serverTime) {
       syncServerTime(data.serverTime);
     }
-    return data.tasks;
+    return Array.isArray(data.tasks) ? data.tasks.map((t: Task) => normalizeTaskRecord(t)) : [];
   },
 
   async createTask(payload: {
@@ -362,10 +389,19 @@ export const api = {
     checklist?: string[];
     isUrgent?: boolean;
   }): Promise<Task> {
+    const cleanedPayload = {
+      ...payload,
+      title: normalizeDisplayText(payload.title),
+      description: payload.description !== undefined ? normalizeDisplayText(payload.description) : undefined,
+      dueTime: payload.dueTime !== undefined ? normalizeDisplayText(payload.dueTime) : undefined,
+      checklist: Array.isArray(payload.checklist)
+        ? payload.checklist.map((item) => normalizeDisplayText(item))
+        : undefined,
+    };
     const res = await fetch(`${BASE_URL}/tasks`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(cleanedPayload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -375,7 +411,7 @@ export const api = {
     if (data.serverTime) {
       syncServerTime(data.serverTime);
     }
-    return data.task;
+    return normalizeTaskRecord(data.task);
   },
 
   async updateTask(
@@ -394,10 +430,19 @@ export const api = {
       cancelReason?: string;
     }
   ): Promise<Task> {
-    const res = await fetch(`${BASE_URL}/tasks/${taskId}`, {
+    const cleanedPayload = {
+      ...payload,
+      title: payload.title !== undefined ? normalizeDisplayText(payload.title) : undefined,
+      description: payload.description !== undefined ? normalizeDisplayText(payload.description) : undefined,
+      dueTime: payload.dueTime !== undefined ? normalizeDisplayText(payload.dueTime) : undefined,
+      checklist: Array.isArray(payload.checklist)
+        ? payload.checklist.map((item) => normalizeDisplayText(item))
+        : undefined,
+    };
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}`, {
       method: 'PUT',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(cleanedPayload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -407,7 +452,7 @@ export const api = {
     if (data.serverTime) {
       syncServerTime(data.serverTime);
     }
-    return data.task;
+    return normalizeTaskRecord(data.task);
   },
 
   async cancelTask(taskId: string, reason?: string): Promise<Task> {
@@ -422,7 +467,7 @@ export const api = {
     status: TaskStatus,
     extra?: { blockedReason?: string; rejectionReason?: string; note?: string }
   ): Promise<Task> {
-    const res = await fetch(`${BASE_URL}/tasks/${taskId}/status`, {
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/status`, {
       method: 'PATCH',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ status, ...extra }),
@@ -435,11 +480,11 @@ export const api = {
     if (data.serverTime) {
       syncServerTime(data.serverTime);
     }
-    return data.task;
+    return normalizeTaskRecord(data.task);
   },
 
   async updateChecklistItem(taskId: string, itemId: string, completed: boolean, note?: string): Promise<Task> {
-    const res = await fetch(`${BASE_URL}/tasks/${taskId}/checklist`, {
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/checklist`, {
       method: 'PATCH',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ itemId, completed, note }),
@@ -449,7 +494,7 @@ export const api = {
       throw new Error(err.error || 'Failed to update checklist item');
     }
     const data = await res.json();
-    return data.task;
+    return normalizeTaskRecord(data.task);
   },
 
   async uploadPhotoEvidence(
@@ -457,7 +502,7 @@ export const api = {
     photoData: string,
     metadata?: { device?: string; resolution?: string; mode?: string }
   ): Promise<{ task: Task; photoEvidence: any }> {
-    const res = await fetch(`${BASE_URL}/tasks/${taskId}/photo`, {
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/photo`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ photoData, metadata }),
@@ -466,11 +511,15 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to upload photo evidence');
     }
-    return res.json();
+    const data = await res.json();
+    return {
+      ...data,
+      task: data.task ? normalizeTaskRecord(data.task) : data.task,
+    };
   },
 
   async verifyPhotoEvidence(taskId: string, decision: 'APPROVE' | 'REJECT', reason?: string): Promise<Task> {
-    const res = await fetch(`${BASE_URL}/tasks/${taskId}/verify`, {
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/verify`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ decision, reason }),
@@ -480,18 +529,29 @@ export const api = {
       throw new Error(err.error || 'Failed to verify photo evidence');
     }
     const data = await res.json();
-    return data.task;
+    return normalizeTaskRecord(data.task);
   },
 
-  async deleteTask(taskId: string): Promise<void> {
-    const res = await fetch(`${BASE_URL}/tasks/${taskId}`, {
+  async deleteTask(taskId: string): Promise<{ success: boolean; deletedTaskId: string }> {
+    const cleanId = String(taskId || '').trim();
+    if (!cleanId) {
+      throw new Error('Invalid task ID');
+    }
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(cleanId)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to delete task');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.success === false) {
+      throw new Error(data.error || `Failed to delete task (HTTP ${res.status})`);
     }
+    if (data.serverTime) {
+      syncServerTime(data.serverTime);
+    }
+    return {
+      success: true,
+      deletedTaskId: data.deletedTaskId || cleanId,
+    };
   },
 
   // Pantry Requests
@@ -501,7 +561,13 @@ export const api = {
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return data.requests || [];
+    return Array.isArray(data.requests)
+      ? data.requests.map((r: PantryRequest) => ({
+          ...r,
+          roomAreaName: normalizeRoomName(r.roomAreaName),
+          instructions: normalizeDisplayText(r.instructions),
+        }))
+      : [];
   },
 
   async createPantryRequest(payload: {
@@ -520,7 +586,12 @@ export const api = {
       throw new Error(err.error || 'Failed to create pantry request');
     }
     const data = await res.json();
-    return data.request;
+    return data.request
+      ? {
+          ...data.request,
+          roomAreaName: normalizeRoomName(data.request.roomAreaName),
+        }
+      : data.request;
   },
 
   async updatePantryRequestStatus(
@@ -537,7 +608,12 @@ export const api = {
       throw new Error(err.error || 'Failed to update pantry request status');
     }
     const data = await res.json();
-    return data.request;
+    return data.request
+      ? {
+          ...data.request,
+          roomAreaName: normalizeRoomName(data.request.roomAreaName),
+        }
+      : data.request;
   },
 
   // Visitors
@@ -547,7 +623,12 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to fetch visitors');
     const data = await res.json();
-    return data.visitors;
+    return Array.isArray(data.visitors)
+      ? data.visitors.map((v: VisitorEvent) => ({
+          ...v,
+          roomAreaName: normalizeRoomName(v.roomAreaName),
+        }))
+      : [];
   },
 
   async registerVisitorArrival(payload: {
@@ -590,7 +671,11 @@ export const api = {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch daily report');
-    return res.json();
+    const data = await res.json();
+    return {
+      summary: data.summary,
+      tasks: Array.isArray(data.tasks) ? data.tasks.map((t: Task) => normalizeTaskRecord(t)) : [],
+    };
   },
 
   async getWeeklyReport(): Promise<{ weeklySummary: WeeklyReportSummary }> {
@@ -661,7 +746,9 @@ export const api = {
   },
 
   // Scheduler simulation
-  async triggerSchedulerMilestone(milestone: '9AM_START' | '10AM_WATER' | '3PM_WATER' | 'CLOSING_AUDIT'): Promise<void> {
+  async triggerSchedulerMilestone(
+    milestone: '9AM_START' | '10AM_WATER' | '12PM_PLANTS' | '4PM_WATER' | '3PM_WATER' | 'CLOSING_AUDIT'
+  ): Promise<void> {
     const res = await fetch(`${BASE_URL}/scheduler/trigger`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -742,7 +829,22 @@ export const api = {
             } else if (parsed?.payload?.serverTime) {
               syncServerTime(parsed.payload.serverTime);
             }
-            onEvent(evtName, parsed.payload !== undefined ? parsed.payload : parsed);
+            const rawPayload = parsed.payload !== undefined ? parsed.payload : parsed;
+            if (rawPayload && typeof rawPayload === 'object') {
+              if (Array.isArray(rawPayload.tasks)) {
+                rawPayload.tasks = rawPayload.tasks.map((t: Task) => normalizeTaskRecord(t));
+              }
+              if (rawPayload.task && typeof rawPayload.task === 'object') {
+                rawPayload.task = normalizeTaskRecord(rawPayload.task);
+              }
+              if (Array.isArray(rawPayload.rooms)) {
+                rawPayload.rooms = rawPayload.rooms.map((r: RoomArea) => normalizeRoomRecord(r));
+              }
+              if (rawPayload.room && typeof rawPayload.room === 'object') {
+                rawPayload.room = normalizeRoomRecord(rawPayload.room);
+              }
+            }
+            onEvent(evtName, rawPayload);
           } catch {}
         };
 
@@ -751,7 +853,9 @@ export const api = {
         es.addEventListener('schedule:alert', handleMessage('schedule:alert'));
         es.addEventListener('room:created', handleMessage('room:created'));
         es.addEventListener('room:updated', handleMessage('room:updated'));
+        es.addEventListener('task:created', handleMessage('task:created'));
         es.addEventListener('task:updated', handleMessage('task:updated'));
+        es.addEventListener('task:deleted', handleMessage('task:deleted'));
         es.addEventListener('notification:new', handleMessage('notification:new'));
         es.addEventListener('user:updated', handleMessage('user:updated'));
         es.addEventListener('account:revoked', handleMessage('account:revoked'));

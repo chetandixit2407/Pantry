@@ -117,6 +117,13 @@ export interface RoomStatusHistoryEntry {
   assignmentId?: string;
 }
 
+export interface RoomSetupConfig {
+  tables: number;
+  tableType: 'standard' | 'large';
+  chairs: number;
+  summary: string;
+}
+
 export interface RoomArea {
   id: string;
   name: string;
@@ -127,6 +134,7 @@ export interface RoomArea {
   defaultChecklist: string[];
   recurrence: 'DAILY' | 'ALTERNATE_DAYS' | 'EVERY_3_DAYS' | 'ON_DEMAND';
   enabled: boolean;
+  setupConfig?: RoomSetupConfig;
   notes?: string;
   currentAssignment?: RoomAssignment | null;
   assignmentHistory?: RoomAssignment[];

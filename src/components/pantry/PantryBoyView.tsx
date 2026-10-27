@@ -422,7 +422,16 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
     loadData();
 
     const unsubscribe = api.subscribeRealtime((event, payload) => {
-      if (event === 'connected' || event === 'server:time') {
+      if (event === 'connected') {
+        setServerNowMs(getServerNowMs());
+        if (Array.isArray(payload?.rooms)) {
+          setRooms(payload.rooms);
+        }
+        loadData();
+        return;
+      }
+
+      if (event === 'server:time') {
         setServerNowMs(getServerNowMs());
         return;
       }
@@ -443,8 +452,15 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
         return;
       }
 
-      if (event === 'task:updated') {
+      if (event === 'task:deleted' || event === 'task:created' || event === 'task:updated') {
         setServerNowMs(getServerNowMs());
+        const removedId = payload?.deletedTaskId || payload?.taskId ? String(payload.deletedTaskId || payload.taskId) : '';
+        if (removedId) {
+          setWarningAlerts((prev) => prev.filter((a) => a.id !== removedId));
+          setDueAlerts((prev) => prev.filter((a) => a.id !== removedId));
+          setSelectedTask((prevSelected) => (prevSelected?.id === removedId ? null : prevSelected));
+        }
+
         if (payload && Array.isArray(payload.tasks) && currentUser) {
           const rawTasks: Task[] = payload.tasks;
           const visibleTasks =
@@ -459,18 +475,30 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
             if (!prevSelected) return null;
             return ordered.find((t) => t.id === prevSelected.id) || null;
           });
+        } else if (removedId) {
+          setTasks((prev) => prev.filter((t) => t.id !== removedId));
         } else {
           loadData();
         }
         return;
       }
 
-      if (
-        event === 'room:updated' ||
-        event === 'room:created' ||
-        event === 'pantry_request:created' ||
-        event === 'pantry_request:updated'
-      ) {
+      if (event === 'room:updated' || event === 'room:created') {
+        if (Array.isArray(payload?.rooms)) {
+          setRooms(payload.rooms);
+        } else if (payload?.room?.id) {
+          const incomingRoom = payload.room;
+          setRooms((prev) =>
+            prev.some((r) => r.id === incomingRoom.id)
+              ? prev.map((r) => (r.id === incomingRoom.id ? incomingRoom : r))
+              : [...prev, incomingRoom]
+          );
+        }
+        loadData();
+        return;
+      }
+
+      if (event === 'pantry_request:created' || event === 'pantry_request:updated') {
         loadData();
       }
     });
@@ -636,7 +664,18 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
     }
   };
 
-  // Chronologically Ordered Active & Scheduled Tasks
+  // Authoritative IST Today Key & Strict 3-Section Task Partitioning
+  const todayIST = useMemo(() => getISTDateKey(serverNowMs), [serverNowMs]);
+
+  const getTaskISTDate = useCallback(
+    (t: Task): string => {
+      const ms = new Date(t.scheduledFor).getTime();
+      return Number.isNaN(ms) ? todayIST : getISTDateKey(ms);
+    },
+    [todayIST]
+  );
+
+  // Chronologically Ordered Active & Scheduled Tasks (across all dates)
   const activeTasks = useMemo(
     () =>
       sortTasksChronologically(
@@ -645,6 +684,58 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
     [tasks]
   );
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === 'COMPLETED'), [tasks]);
+
+  // 1. TODAY'S TASKS ONLY (IST date === todayIST, excluding OVERDUE & CANCELLED)
+  const todayTasks = useMemo(
+    () =>
+      sortTasksChronologically(
+        tasks.filter(
+          (t) =>
+            t.status !== 'CANCELLED' &&
+            t.status !== 'OVERDUE' &&
+            getTaskISTDate(t) === todayIST
+        )
+      ),
+    [tasks, getTaskISTDate, todayIST]
+  );
+
+  const todayRemainingTasks = useMemo(
+    () => todayTasks.filter((t) => t.status !== 'COMPLETED'),
+    [todayTasks]
+  );
+
+  const todayCompletedTasks = useMemo(
+    () => todayTasks.filter((t) => t.status === 'COMPLETED'),
+    [todayTasks]
+  );
+
+  // 2. OVERDUE TASKS (Separate section: status === OVERDUE or uncompleted past IST dates)
+  const overdueTasks = useMemo(
+    () =>
+      sortTasksChronologically(
+        tasks.filter(
+          (t) =>
+            t.status !== 'COMPLETED' &&
+            t.status !== 'CANCELLED' &&
+            (t.status === 'OVERDUE' || getTaskISTDate(t) < todayIST)
+        )
+      ),
+    [tasks, getTaskISTDate, todayIST]
+  );
+
+  // 3. UPCOMING TASKS (Separate section: uncompleted tasks scheduled for future IST dates > todayIST)
+  const upcomingDateTasks = useMemo(
+    () =>
+      sortTasksChronologically(
+        tasks.filter(
+          (t) =>
+            t.status !== 'COMPLETED' &&
+            t.status !== 'CANCELLED' &&
+            getTaskISTDate(t) > todayIST
+        )
+      ),
+    [tasks, getTaskISTDate, todayIST]
+  );
 
   // Upcoming future scheduled tasks ordered by IST timestamp (auto-advances as serverNowMs crosses scheduledFor)
   const upcomingScheduledTasks = useMemo(
@@ -659,32 +750,55 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
 
   const nextUpcomingTask = upcomingScheduledTasks[0] || null;
 
-  // Immediate execution focus task (in-progress -> newly due/available -> overdue -> next upcoming)
+  // Immediate execution focus task (today in-progress -> today due/available -> today blocked/rejected -> today next scheduled -> overdue -> future upcoming)
   const nextEligibleTask = useMemo(() => {
-    const inProgress = activeTasks.find((t) => t.status === 'IN_PROGRESS');
-    if (inProgress) return inProgress;
+    const todayInProgress = todayRemainingTasks.find((t) => t.status === 'IN_PROGRESS');
+    if (todayInProgress) return todayInProgress;
 
-    const dueAvailable = activeTasks.filter((t) => {
+    const anyInProgress = activeTasks.find((t) => t.status === 'IN_PROGRESS');
+    if (anyInProgress) return anyInProgress;
+
+    const todayDueAvailable = todayRemainingTasks.filter((t) => {
       if (t.status !== 'AVAILABLE') return false;
       const schedMs = new Date(t.scheduledFor).getTime();
       return Number.isNaN(schedMs) || schedMs <= serverNowMs;
     });
-    if (dueAvailable.length > 0) {
-      // Surface urgent or most recently reached scheduled slot first
-      const sortedDue = [...dueAvailable].sort((a, b) => {
+    if (todayDueAvailable.length > 0) {
+      const sortedDue = [...todayDueAvailable].sort((a, b) => {
         if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
-        return (new Date(b.scheduledFor).getTime() || 0) - (new Date(a.scheduledFor).getTime() || 0);
+        return (new Date(a.scheduledFor).getTime() || 0) - (new Date(b.scheduledFor).getTime() || 0);
       });
       return sortedDue[0];
     }
 
-    const overdueOrRejected = activeTasks.find(
-      (t) => t.status === 'OVERDUE' || t.status === 'REJECTED' || t.status === 'BLOCKED'
+    const todayRejectedOrBlocked = todayRemainingTasks.find(
+      (t) => t.status === 'REJECTED' || t.status === 'BLOCKED'
     );
-    if (overdueOrRejected) return overdueOrRejected;
+    if (todayRejectedOrBlocked) return todayRejectedOrBlocked;
+
+    if (todayRemainingTasks.length > 0) {
+      return todayRemainingTasks[0];
+    }
+
+    if (overdueTasks.length > 0) {
+      return overdueTasks[0];
+    }
 
     return nextUpcomingTask || activeTasks[0] || null;
-  }, [activeTasks, serverNowMs, nextUpcomingTask]);
+  }, [todayRemainingTasks, activeTasks, serverNowMs, overdueTasks, nextUpcomingTask]);
+
+  const matchesTaskSearch = useCallback(
+    (t: Task): boolean => {
+      if (!taskSearch.trim()) return true;
+      const query = taskSearch.toLowerCase();
+      return (
+        t.title.toLowerCase().includes(query) ||
+        t.roomAreaName.toLowerCase().includes(query) ||
+        t.priority.toLowerCase().includes(query)
+      );
+    },
+    [taskSearch]
+  );
 
   const filteredTasks = useMemo(() => {
     return sortTasksChronologically(tasks).filter((t) => {
@@ -695,17 +809,22 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
       if (taskFilterStatus === 'PENDING' && t.status !== 'PENDING_VERIFICATION') return false;
       if (taskFilterStatus === 'COMPLETED' && t.status !== 'COMPLETED') return false;
       if (taskFilterStatus === 'CANCELLED' && t.status !== 'CANCELLED') return false;
-      if (taskSearch.trim()) {
-        const query = taskSearch.toLowerCase();
-        return (
-          t.title.toLowerCase().includes(query) ||
-          t.roomAreaName.toLowerCase().includes(query) ||
-          t.priority.toLowerCase().includes(query)
-        );
-      }
-      return true;
+      return matchesTaskSearch(t);
     });
-  }, [tasks, taskFilterStatus, taskSearch]);
+  }, [tasks, taskFilterStatus, matchesTaskSearch]);
+
+  const filteredTodayTasks = useMemo(
+    () => todayTasks.filter(matchesTaskSearch),
+    [todayTasks, matchesTaskSearch]
+  );
+  const filteredOverdueTasks = useMemo(
+    () => overdueTasks.filter(matchesTaskSearch),
+    [overdueTasks, matchesTaskSearch]
+  );
+  const filteredUpcomingDateTasks = useMemo(
+    () => upcomingDateTasks.filter(matchesTaskSearch),
+    [upcomingDateTasks, matchesTaskSearch]
+  );
 
   // Priority Styling Helper
   const getPriorityStyle = (priority: TaskPriority) => {
@@ -751,7 +870,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
   // Nav Items definition filtered by Admin Permissions
   const allNavItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'myTasks' as const, label: 'My Tasks', icon: ListTodo, badge: activeTasks.length },
+    { id: 'myTasks' as const, label: 'My Tasks', icon: ListTodo, badge: todayRemainingTasks.length },
     { id: 'roomSupport' as const, label: 'Room Support', icon: DoorOpen, badge: rooms.filter((r) => r.status === 'PREPARATION_REQUIRED' || r.status === 'CLEANING_REQUIRED').length },
     { id: 'pantryRequests' as const, label: 'Pantry Requests', icon: Coffee, badge: pantryRequests.filter((p) => p.status === 'PENDING').length },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, badge: unreadNotifCount },
@@ -1243,9 +1362,19 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
               <div className="flex items-center sm:flex-col sm:items-end justify-between border-t border-slate-800 sm:border-0 pt-3 sm:pt-0">
                 <div className="text-xs text-slate-400">Today's Remaining</div>
                 <div className="text-2xl font-bold text-white font-mono tabular-nums flex items-baseline gap-1.5">
-                  {activeTasks.length}{' '}
-                  <span className="text-xs font-normal text-slate-400">tasks pending</span>
+                  {todayRemainingTasks.length}{' '}
+                  <span className="text-xs font-normal text-slate-400">tasks today</span>
                 </div>
+                {(overdueTasks.length > 0 || upcomingDateTasks.length > 0) && (
+                  <div className="text-[10px] font-mono text-slate-400 mt-0.5 flex items-center gap-2">
+                    {overdueTasks.length > 0 && (
+                      <span className="text-rose-300">{overdueTasks.length} overdue</span>
+                    )}
+                    {upcomingDateTasks.length > 0 && (
+                      <span className="text-indigo-300">{upcomingDateTasks.length} upcoming</span>
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => logout()}
@@ -1309,11 +1438,17 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
 
                 <Card3D className="p-4 rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                    <span>Active Tasks</span>
+                    <span>Today's Tasks</span>
                     <ListTodo className="w-4 h-4 text-amber-600" />
                   </div>
-                  <div className="text-lg font-bold text-slate-900 font-mono tabular-nums">{activeTasks.length}</div>
-                  <div className="text-[11px] text-slate-500 mt-1">{completedTasks.length} verified today</div>
+                  <div className="text-lg font-bold text-slate-900 font-mono tabular-nums">
+                    {todayRemainingTasks.length}
+                    <span className="text-xs font-normal text-slate-400 ml-1">/ {todayTasks.length}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    {todayCompletedTasks.length} verified today
+                    {overdueTasks.length > 0 ? ` · ${overdueTasks.length} overdue` : ''}
+                  </div>
                 </Card3D>
 
                 <Card3D className="p-4 rounded-xl border border-slate-200">
@@ -1337,6 +1472,47 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                   </div>
                   <div className="text-[11px] text-purple-600 font-medium mt-1">Pending Beverage Orders</div>
                 </Card3D>
+              </div>
+
+              {/* Daily IST Schedule Protocol Overview */}
+              <div className="bg-white rounded-2xl p-4 border border-amber-200/80 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Daily IST Routine Schedule ({todayIST})
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    5-min warning &amp; due-time alerts active
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 text-[11px]">
+                  <div className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/60">
+                    <div className="font-mono font-bold text-amber-900">09:00–09:30 AM</div>
+                    <div className="text-slate-700 font-medium mt-0.5">Reception &amp; Employee Desks</div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-sky-50/60 border border-sky-200/60">
+                    <div className="font-mono font-bold text-sky-900">10:00 AM</div>
+                    <div className="text-slate-700 font-medium mt-0.5">Deliver Desk Water Bottles</div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-indigo-50/60 border border-indigo-200/60">
+                    <div className="font-mono font-bold text-indigo-900">By 11:00 AM</div>
+                    <div className="text-slate-700 font-medium mt-0.5">Priority 1 Rooms (5)</div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="font-mono font-bold text-slate-900">By 12:00 PM</div>
+                    <div className="text-slate-700 font-medium mt-0.5">Priority 2 Rooms (4)</div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-emerald-50/60 border border-emerald-200/60">
+                    <div className="font-mono font-bold text-emerald-900">12:00 PM</div>
+                    <div className="text-slate-700 font-medium mt-0.5">Water All Office Plants</div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-blue-50/60 border border-blue-200/60">
+                    <div className="font-mono font-bold text-blue-900">04:00 PM</div>
+                    <div className="text-slate-700 font-medium mt-0.5">Refill Desk Water Bottles</div>
+                  </div>
+                </div>
               </div>
 
               {/* Current Focus Task & Live Next Upcoming Scheduled Countdown */}
@@ -1466,7 +1642,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
 
                     <div className="pt-3 mt-3 border-t border-slate-800 flex items-center justify-between gap-2">
                       <span className="text-[11px] text-slate-400 font-mono">
-                        {upcomingScheduledTasks.length} upcoming
+                        {upcomingScheduledTasks.length} scheduled ahead
                       </span>
                       <button
                         type="button"
@@ -1480,31 +1656,47 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                 )}
               </div>
 
-              {/* Chronological Scheduled Tasks Queue (IST Synchronized) */}
-              {activeTasks.length > 0 && (
-                <Card3D maxTilt={1.2} liftPx={2.5} className="rounded-2xl p-5 border border-slate-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                    <div>
+              {/* SECTION 1: TODAY'S TASKS ONLY (IST Synchronized) */}
+              <Card3D maxTilt={1.2} liftPx={2.5} className="rounded-2xl p-5 border border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-indigo-600" />
-                        <span>Scheduled Tasks Timeline (IST)</span>
+                        <Calendar className="w-4 h-4 text-amber-600" />
+                        <span>Today's Tasks ({todayIST} · IST)</span>
                       </h3>
-                      <p className="text-xs text-slate-500">
-                        Ordered by scheduled date &amp; time · Live server-synced countdowns
-                      </p>
+                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                        {todayRemainingTasks.length} Remaining · {todayCompletedTasks.length} Done
+                      </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('myTasks')}
-                      className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 cursor-pointer self-start sm:self-auto"
-                    >
-                      <span>View Full Task List ({activeTasks.length})</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Showing only today's scheduled &amp; active tasks in chronological IST order
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskFilterStatus('ALL');
+                      setActiveTab('myTasks');
+                    }}
+                    className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                  >
+                    <span>Open My Tasks ({todayTasks.length} Today)</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
 
+                {todayTasks.length === 0 ? (
+                  <div className="p-6 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60">
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1.5" />
+                    <div className="text-xs font-bold text-slate-900">No active tasks remaining in Today's Tasks</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Overdue and future-dated upcoming tasks are organized in separate sections below.
+                    </p>
+                  </div>
+                ) : (
                   <div className="space-y-2.5">
-                    {activeTasks.slice(0, 8).map((task) => {
+                    {todayTasks.map((task) => {
                       const schedMs = new Date(task.scheduledFor).getTime();
                       const msUntil = schedMs - serverNowMs;
                       const isUpcomingSoon =
@@ -1518,14 +1710,14 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                         <div
                           key={task.id}
                           className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                            task.status === 'IN_PROGRESS'
+                            task.status === 'COMPLETED'
+                              ? 'border-emerald-200/80 bg-emerald-50/25 opacity-85'
+                              : task.status === 'IN_PROGRESS'
                               ? 'border-amber-300 bg-amber-50/40'
                               : isDueRightNow
                               ? 'border-emerald-400 bg-emerald-50/40 ring-1 ring-emerald-200'
                               : isUpcomingSoon
                               ? 'border-amber-300 bg-amber-50/30'
-                              : task.status === 'OVERDUE'
-                              ? 'border-rose-200 bg-rose-50/30'
                               : 'border-slate-200 hover:border-slate-300'
                           }`}
                         >
@@ -1556,7 +1748,9 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                               )}
                             </div>
 
-                            <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">{task.title}</div>
+                            <div className={`text-xs sm:text-sm font-bold truncate ${task.status === 'COMPLETED' ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                              {task.title}
+                            </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                               <span className="font-semibold text-slate-700 flex items-center gap-1">
@@ -1572,9 +1766,19 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                             <button
                               type="button"
                               onClick={() => setSelectedTask(task)}
-                              className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
+                                task.status === 'COMPLETED'
+                                  ? 'text-emerald-800 bg-emerald-100 hover:bg-emerald-200'
+                                  : 'text-slate-900 bg-amber-400 hover:bg-amber-300'
+                              }`}
                             >
-                              <span>{task.status === 'IN_PROGRESS' ? 'Continue' : 'Open'}</span>
+                              <span>
+                                {task.status === 'COMPLETED'
+                                  ? 'View'
+                                  : task.status === 'IN_PROGRESS'
+                                  ? 'Continue'
+                                  : 'Open'}
+                              </span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -1582,15 +1786,137 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                       );
                     })}
                   </div>
+                )}
+              </Card3D>
+
+              {/* SECTION 2 & SECTION 3: SEPARATE OVERDUE TASKS & UPCOMING TASKS */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Separate Overdue Tasks Section */}
+                <Card3D maxTilt={1.4} liftPx={2.5} className="rounded-2xl p-5 border border-rose-200/80">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600" />
+                        <span>Overdue Tasks</span>
+                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                          {overdueTasks.length}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Past-due tasks separated from Today's Tasks
+                      </p>
+                    </div>
+                    {overdueTasks.length > 5 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTaskFilterStatus('OVERDUE');
+                          setActiveTab('myTasks');
+                        }}
+                        className="text-xs font-bold text-rose-700 hover:text-rose-800 cursor-pointer"
+                      >
+                        View All ({overdueTasks.length})
+                      </button>
+                    )}
+                  </div>
+
+                  {overdueTasks.length === 0 ? (
+                    <div className="p-5 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500">
+                      Zero overdue tasks. All past deadlines are clear.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {overdueTasks.slice(0, 5).map((task) => (
+                        <div
+                          key={task.id}
+                          className="p-3 rounded-xl border border-rose-200 bg-rose-50/30 flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">
+                                {formatISTScheduleBadge(task.scheduledFor, serverNowMs)}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500">Due {task.dueTime}</span>
+                            </div>
+                            <div className="text-xs font-bold text-slate-900 truncate">{task.title}</div>
+                            <div className="text-[11px] text-slate-600 truncate">{task.roomAreaName}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTask(task)}
+                            className="px-2.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shrink-0 cursor-pointer"
+                          >
+                            Resolve
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </Card3D>
-              )}
+
+                {/* Separate Upcoming Tasks Section (Future Dates > Today) */}
+                <Card3D maxTilt={1.4} liftPx={2.5} className="rounded-2xl p-5 border border-indigo-200/80">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-indigo-600" />
+                        <span>Upcoming Tasks</span>
+                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                          {upcomingDateTasks.length}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Future-date tasks scheduled beyond today ({todayIST})
+                      </p>
+                    </div>
+                  </div>
+
+                  {upcomingDateTasks.length === 0 ? (
+                    <div className="p-5 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500">
+                      <div>No tasks scheduled for future dates beyond today.</div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        Recurring daily tasks auto-generate each morning in IST.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {upcomingDateTasks.slice(0, 5).map((task) => (
+                        <div
+                          key={task.id}
+                          className="p-3 rounded-xl border border-indigo-200 bg-indigo-50/30 flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">
+                                {formatISTScheduleBadge(task.scheduledFor, serverNowMs)}
+                              </span>
+                              <span className="text-[10px] font-mono text-indigo-700 font-semibold">
+                                {formatCountdownLabel(task.scheduledFor, serverNowMs)}
+                              </span>
+                            </div>
+                            <div className="text-xs font-bold text-slate-900 truncate">{task.title}</div>
+                            <div className="text-[11px] text-slate-600 truncate">{task.roomAreaName}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTask(task)}
+                            className="px-2.5 py-1.5 text-xs font-bold text-indigo-900 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors shrink-0 cursor-pointer"
+                          >
+                            Details
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card3D>
+              </div>
 
               {/* Quick Room Status Glance */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Office Room Status Glance</h3>
-                    <p className="text-xs text-slate-500">Live readiness across all 15 configured spaces</p>
+                    <p className="text-xs text-slate-500">Live readiness across all {rooms.length} configured spaces</p>
                   </div>
                   <button
                     type="button"
@@ -1613,6 +1939,11 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                     >
                       <div className="font-semibold text-slate-900 truncate">{room.name}</div>
                       <div className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{room.status}</div>
+                      {room.setupConfig?.summary && (
+                        <div className="text-[10px] text-amber-800 font-medium mt-0.5 truncate">
+                          {room.setupConfig.summary}
+                        </div>
+                      )}
                     </Card3D>
                   ))}
                 </div>
@@ -1621,10 +1952,10 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
           )}
 
           {/* ------------------------------------------------------------------- */}
-          {/* TAB 2: MY TASKS (Filterable, Actionable)                             */}
+          {/* TAB 2: MY TASKS (Today's Tasks, Overdue & Upcoming Separated)       */}
           {/* ------------------------------------------------------------------- */}
           {activeTab === 'myTasks' && (
-            <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="space-y-5 animate-in fade-in duration-200">
               {/* Header & Filter Controls */}
               <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1641,11 +1972,11 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
 
                   <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
                     {[
-                      { key: 'ALL', label: `All (${tasks.length})` },
+                      { key: 'ALL', label: `Sections (${todayTasks.length} Today)` },
                       { key: 'SCHEDULED', label: 'Scheduled' },
                       { key: 'AVAILABLE', label: 'Due / Available' },
                       { key: 'IN_PROGRESS', label: 'In Progress' },
-                      { key: 'OVERDUE', label: 'Overdue' },
+                      { key: 'OVERDUE', label: `Overdue (${overdueTasks.length})` },
                       { key: 'PENDING', label: 'Review' },
                       { key: 'COMPLETED', label: 'Completed' },
                       { key: 'CANCELLED', label: 'Cancelled' },
@@ -1675,93 +2006,186 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                 </div>
               </div>
 
-              {/* Task Cards List */}
-              {filteredTasks.length === 0 ? (
-                <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
-                  <Info className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <div className="text-xs font-bold text-slate-900">No tasks found</div>
-                  <p className="text-[11px] text-slate-500 mt-1">Try resetting search or filter filters.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {filteredTasks.map((task) => {
-                    const completedItems = task.checklist.filter((c) => c.completed).length;
-                    const totalItems = task.checklist.length;
-                    const schedMs = new Date(task.scheduledFor).getTime();
-                    const msUntil = schedMs - serverNowMs;
-                    return (
-                      <Card3D
-                        key={task.id}
-                        maxTilt={2.2}
-                        liftPx={3}
-                        className={`p-4 rounded-2xl border flex flex-col justify-between ${
-                          task.status === 'CANCELLED'
-                            ? 'opacity-65 border-slate-200 bg-slate-50'
-                            : task.isUrgent
-                            ? 'border-l-4 border-l-rose-600 border-slate-200'
-                            : 'border-slate-200'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(task.priority)}`}>
-                                {task.priority}
-                              </span>
-                              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
-                                {formatISTScheduleBadge(task.scheduledFor, serverNowMs)}
-                              </span>
-                            </div>
-                            <div className="shrink-0">{getStatusBadge(task.status)}</div>
-                          </div>
-
-                          <h3 className="text-sm font-bold text-slate-900 mb-1 leading-snug">{task.title}</h3>
-
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2">
-                            <span className="font-semibold text-slate-700 flex items-center gap-1">
-                              <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                              {task.roomAreaName}
+              {(() => {
+                const renderPantryTaskCard = (task: Task) => {
+                  const completedItems = task.checklist.filter((c) => c.completed).length;
+                  const totalItems = task.checklist.length;
+                  const schedMs = new Date(task.scheduledFor).getTime();
+                  const msUntil = schedMs - serverNowMs;
+                  return (
+                    <Card3D
+                      key={task.id}
+                      maxTilt={2.2}
+                      liftPx={3}
+                      className={`p-4 rounded-2xl border flex flex-col justify-between ${
+                        task.status === 'CANCELLED'
+                          ? 'opacity-65 border-slate-200 bg-slate-50'
+                          : task.isUrgent
+                          ? 'border-l-4 border-l-rose-600 border-slate-200'
+                          : 'border-slate-200'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getPriorityStyle(task.priority)}`}>
+                              {task.priority}
                             </span>
-                            <span>•</span>
-                            <span className="font-mono text-[11px] flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-slate-400" /> Due {task.dueTime}
+                            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
+                              {formatISTScheduleBadge(task.scheduledFor, serverNowMs)}
                             </span>
-                            {(task.status === 'SCHEDULED' || task.status === 'AVAILABLE') && msUntil > 0 && (
-                              <>
-                                <span>•</span>
-                                <span className="font-mono font-bold text-[11px] text-amber-700 tabular-nums">
-                                  {formatCountdownLabel(task.scheduledFor, serverNowMs)}
-                                </span>
-                              </>
-                            )}
                           </div>
+                          <div className="shrink-0">{getStatusBadge(task.status)}</div>
+                        </div>
 
-                          {task.description && (
-                            <p className="text-xs text-slate-600 line-clamp-2 mb-3 bg-slate-50 p-2 rounded-lg">
-                              {task.description}
-                            </p>
+                        <h3 className="text-sm font-bold text-slate-900 mb-1 leading-snug">{task.title}</h3>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2">
+                          <span className="font-semibold text-slate-700 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            {task.roomAreaName}
+                          </span>
+                          <span>•</span>
+                          <span className="font-mono text-[11px] flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400" /> Due {task.dueTime}
+                          </span>
+                          {(task.status === 'SCHEDULED' || task.status === 'AVAILABLE') && msUntil > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono font-bold text-[11px] text-amber-700 tabular-nums">
+                                {formatCountdownLabel(task.scheduledFor, serverNowMs)}
+                              </span>
+                            </>
                           )}
                         </div>
 
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                          <span className="text-slate-500 font-mono text-[11px]">
-                            {completedItems}/{totalItems} Done
-                          </span>
+                        {task.description && (
+                          <p className="text-xs text-slate-600 line-clamp-2 mb-3 bg-slate-50 p-2 rounded-lg">
+                            {task.description}
+                          </p>
+                        )}
+                      </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setSelectedTask(task)}
-                            className="px-3.5 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>Open Task</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span className="text-slate-500 font-mono text-[11px]">
+                          {completedItems}/{totalItems} Done
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTask(task)}
+                          className="px-3.5 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Open Task</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </Card3D>
+                  );
+                };
+
+                if (taskFilterStatus === 'ALL') {
+                  return (
+                    <div className="space-y-6">
+                      {/* 1. Today's Tasks Only */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-amber-600" />
+                              <span>Today's Tasks ({todayIST} · IST)</span>
+                              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                                {filteredTodayTasks.length}
+                              </span>
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Strictly today's scheduled &amp; active tasks (overdue and upcoming tasks are separated below)
+                            </p>
+                          </div>
                         </div>
-                      </Card3D>
-                    );
-                  })}
-                </div>
-              )}
+
+                        {filteredTodayTasks.length === 0 ? (
+                          <div className="p-6 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
+                            No tasks in Today's Tasks match your current search.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            {filteredTodayTasks.map(renderPantryTaskCard)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. Separate Overdue Tasks Section */}
+                      <div className="space-y-3 pt-2 border-t border-slate-200/80">
+                        <div className="flex items-center justify-between px-1">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 text-rose-600" />
+                              <span>Overdue Tasks</span>
+                              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                                {filteredOverdueTasks.length}
+                              </span>
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Uncompleted tasks past their scheduled IST due time or from prior dates
+                            </p>
+                          </div>
+                        </div>
+
+                        {filteredOverdueTasks.length === 0 ? (
+                          <div className="p-5 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
+                            No overdue tasks.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            {filteredOverdueTasks.map(renderPantryTaskCard)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. Separate Upcoming Tasks Section */}
+                      <div className="space-y-3 pt-2 border-t border-slate-200/80">
+                        <div className="flex items-center justify-between px-1">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-indigo-600" />
+                              <span>Upcoming Tasks</span>
+                              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                                {filteredUpcomingDateTasks.length}
+                              </span>
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Future tasks scheduled for dates after {todayIST}
+                            </p>
+                          </div>
+                        </div>
+
+                        {filteredUpcomingDateTasks.length === 0 ? (
+                          <div className="p-5 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
+                            No upcoming tasks scheduled beyond today ({todayIST}).
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            {filteredUpcomingDateTasks.map(renderPantryTaskCard)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return filteredTasks.length === 0 ? (
+                  <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
+                    <Info className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <div className="text-xs font-bold text-slate-900">No tasks found</div>
+                    <p className="text-[11px] text-slate-500 mt-1">Try resetting search or status filters.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {filteredTasks.map(renderPantryTaskCard)}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1773,7 +2197,9 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Room Support & Hospitality</h2>
-                  <p className="text-xs text-slate-500">Live room readiness, water carafe replenishment, and meeting setup for 15 office rooms.</p>
+                  <p className="text-xs text-slate-500">
+                    Verified room configurations (Standard: 1 table + 4 chairs · The Community: 1 large table + 10 chairs), water replenishment, and readiness by 11:00 AM IST.
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                   <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
@@ -1812,6 +2238,12 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                       </div>
 
                       <h3 className="text-sm font-bold text-slate-900 mb-1">{room.name}</h3>
+                      {room.setupConfig?.summary && (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/80 text-[11px] font-mono font-semibold text-amber-900 mb-1">
+                          <Layers className="w-3 h-3 text-amber-600" />
+                          <span>Verified Setup: {room.setupConfig.summary}</span>
+                        </div>
+                      )}
 
                       <div className="space-y-1.5 text-xs text-slate-600 my-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                         <div className="flex items-center gap-1.5 font-semibold text-slate-700">
@@ -2293,6 +2725,14 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                     {selectedTask.priority}
                   </span>
                   <span className="text-xs font-bold text-slate-800">{selectedTask.roomAreaName}</span>
+                  {(() => {
+                    const matchedRoom = rooms.find((r) => r.id === selectedTask.roomAreaId);
+                    return matchedRoom?.setupConfig?.summary ? (
+                      <span className="text-[11px] font-mono font-semibold text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        Setup: {matchedRoom.setupConfig.summary}
+                      </span>
+                    ) : null;
+                  })()}
                   <span className="text-xs font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
                     {formatISTScheduleBadge(selectedTask.scheduledFor, serverNowMs)}
                   </span>
