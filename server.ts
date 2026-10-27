@@ -490,7 +490,7 @@ const INITIAL_ROOMS: RoomArea[] = [
     id: 'room-10',
     name: 'Elegance Suite (Kimmi Mam Room)',
     category: 'MEETING_SUITE',
-    defaultPriority: 'P3',
+    defaultPriority: 'P2',
     photoRequired: true,
     status: 'AVAILABLE',
     recurrence: 'DAILY',
@@ -767,11 +767,11 @@ function parseScheduledForIST(rawInput?: string, fallbackDate: Date = new Date()
 // - 10:00 AM: Deliver filled water bottles to every employee's desk
 // - Priority 2 — Complete by 12:00 PM:
 //     1. Lalit Sir Room (11:00 AM)
-//     2. Kimmi Mam Room (11:15 AM)
+//     2. Elegance Suite (Kimmi Mam Room) (11:15 AM)
 //     3. Prime Loft (11:30 AM)
 //     4. Regency (11:45 AM)
 // - 12:00 PM: Water all office plants
-// - Post-room sequence: Outer Area (12:20 PM), Elegance Suite (12:50 PM), Office Dustbins (02:00 PM)
+// - Post-room sequence: Outer Area (12:20 PM), Office Dustbins (02:00 PM)
 // - 4:00 PM: Refill & redistribute water bottles to every employee's desk
 // - 7:30 PM: Mandatory End-of-Day Office Closing Inspection
 const ROUTINE_SCHEDULE_SLOTS_IST: Record<string, { startHHMM: string; dueTime: string }> = {
@@ -784,11 +784,11 @@ const ROUTINE_SCHEDULE_SLOTS_IST: Record<string, { startHHMM: string; dueTime: s
   summit: { startHHMM: '10:25', dueTime: '11:00 AM' },
   'wcr-air': { startHHMM: '10:40', dueTime: '11:00 AM' },
   'exec-cabin': { startHHMM: '11:00', dueTime: '12:00 PM' },
+  elegance: { startHHMM: '11:15', dueTime: '12:00 PM' },
   'prime-loft': { startHHMM: '11:30', dueTime: '12:00 PM' },
   regency: { startHHMM: '11:45', dueTime: '12:00 PM' },
   plants: { startHHMM: '12:00', dueTime: '12:30 PM' },
   'outer-area': { startHHMM: '12:20', dueTime: '12:50 PM' },
-  elegance: { startHHMM: '12:50', dueTime: '01:20 PM' },
   dustbins: { startHHMM: '14:00', dueTime: '02:30 PM' },
   'water-4pm': { startHHMM: '16:00', dueTime: '04:30 PM' },
   closing: { startHHMM: '19:30', dueTime: '07:55 PM' },
@@ -806,6 +806,7 @@ const PRIORITY_1_ROUTINE_MAP: Array<{ roomId: string; slug: string; startHHMM: s
 // Priority 2 — Complete by 12:00 PM (strictly after Priority 1 rooms)
 const PRIORITY_2_ROUTINE_MAP: Array<{ roomId: string; slug: string; startHHMM: string; dueTime: string }> = [
   { roomId: 'room-3', slug: 'exec-cabin', startHHMM: '11:00', dueTime: '12:00 PM' },
+  { roomId: 'room-10', slug: 'elegance', startHHMM: '11:15', dueTime: '12:00 PM' },
   { roomId: 'room-11', slug: 'prime-loft', startHHMM: '11:30', dueTime: '12:00 PM' },
   { roomId: 'room-12', slug: 'regency', startHHMM: '11:45', dueTime: '12:00 PM' },
 ];
@@ -1156,34 +1157,6 @@ function generateDailyTasks(
     });
   }
 
-  const eleganceRoom = getActiveRoom('room-10');
-  if (eleganceRoom) {
-    preparedRoomNames.push(eleganceRoom.name);
-    const verifiedSetup = verifyRoomSetupConfig(eleganceRoom) || STANDARD_ROOM_SETUP;
-    const eleganceIso = buildISTIso(today, ROUTINE_SCHEDULE_SLOTS_IST.elegance.startHHMM);
-    const setupLabel = verifiedSetup.summary.replace(/\b\w/g, (m) => m.toUpperCase());
-    tasks.push({
-      id: `task-${today}-elegance`,
-      title: `12:50 PM – ${eleganceRoom.name} Cleaning & Prep (${setupLabel})`,
-      description: `Complete cleaning, table sanitization, chair alignment, and readiness verification for ${eleganceRoom.name} (verified setup: ${verifiedSetup.summary}).`,
-      roomAreaId: eleganceRoom.id,
-      roomAreaName: eleganceRoom.name,
-      priority: 'P3',
-      taskType: 'ROUTINE_CLEANING',
-      assignedToEmail: assignedPantry.email,
-      assignedToName: assignedPantry.name,
-      createdByEmail: 'system@whitecollarrealty.com',
-      createdByName: 'Automatic Daily IST Scheduler',
-      createdAt: createdMorningIso,
-      scheduledFor: eleganceIso,
-      dueTime: ROUTINE_SCHEDULE_SLOTS_IST.elegance.dueTime,
-      status: buildStatus(eleganceIso),
-      isUrgent: false,
-      checklist: toChecklistItems(buildVerifiedRoomChecklistStrings(eleganceRoom)),
-      changeHistory: [],
-    });
-  }
-
   const dustbinsRoom = getActiveRoom('room-13');
   if (dustbinsRoom) {
     const dustbinsIso = buildISTIso(today, ROUTINE_SCHEDULE_SLOTS_IST.dustbins.startHHMM);
@@ -1247,7 +1220,7 @@ function generateDailyTasks(
     const activeMeetingNames =
       preparedRoomNames.length > 0
         ? preparedRoomNames.join(', ')
-        : 'Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Prime Loft, Regency, Elegance Suite (Kimmi Mam Room)';
+        : 'Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency';
     tasks.push({
       id: `task-${today}-closing`,
       title: '7:30 PM – Mandatory End-of-Day Office Closing Inspection',
@@ -1682,8 +1655,8 @@ try {
         if (r.id === 'room-3') {
           r.name = 'Lalit Sir Room';
           r.defaultPriority = 'P2';
-        } else if (r.id === 'room-4') {
-          r.name = 'Kimmi Mam Room';
+        } else if (r.id === 'room-10') {
+          r.name = 'Elegance Suite (Kimmi Mam Room)';
           r.defaultPriority = 'P2';
         } else if (r.id === 'room-7') {
           r.name = 'Community';
@@ -1692,13 +1665,13 @@ try {
           r.defaultPriority = 'P1';
         } else if (r.id === 'room-11' || r.id === 'room-12') {
           r.defaultPriority = 'P2';
-        } else if (r.id === 'room-10' || r.id === 'room-14') {
+        } else if (r.id === 'room-14') {
           r.defaultPriority = 'P3';
         }
         if (r.name === 'BCR Air' || r.name === 'BCR AIR') r.name = 'WCR Air';
         if (r.name === 'Prime Block') r.name = 'Prime Loft';
         if (r.name === 'Residency' || r.name === 'Redeincy') r.name = 'Regency';
-        if (r.name === 'Allegation Suite' || r.name === 'Allegation') r.name = 'Elegance Suite (Kimmi Suite)';
+        if (r.name === 'Allegation Suite' || r.name === 'Allegation' || r.name === 'Elegance Suite (Kimmi Suite)' || r.name === 'Elegance Suite (Kimmi Mam Suite)') r.name = 'Elegance Suite (Kimmi Mam Room)';
         if (r.name === 'Skyline') r.name = 'The Skyline';
         if (typeof r.name === 'string' && r.name.includes('Prestige Block')) r.name = 'Prestige Loft';
         if (typeof r.name === 'string' && /^washrooms?(?:[ \t]+tasks?)?$/i.test(r.name.trim())) {
@@ -2002,16 +1975,18 @@ if (!db.attendance.some((a) => a.date === currentToday && a.role === 'PANTRY_BOY
   });
 }
 
+function saveDbStrict() {
+  const tmpFile = `${DB_FILE}.${Date.now()}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+  fs.writeFileSync(tmpFile, JSON.stringify(db, null, 2), 'utf-8');
+  fs.renameSync(tmpFile, DB_FILE);
+}
+
 function saveDb() {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
+    saveDbStrict();
   } catch (err) {
     console.error('Failed to write db file:', err);
   }
-}
-
-function saveDbStrict() {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
 }
 
 saveDb();
@@ -2413,8 +2388,9 @@ app.post('/api/auth/login', (req, res) => {
   );
 
   if (!user) {
-    return res.status(403).json({
-      error: 'Access denied: Only pre-approved White Collar Realty company accounts may access this portal.',
+    return res.status(401).json({
+      error: 'Authentication failed: Only pre-approved White Collar Realty company accounts may access this portal.',
+      code: 'UNAUTHORIZED_ACCOUNT',
     });
   }
 
@@ -2856,7 +2832,7 @@ app.get('/api/server-time', (_req, res) => {
   });
 });
 
-app.get('/api/realtime/stream', (req, res) => {
+app.get(['/api/realtime/stream', '/api/realtime'], (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -3675,7 +3651,7 @@ app.post('/api/tasks', (req, res) => {
   // Evaluate immediate or within-5-minute alert windows right away
   runTaskScheduleEngine();
 
-  res.json({ success: true, task: newTask, serverTime: now });
+  res.status(201).json({ success: true, task: newTask, serverTime: now });
 });
 
 // Edit, Reschedule, Reassign, or Cancel Task (Authorized Managers / Admin)
@@ -4794,8 +4770,8 @@ app.get('/api/reports/weekly', (req, res) => {
     photoVerificationScorePercent: totalPhotos > 0 ? Math.round((verifiedPhotos / totalPhotos) * 100) : 96,
     visitorPrepAverageMinutes: 8.4,
     keyRecommendations: [
-      'Employee Desk Cleaning completes first, followed by Priority 1 rooms by 11:00 AM IST (Prestige Loft, The Skyline, Community, The Summit, WCR Air) and Priority 2 rooms by 12:00 PM IST (Lalit Sir Room, Prime Loft, Regency).',
-      'Employee desk water distribution runs daily at 10:00 AM IST with full refill and redistribution at 4:00 PM IST, plus daily office plant watering at 12:00 PM IST and Elegance Suite (Kimmi Mam Room) prep at 12:50 PM IST.',
+      'Employee Desk Cleaning completes first, followed by Priority 1 rooms by 11:00 AM IST (Prestige Loft, The Skyline, Community, The Summit, WCR Air) and Priority 2 rooms by 12:00 PM IST (Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency).',
+      'Employee desk water distribution runs daily at 10:00 AM IST with full refill and redistribution at 4:00 PM IST, plus daily office plant watering at 12:00 PM IST.',
       'End-of-day office closing checklist triggers at 7:30 PM IST, ensuring room lockdown and sanitary readiness at day end.',
     ],
   };
@@ -5038,7 +5014,7 @@ app.get('/api/ai/operational-insights', (req, res) => {
 });
 
 // 10. Scheduler Trigger (Daily IST task milestones)
-app.post('/api/scheduler/trigger', (req, res) => {
+app.post(['/api/scheduler/trigger', '/api/scheduler/trigger-milestone'], (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !checkUserPermission(actor, 'tasks', 'create')) {
     return res.status(403).json({

@@ -1,0 +1,205 @@
+{
+  "total": 33,
+  "passed": 33,
+  "failed": 0,
+  "results": [
+    {
+      "suite": "Auth",
+      "testName": "Admin Login",
+      "passed": true,
+      "evidence": "Admin authenticated, token length: 69"
+    },
+    {
+      "suite": "Auth",
+      "testName": "Pantry Boy Login",
+      "passed": true,
+      "evidence": "Pantry boy authenticated: Raju Sharma"
+    },
+    {
+      "suite": "Auth",
+      "testName": "HR Login",
+      "passed": true,
+      "evidence": "HR authenticated: Priya Sen"
+    },
+    {
+      "suite": "Auth",
+      "testName": "Co-Founder Login",
+      "passed": true,
+      "evidence": "Co-Founder authenticated: Kimmi"
+    },
+    {
+      "suite": "Auth",
+      "testName": "Invalid Account Login Rejection",
+      "passed": true,
+      "evidence": "Rejected with HTTP 401"
+    },
+    {
+      "suite": "Auth",
+      "testName": "HMAC Tampered Token Rejection",
+      "passed": true,
+      "evidence": "Tampered token rejected with HTTP 401"
+    },
+    {
+      "suite": "Auth",
+      "testName": "Token Revocation on Logout",
+      "passed": true,
+      "evidence": "Logged out with 200, subsequent request returned HTTP 401"
+    },
+    {
+      "suite": "Auth",
+      "testName": "Pantry Boy Role Boundary (Pantry=true, Management=false)",
+      "passed": true,
+      "evidence": "Pantry Boy permissions: pantry=true, mgmt=false"
+    },
+    {
+      "suite": "Tasks",
+      "testName": "Task Creation",
+      "passed": true,
+      "evidence": "Task created successfully with ID: task-1793096609420-sua1, Priority: P2"
+    },
+    {
+      "suite": "Tasks",
+      "testName": "Task Editing",
+      "passed": true,
+      "evidence": "Task edited, new priority: P1"
+    },
+    {
+      "suite": "Tasks",
+      "testName": "Task Start Status Transition",
+      "passed": true,
+      "evidence": "Task status after start: IN_PROGRESS"
+    },
+    {
+      "suite": "Tasks",
+      "testName": "Tasks Retrieval",
+      "passed": true,
+      "evidence": "Retrieved 34 total tasks from database"
+    },
+    {
+      "suite": "Tasks",
+      "testName": "Task Sorting Order",
+      "passed": true,
+      "evidence": "Tasks verified sorted chronologically"
+    },
+    {
+      "suite": "BusinessRules",
+      "testName": "Pantry Boy Task Protected From Admin Deletion",
+      "passed": true,
+      "evidence": "Admin delete blocked with HTTP 403, code: PANTRY_TASK_NOT_DELETABLE"
+    },
+    {
+      "suite": "BusinessRules",
+      "testName": "Pantry Boy Task Protected From HR Deletion",
+      "passed": true,
+      "evidence": "HR delete blocked with HTTP 403"
+    },
+    {
+      "suite": "BusinessRules",
+      "testName": "Pantry Boy Cannot Delete Any Task",
+      "passed": true,
+      "evidence": "Pantry boy delete blocked with HTTP 403"
+    },
+    {
+      "suite": "BusinessRules",
+      "testName": "Eligible Non-Pantry Task Deletion by Admin",
+      "passed": true,
+      "evidence": "Eligible task task-1793096609420-sua1 deleted successfully: HTTP 200"
+    },
+    {
+      "suite": "Scheduling",
+      "testName": "Employee Desk Cleaning Scheduled First (9:00 AM)",
+      "passed": true,
+      "evidence": "Desk task found: 9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup, Due: 09:15 AM, Priority: P1"
+    },
+    {
+      "suite": "Scheduling",
+      "testName": "Priority-1 Rooms Due by 11:00 AM (Prestige, Skyline, Community, Summit, WCR Air)",
+      "passed": true,
+      "evidence": "Found 5/5 Priority-1 room tasks today, all due by 11:00 AM with P1 priority"
+    },
+    {
+      "suite": "Scheduling",
+      "testName": "Priority-2 Rooms Due by 12:00 PM (Lalit Sir Room, Elegance Suite, Prime Loft, Regency)",
+      "passed": true,
+      "evidence": "Found 4/4 Priority-2 room tasks today, all due by 12:00 PM with P2 priority"
+    },
+    {
+      "suite": "Scheduling",
+      "testName": "Elegance Suite Inheritance (P2, 11:15 AM, Due 12:00 PM)",
+      "passed": true,
+      "evidence": "Elegance task: By 12:00 PM – Elegance Suite (Kimmi Mam Room) Cleaning & Setup (1 Table + 4 Chairs), Room: Elegance Suite (Kimmi Mam Room), Priority: P2, Due: 12:00 PM"
+    },
+    {
+      "suite": "Scheduling",
+      "testName": "Priority-2 Sequence Order (Exec Cabin -> Elegance Suite -> Prime Loft -> Regency)",
+      "passed": true,
+      "evidence": "Sequence: Lalit Sir Room Cleaning & Setup (1 Table + 4 Chairs) -> Elegance Suite (Kimmi Mam Room) Cleaning & Setup (1 Table + 4 Chairs) -> Prime Loft Cleaning & Workstation Alignment -> Regency Cleaning & Setup (1 Table + 4 Chairs)"
+    },
+    {
+      "suite": "Naming",
+      "testName": "No Duplicated Words in Room Names",
+      "passed": true,
+      "evidence": "Room names checked: Reception, Employee Desks, Lalit Sir Room, Prestige Loft, The Skyline, Community, The Summit, WCR Air, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency, Office Dustbins, Outer Area, Office Plants"
+    },
+    {
+      "suite": "Naming",
+      "testName": "Single Canonical Elegance Suite (Kimmi Mam Room) Entry",
+      "passed": true,
+      "evidence": "Found 1 room: id=room-10, name=Elegance Suite (Kimmi Mam Room)"
+    },
+    {
+      "suite": "Naming",
+      "testName": "No Separate Kimmi Mam Room / room-4 Entry",
+      "passed": true,
+      "evidence": "room-4 present: false"
+    },
+    {
+      "suite": "Realtime",
+      "testName": "SSE Endpoint Connection & Streaming (/api/realtime)",
+      "passed": true,
+      "evidence": "Connection established with text/event-stream, event stream open"
+    },
+    {
+      "suite": "Automation",
+      "testName": "Milestone Scheduler Triggers (9AM, 10AM, 12PM, 4PM, Closing)",
+      "passed": true,
+      "evidence": "All 5 operational milestones triggered successfully with HTTP 200"
+    },
+    {
+      "suite": "Security",
+      "testName": "Unauthenticated Endpoint Protection (/api/audit)",
+      "passed": true,
+      "evidence": "Unauthenticated access blocked: HTTP 401"
+    },
+    {
+      "suite": "Security",
+      "testName": "Privilege Escalation Prevention (Pantry Boy cannot promote role)",
+      "passed": true,
+      "evidence": "Self-escalation blocked: HTTP 403"
+    },
+    {
+      "suite": "Security",
+      "testName": "Input Sanitization & Injection Defense",
+      "passed": true,
+      "evidence": "Injection payload handled safely without execution"
+    },
+    {
+      "suite": "Security",
+      "testName": "User Management RBAC (Pantry Boy cannot create users)",
+      "passed": true,
+      "evidence": "Create user blocked: HTTP 403"
+    },
+    {
+      "suite": "Reliability",
+      "testName": "Database File Integrity (data/smart_pantry_db.json)",
+      "passed": true,
+      "evidence": "JSON parsed successfully: 4 users, 14 rooms, 33 tasks"
+    },
+    {
+      "suite": "Reliability",
+      "testName": "Zero Duplicate Task IDs in Database",
+      "passed": true,
+      "evidence": "Found 33 tasks, 33 unique IDs"
+    }
+  ]
+}

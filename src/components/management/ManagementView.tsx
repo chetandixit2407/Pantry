@@ -142,7 +142,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
     (task?: Task | null): boolean => {
       if (!task) return false;
       const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
-      const targetUser = users.find((u) => u.email.toLowerCase() === assignedEmail);
+      const targetUser = allUsers.find((u) => u.email.toLowerCase() === assignedEmail);
       if (targetUser && targetUser.role === 'PANTRY_BOY') return true;
       if (targetUser && targetUser.role !== 'PANTRY_BOY') return false;
       const assignedName = (task.assignedToName || '').toLowerCase();
@@ -162,7 +162,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
       }
       return false;
     },
-    [users]
+    [allUsers]
   );
 
   useEffect(() => {
