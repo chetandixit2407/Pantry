@@ -1335,8 +1335,50 @@
         "Sweep entrance walkway, outer porch, and doormat zone",
         "Verify spotless passageways and capture outer/corridor photo evidence"
       ],
-      "assignmentHistory": [],
-      "statusHistory": [],
+      "assignmentHistory": [
+        {
+          "id": "assign-emp-1793106196779-eqce",
+          "roomAreaId": "room-14",
+          "roomAreaName": "Outer Area",
+          "visitorName": "Raju Sharma",
+          "reference": "Staff Assignment: Raju Sharma (Hospitality & Operations Team A)",
+          "expectedArrival": "Active Assigned",
+          "expectedDuration": "Standing Assignment",
+          "prepRequirements": [
+            "Verify room setup",
+            "Clean desk and surfaces"
+          ],
+          "waterRequirements": "1 Bottle on Desk",
+          "priority": "P2",
+          "instructions": "Assigned by Kimmi (KIMMY_MAM)",
+          "assignedBy": "Kimmi (KIMMY_MAM)",
+          "assignedAt": "2026-10-27T13:03:16.779Z",
+          "status": "COMPLETED",
+          "assignedEmployeeId": "user-pantry-1",
+          "assignedEmployeeName": "Raju Sharma",
+          "assignedEmployeeEmail": "raju.sharma@whitecollarrealty.com",
+          "releasedAt": "2026-10-27T13:03:18.740Z"
+        }
+      ],
+      "statusHistory": [
+        {
+          "id": "hist-1793106198740",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T13:03:18.740Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Unassigned room from Raju Sharma by Kimmi (KIMMY_MAM)"
+        },
+        {
+          "id": "hist-1793106196779",
+          "status": "ASSIGNED",
+          "timestamp": "2026-10-27T13:03:16.779Z",
+          "actorName": "Kimmi",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "note": "Assigned room to employee Raju Sharma (raju.sharma@whitecollarrealty.com)",
+          "assignmentId": "assign-emp-1793106196779-eqce"
+        }
+      ],
       "currentAssignment": null
     },
     {
@@ -1377,326 +1419,9 @@
         }
       ],
       "currentAssignment": null
-    },
-    {
-      "id": "room-1793100151762",
-      "name": "Audit Test Suite Room",
-      "category": "MEETING_SUITE",
-      "defaultPriority": "P1",
-      "photoRequired": true,
-      "status": "AVAILABLE",
-      "recurrence": "ON_DEMAND",
-      "enabled": true,
-      "setupConfig": {
-        "tables": 1,
-        "tableType": "standard",
-        "chairs": 6,
-        "summary": "1 table + 6 chairs"
-      },
-      "defaultChecklist": [
-        "Sanitize conference table",
-        "Align 6 chairs",
-        "Verify readiness"
-      ],
-      "currentAssignment": null,
-      "assignmentHistory": [],
-      "statusHistory": [
-        {
-          "id": "hist-1793100151762",
-          "status": "AVAILABLE",
-          "timestamp": "2026-10-27T11:22:31.762Z",
-          "actorName": "Operations Administrator",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "note": "Room created by Operations Administrator (ADMIN)"
-        }
-      ]
-    },
-    {
-      "id": "room-test-audit-1793100226892",
-      "name": "Audit Test Suite Room",
-      "category": "MEETING_SUITE",
-      "defaultPriority": "P1",
-      "photoRequired": true,
-      "status": "OCCUPIED",
-      "recurrence": "ON_DEMAND",
-      "enabled": true,
-      "setupConfig": {
-        "tables": 1,
-        "tableType": "standard",
-        "chairs": 6,
-        "summary": "1 table + 6 chairs"
-      },
-      "defaultChecklist": [
-        "Sanitize conference table",
-        "Align 6 chairs",
-        "Verify readiness"
-      ],
-      "currentAssignment": null,
-      "assignmentHistory": [],
-      "statusHistory": [
-        {
-          "id": "hist-1793100226947",
-          "status": "OCCUPIED",
-          "timestamp": "2026-10-27T11:23:46.947Z",
-          "actorName": "Operations Administrator",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "note": "Idempotent OCCUPIED transition",
-          "taskId": "task-water-room-test-audit-1793100226892-1793100226947-25ng"
-        },
-        {
-          "id": "hist-1793100226924",
-          "status": "VACANT",
-          "timestamp": "2026-10-27T11:23:46.924Z",
-          "actorName": "Operations Administrator",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "note": "Meeting concluded, guests departed",
-          "taskId": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte"
-        },
-        {
-          "id": "hist-1793100226904",
-          "status": "OCCUPIED",
-          "timestamp": "2026-10-27T11:23:46.904Z",
-          "actorName": "Operations Administrator",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "note": "Delegation arrived for executive meeting",
-          "taskId": "task-water-room-test-audit-1793100226892-1793100226904-bj4z"
-        },
-        {
-          "id": "hist-1793100226894",
-          "status": "AVAILABLE",
-          "timestamp": "2026-10-27T11:23:46.894Z",
-          "actorName": "Operations Administrator",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "note": "Room created by Operations Administrator (ADMIN)"
-        }
-      ]
     }
   ],
   "tasks": [
-    {
-      "id": "task-rearrange-room-6-1793104662940-jeyv",
-      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
-      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
-      "roomAreaId": "room-6",
-      "roomAreaName": "The Skyline",
-      "priority": "P2",
-      "taskType": "VISITOR_RESET",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
-      "createdByName": "Kimmi",
-      "createdAt": "2026-10-27T12:37:42.940Z",
-      "scheduledFor": "2026-10-27T12:37:42.940Z",
-      "dueTime": "Within 20 mins",
-      "status": "AVAILABLE",
-      "isUrgent": false,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture live photo verification to certify room readiness",
-          "completed": false
-        }
-      ],
-      "changeHistory": [
-        {
-          "timestamp": "2026-10-27T12:37:42.940Z",
-          "actorEmail": "kimmi.mam@whitecollarrealty.com",
-          "actorName": "Kimmi",
-          "fromStatus": "NONE",
-          "toStatus": "AVAILABLE",
-          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
-        }
-      ],
-      "dueAlertSentFor": "2026-10-27T12:37:42.940Z"
-    },
-    {
-      "id": "task-water-room-6-1793104662916-hff5",
-      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
-      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
-      "roomAreaId": "room-6",
-      "roomAreaName": "The Skyline",
-      "priority": "URGENT",
-      "taskType": "WATER_DISTRIBUTION",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "admin.director@whitecollarrealty.com",
-      "createdByName": "Operations Administrator",
-      "createdAt": "2026-10-27T12:37:42.916Z",
-      "scheduledFor": "2026-10-27T12:37:42.916Z",
-      "dueTime": "Immediate (within 10 mins)",
-      "status": "AVAILABLE",
-      "isUrgent": true,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Deliver fresh drinking water bottles to The Skyline",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Place clean glasses and coasters neatly at occupied seating positions",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture live verification photo of completed water service delivery",
-          "completed": false
-        }
-      ],
-      "changeHistory": [
-        {
-          "timestamp": "2026-10-27T12:37:42.916Z",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "actorName": "Operations Administrator",
-          "fromStatus": "NONE",
-          "toStatus": "AVAILABLE",
-          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
-        }
-      ],
-      "dueAlertSentFor": "2026-10-27T12:37:42.916Z"
-    },
-    {
-      "id": "task-rearrange-room-6-1793104466997-q7s1",
-      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
-      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
-      "roomAreaId": "room-6",
-      "roomAreaName": "The Skyline",
-      "priority": "P2",
-      "taskType": "VISITOR_RESET",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
-      "createdByName": "Kimmi",
-      "createdAt": "2026-10-27T12:34:26.997Z",
-      "scheduledFor": "2026-10-27T12:34:26.997Z",
-      "dueTime": "Within 20 mins",
-      "status": "AVAILABLE",
-      "isUrgent": false,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture live photo verification to certify room readiness",
-          "completed": false
-        }
-      ],
-      "changeHistory": [
-        {
-          "timestamp": "2026-10-27T12:34:26.997Z",
-          "actorEmail": "kimmi.mam@whitecollarrealty.com",
-          "actorName": "Kimmi",
-          "fromStatus": "NONE",
-          "toStatus": "AVAILABLE",
-          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
-        }
-      ],
-      "dueAlertSentFor": "2026-10-27T12:34:26.997Z"
-    },
-    {
-      "id": "task-water-room-6-1793104466981-sw4q",
-      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
-      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
-      "roomAreaId": "room-6",
-      "roomAreaName": "The Skyline",
-      "priority": "URGENT",
-      "taskType": "WATER_DISTRIBUTION",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "admin.director@whitecollarrealty.com",
-      "createdByName": "Operations Administrator",
-      "createdAt": "2026-10-27T12:34:26.981Z",
-      "scheduledFor": "2026-10-27T12:34:26.981Z",
-      "dueTime": "Immediate (within 10 mins)",
-      "status": "AVAILABLE",
-      "isUrgent": true,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Deliver fresh drinking water bottles to The Skyline",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Place clean glasses and coasters neatly at occupied seating positions",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture live verification photo of completed water service delivery",
-          "completed": false
-        }
-      ],
-      "changeHistory": [
-        {
-          "timestamp": "2026-10-27T12:34:26.981Z",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "actorName": "Operations Administrator",
-          "fromStatus": "NONE",
-          "toStatus": "AVAILABLE",
-          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
-        }
-      ],
-      "dueAlertSentFor": "2026-10-27T12:34:26.981Z"
-    },
     {
       "id": "task-2026-10-26-desks",
       "title": "9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup",
@@ -2386,7 +2111,7 @@
     {
       "id": "task-2026-10-26-outer-area",
       "title": "12:20 PM – Clean Areas Outside & Around Prepared Rooms",
-      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
+      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
       "roomAreaId": "room-14",
       "roomAreaName": "Outer Area",
       "priority": "P3",
@@ -2403,7 +2128,7 @@
       "checklist": [
         {
           "id": "c-1",
-          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
+          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
           "completed": false
         },
         {
@@ -2592,7 +2317,7 @@
         },
         {
           "id": "c-4",
-          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
+          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
           "completed": false
         },
         {
@@ -3104,104 +2829,6 @@
       "overdueMarkedFor": "2026-10-27T05:10:00.000Z"
     },
     {
-      "id": "task-2026-10-27-room-room-1793100151762",
-      "title": "By 11:00 AM – Audit Test Suite Room Cleaning & Prep (1 Table + 6 Chairs)",
-      "description": "Complete cleaning, table sanitization, chair alignment, and readiness verification for Audit Test Suite Room (verified setup: 1 table + 6 chairs) before 11:00 AM IST.",
-      "roomAreaId": "room-1793100151762",
-      "roomAreaName": "Audit Test Suite Room",
-      "priority": "P1",
-      "taskType": "ROUTINE_CLEANING",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "system@whitecollarrealty.com",
-      "createdByName": "Automatic Daily IST Scheduler",
-      "createdAt": "2026-10-27T03:30:00.000Z",
-      "scheduledFor": "2026-10-27T05:18:00.000Z",
-      "dueTime": "11:00 AM",
-      "status": "OVERDUE",
-      "isUrgent": false,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Verify Audit Test Suite Room configuration: 1 table + 6 chairs present and undamaged",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Clean and align all 6 chairs neatly with uniform spacing",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture and upload live room readiness verification photo",
-          "completed": false
-        }
-      ],
-      "changeHistory": [],
-      "fiveMinAlertSentFor": "2026-10-27T05:18:00.000Z",
-      "dueAlertSentFor": "2026-10-27T05:18:00.000Z",
-      "overdueMarkedFor": "2026-10-27T05:18:00.000Z"
-    },
-    {
-      "id": "task-2026-10-27-room-room-test-audit-1793100226892",
-      "title": "By 11:00 AM – Audit Test Suite Room Cleaning & Prep (1 Table + 6 Chairs)",
-      "description": "Complete cleaning, table sanitization, chair alignment, and readiness verification for Audit Test Suite Room (verified setup: 1 table + 6 chairs) before 11:00 AM IST.",
-      "roomAreaId": "room-test-audit-1793100226892",
-      "roomAreaName": "Audit Test Suite Room",
-      "priority": "P1",
-      "taskType": "ROUTINE_CLEANING",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "system@whitecollarrealty.com",
-      "createdByName": "Automatic Daily IST Scheduler",
-      "createdAt": "2026-10-27T03:30:00.000Z",
-      "scheduledFor": "2026-10-27T05:20:00.000Z",
-      "dueTime": "11:00 AM",
-      "status": "OVERDUE",
-      "isUrgent": false,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Verify Audit Test Suite Room configuration: 1 table + 6 chairs present and undamaged",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Clean and align all 6 chairs neatly with uniform spacing",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture and upload live room readiness verification photo",
-          "completed": false
-        }
-      ],
-      "changeHistory": [],
-      "fiveMinAlertSentFor": "2026-10-27T05:20:00.000Z",
-      "dueAlertSentFor": "2026-10-27T05:20:00.000Z",
-      "overdueMarkedFor": "2026-10-27T05:20:00.000Z"
-    },
-    {
       "id": "task-2026-10-27-exec-cabin",
       "title": "By 12:00 PM – Lalit Sir Room Cleaning & Setup (1 Table + 4 Chairs)",
       "description": "Priority 2 schedule (complete by 12:00 PM IST): clean, sanitize, align chairs, and verify readiness for Lalit Sir Room (verified setup: 1 table + 4 chairs).",
@@ -3466,7 +3093,7 @@
     {
       "id": "task-2026-10-27-outer-area",
       "title": "12:20 PM – Clean Areas Outside & Around Prepared Rooms",
-      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
+      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
       "roomAreaId": "room-14",
       "roomAreaName": "Outer Area",
       "priority": "P3",
@@ -3483,7 +3110,7 @@
       "checklist": [
         {
           "id": "c-1",
-          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
+          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
           "completed": false
         },
         {
@@ -3619,204 +3246,6 @@
       "dueAlertSentFor": "2026-10-27T10:30:00.000Z"
     },
     {
-      "id": "task-water-room-test-audit-1793100226892-1793100226904-bj4z",
-      "title": "[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
-      "description": "Room \"Audit Test Suite Room\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
-      "roomAreaId": "room-test-audit-1793100226892",
-      "roomAreaName": "Audit Test Suite Room",
-      "priority": "URGENT",
-      "taskType": "WATER_DISTRIBUTION",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "admin.director@whitecollarrealty.com",
-      "createdByName": "Operations Administrator",
-      "createdAt": "2026-10-27T11:23:46.904Z",
-      "scheduledFor": "2026-10-27T11:23:46.904Z",
-      "dueTime": "Immediate (within 10 mins)",
-      "status": "OVERDUE",
-      "isUrgent": true,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Deliver fresh drinking water bottles to Audit Test Suite Room",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Place clean glasses and coasters neatly at occupied seating positions",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture live verification photo of completed water service delivery",
-          "completed": false
-        }
-      ],
-      "changeHistory": [
-        {
-          "timestamp": "2026-10-27T11:23:46.904Z",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "actorName": "Operations Administrator",
-          "fromStatus": "NONE",
-          "toStatus": "AVAILABLE",
-          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
-        },
-        {
-          "timestamp": "2026-10-27T12:28:45.666Z",
-          "actorEmail": "system@whitecollarrealty.com",
-          "actorName": "IST Task Scheduler",
-          "fromStatus": "AVAILABLE",
-          "toStatus": "OVERDUE",
-          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
-        }
-      ],
-      "dueAlertSentFor": "2026-10-27T11:23:46.904Z",
-      "fiveMinAlertSentFor": "2026-10-27T11:23:46.904Z",
-      "overdueMarkedFor": "2026-10-27T11:23:46.904Z"
-    },
-    {
-      "id": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte",
-      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in Audit Test Suite Room",
-      "description": "Room \"Audit Test Suite Room\" transitioned to VACANT. Restore room geometry: rearrange all 6 chairs around 1 table (1 table + 6 chairs), sanitize surfaces, and prepare room for next use.",
-      "roomAreaId": "room-test-audit-1793100226892",
-      "roomAreaName": "Audit Test Suite Room",
-      "priority": "P2",
-      "taskType": "VISITOR_RESET",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "admin.director@whitecollarrealty.com",
-      "createdByName": "Operations Administrator",
-      "createdAt": "2026-10-27T11:23:46.924Z",
-      "scheduledFor": "2026-10-27T11:23:46.924Z",
-      "dueTime": "Within 20 mins",
-      "status": "OVERDUE",
-      "isUrgent": false,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Clear used mineral water bottles, glasses, cups, and trash from Audit Test Suite Room",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Rearrange all 6 chairs neatly around the 1 table in standard geometric layout (1 table + 6 chairs)",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture live photo verification to certify room readiness",
-          "completed": false
-        }
-      ],
-      "changeHistory": [
-        {
-          "timestamp": "2026-10-27T11:23:46.924Z",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "actorName": "Operations Administrator",
-          "fromStatus": "NONE",
-          "toStatus": "AVAILABLE",
-          "note": "Auto-generated upon room transition to VACANT by Operations Administrator (ADMIN)"
-        },
-        {
-          "timestamp": "2026-10-27T12:28:45.666Z",
-          "actorEmail": "system@whitecollarrealty.com",
-          "actorName": "IST Task Scheduler",
-          "fromStatus": "AVAILABLE",
-          "toStatus": "OVERDUE",
-          "note": "Automatically marked OVERDUE past deadline (Within 20 mins)"
-        }
-      ],
-      "dueAlertSentFor": "2026-10-27T11:23:46.924Z",
-      "fiveMinAlertSentFor": "2026-10-27T11:23:46.924Z",
-      "overdueMarkedFor": "2026-10-27T11:23:46.924Z"
-    },
-    {
-      "id": "task-water-room-test-audit-1793100226892-1793100226947-25ng",
-      "title": "[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
-      "description": "Room \"Audit Test Suite Room\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
-      "roomAreaId": "room-test-audit-1793100226892",
-      "roomAreaName": "Audit Test Suite Room",
-      "priority": "URGENT",
-      "taskType": "WATER_DISTRIBUTION",
-      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
-      "assignedToName": "Raju Sharma",
-      "createdByEmail": "admin.director@whitecollarrealty.com",
-      "createdByName": "Operations Administrator",
-      "createdAt": "2026-10-27T11:23:46.947Z",
-      "scheduledFor": "2026-10-27T11:23:46.947Z",
-      "dueTime": "Immediate (within 10 mins)",
-      "status": "OVERDUE",
-      "isUrgent": true,
-      "checklist": [
-        {
-          "id": "c-1",
-          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
-          "completed": false
-        },
-        {
-          "id": "c-2",
-          "text": "Deliver fresh drinking water bottles to Audit Test Suite Room",
-          "completed": false
-        },
-        {
-          "id": "c-3",
-          "text": "Place clean glasses and coasters neatly at occupied seating positions",
-          "completed": false
-        },
-        {
-          "id": "c-4",
-          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
-          "completed": false
-        },
-        {
-          "id": "c-5",
-          "text": "Capture live verification photo of completed water service delivery",
-          "completed": false
-        }
-      ],
-      "changeHistory": [
-        {
-          "timestamp": "2026-10-27T11:23:46.947Z",
-          "actorEmail": "admin.director@whitecollarrealty.com",
-          "actorName": "Operations Administrator",
-          "fromStatus": "NONE",
-          "toStatus": "AVAILABLE",
-          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
-        },
-        {
-          "timestamp": "2026-10-27T12:28:45.666Z",
-          "actorEmail": "system@whitecollarrealty.com",
-          "actorName": "IST Task Scheduler",
-          "fromStatus": "AVAILABLE",
-          "toStatus": "OVERDUE",
-          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
-        }
-      ],
-      "dueAlertSentFor": "2026-10-27T11:23:46.947Z",
-      "fiveMinAlertSentFor": "2026-10-27T11:23:46.947Z",
-      "overdueMarkedFor": "2026-10-27T11:23:46.947Z"
-    },
-    {
       "id": "task-water-room-6-1793104317113-7sl5",
       "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
       "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
@@ -3831,7 +3260,7 @@
       "createdAt": "2026-10-27T12:31:57.113Z",
       "scheduledFor": "2026-10-27T12:31:57.113Z",
       "dueTime": "Immediate (within 10 mins)",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": true,
       "checklist": [
         {
@@ -3868,10 +3297,19 @@
           "fromStatus": "NONE",
           "toStatus": "AVAILABLE",
           "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        },
+        {
+          "timestamp": "2026-10-27T12:56:53.366Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
         }
       ],
       "dueAlertSentFor": "2026-10-27T12:31:57.113Z",
-      "fiveMinAlertSentFor": "2026-10-27T12:31:57.113Z"
+      "fiveMinAlertSentFor": "2026-10-27T12:31:57.113Z",
+      "overdueMarkedFor": "2026-10-27T12:31:57.113Z"
     },
     {
       "id": "task-rearrange-room-6-1793104317137-d6yp",
@@ -3888,7 +3326,7 @@
       "createdAt": "2026-10-27T12:31:57.137Z",
       "scheduledFor": "2026-10-27T12:31:57.137Z",
       "dueTime": "Within 20 mins",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": false,
       "checklist": [
         {
@@ -3925,10 +3363,19 @@
           "fromStatus": "NONE",
           "toStatus": "AVAILABLE",
           "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        },
+        {
+          "timestamp": "2026-10-27T12:56:53.366Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Within 20 mins)"
         }
       ],
       "dueAlertSentFor": "2026-10-27T12:31:57.137Z",
-      "fiveMinAlertSentFor": "2026-10-27T12:31:57.137Z"
+      "fiveMinAlertSentFor": "2026-10-27T12:31:57.137Z",
+      "overdueMarkedFor": "2026-10-27T12:31:57.137Z"
     },
     {
       "id": "task-water-room-6-1793104438987-smia",
@@ -3945,7 +3392,7 @@
       "createdAt": "2026-10-27T12:33:58.987Z",
       "scheduledFor": "2026-10-27T12:33:58.987Z",
       "dueTime": "Immediate (within 10 mins)",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": true,
       "checklist": [
         {
@@ -3982,9 +3429,19 @@
           "fromStatus": "NONE",
           "toStatus": "AVAILABLE",
           "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        },
+        {
+          "timestamp": "2026-10-27T12:56:53.366Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
         }
       ],
-      "dueAlertSentFor": "2026-10-27T12:33:58.987Z"
+      "dueAlertSentFor": "2026-10-27T12:33:58.987Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:33:58.987Z",
+      "overdueMarkedFor": "2026-10-27T12:33:58.987Z"
     },
     {
       "id": "task-rearrange-room-6-1793104439018-l8d3",
@@ -4001,7 +3458,7 @@
       "createdAt": "2026-10-27T12:33:59.018Z",
       "scheduledFor": "2026-10-27T12:33:59.018Z",
       "dueTime": "Within 20 mins",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": false,
       "checklist": [
         {
@@ -4038,9 +3495,283 @@
           "fromStatus": "NONE",
           "toStatus": "AVAILABLE",
           "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        },
+        {
+          "timestamp": "2026-10-27T12:56:53.366Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Within 20 mins)"
         }
       ],
-      "dueAlertSentFor": "2026-10-27T12:33:59.018Z"
+      "dueAlertSentFor": "2026-10-27T12:33:59.018Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:33:59.018Z",
+      "overdueMarkedFor": "2026-10-27T12:33:59.018Z"
+    },
+    {
+      "id": "task-water-room-6-1793104466981-sw4q",
+      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T12:34:26.981Z",
+      "scheduledFor": "2026-10-27T12:34:26.981Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "OVERDUE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:34:26.981Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        },
+        {
+          "timestamp": "2026-10-27T12:56:53.366Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:34:26.981Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:34:26.981Z",
+      "overdueMarkedFor": "2026-10-27T12:34:26.981Z"
+    },
+    {
+      "id": "task-rearrange-room-6-1793104466997-q7s1",
+      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "P2",
+      "taskType": "VISITOR_RESET",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
+      "createdByName": "Kimmi",
+      "createdAt": "2026-10-27T12:34:26.997Z",
+      "scheduledFor": "2026-10-27T12:34:26.997Z",
+      "dueTime": "Within 20 mins",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live photo verification to certify room readiness",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:34:26.997Z",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "actorName": "Kimmi",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        },
+        {
+          "timestamp": "2026-10-27T12:56:53.366Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Within 20 mins)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:34:26.997Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:34:26.997Z",
+      "overdueMarkedFor": "2026-10-27T12:34:26.997Z"
+    },
+    {
+      "id": "task-water-room-6-1793104662916-hff5",
+      "title": "[WATER SERVICE] Deliver Fresh Water to The Skyline",
+      "description": "Room \"The Skyline\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T12:37:42.916Z",
+      "scheduledFor": "2026-10-27T12:37:42.916Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "OVERDUE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:37:42.916Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        },
+        {
+          "timestamp": "2026-10-27T12:56:53.366Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Immediate (within 10 mins))"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:37:42.916Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:37:42.916Z",
+      "overdueMarkedFor": "2026-10-27T12:37:42.916Z"
+    },
+    {
+      "id": "task-rearrange-room-6-1793104662940-jeyv",
+      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in The Skyline",
+      "description": "Room \"The Skyline\" transitioned to VACANT. Restore room geometry: rearrange all 4 chairs around 1 table (1 table + 4 chairs), sanitize surfaces, and prepare room for next use.",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "P2",
+      "taskType": "VISITOR_RESET",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "kimmi.mam@whitecollarrealty.com",
+      "createdByName": "Kimmi",
+      "createdAt": "2026-10-27T12:37:42.940Z",
+      "scheduledFor": "2026-10-27T12:37:42.940Z",
+      "dueTime": "Within 20 mins",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clear used mineral water bottles, glasses, cups, and trash from The Skyline",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Rearrange all 4 chairs neatly around the 1 table in standard geometric layout (1 table + 4 chairs)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live photo verification to certify room readiness",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T12:37:42.940Z",
+          "actorEmail": "kimmi.mam@whitecollarrealty.com",
+          "actorName": "Kimmi",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
+        },
+        {
+          "timestamp": "2026-10-27T12:57:43.407Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (Within 20 mins)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T12:37:42.940Z",
+      "fiveMinAlertSentFor": "2026-10-27T12:37:42.940Z",
+      "overdueMarkedFor": "2026-10-27T12:37:42.940Z"
     },
     {
       "id": "task-2026-10-27-closing",
@@ -4077,7 +3808,7 @@
         },
         {
           "id": "c-4",
-          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
+          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
           "completed": false
         },
         {
@@ -4128,6 +3859,28 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793106198740-bs7d",
+      "timestamp": "2026-10-27T13:03:18.740Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_UNASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-14",
+      "details": "Unassigned room \"Outer Area\" from Raju Sharma by Kimmi (KIMMY_MAM)."
+    },
+    {
+      "id": "audit-1793106196780-a5mk",
+      "timestamp": "2026-10-27T13:03:16.780Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "ROOM_ASSIGNED_EMPLOYEE",
+      "entityType": "ROOM",
+      "entityId": "room-14",
+      "details": "Assigned room \"Outer Area\" to employee Raju Sharma (raju.sharma@whitecollarrealty.com) by Kimmi (KIMMY_MAM)."
+    },
     {
       "id": "audit-1793104662940-m5cb",
       "timestamp": "2026-10-27T12:37:42.940Z",
@@ -5251,72 +5004,6 @@
       "details": "Logged in successfully (Session wcr_sess_user-...)"
     },
     {
-      "id": "audit-1793100226963-r7zv",
-      "timestamp": "2026-10-27T11:23:46.963Z",
-      "actorEmail": "admin.director@whitecollarrealty.com",
-      "actorName": "Operations Administrator",
-      "actorRole": "ADMIN",
-      "action": "ROOM_STATUS_DUPLICATE_PREVENTED",
-      "entityType": "ROOM",
-      "entityId": "room-test-audit-1793100226892",
-      "details": "Idempotency key \"idemp-1793100226945-abc\" re-submitted for room \"Audit Test Suite Room\". Returning previously executed OCCUPIED transition without creating duplicates."
-    },
-    {
-      "id": "audit-1793100226947-wr38",
-      "timestamp": "2026-10-27T11:23:46.947Z",
-      "actorEmail": "admin.director@whitecollarrealty.com",
-      "actorName": "Operations Administrator",
-      "actorRole": "ADMIN",
-      "action": "ROOM_STATUS_TRANSITION",
-      "entityType": "ROOM",
-      "entityId": "room-test-audit-1793100226892",
-      "details": "Room \"Audit Test Suite Room\" transitioned from VACANT to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room\" (#task-water-room-test-audit-1793100226892-1793100226947-25ng) for Pantry Attendant Raju Sharma."
-    },
-    {
-      "id": "audit-1793100226941-ihn1",
-      "timestamp": "2026-10-27T11:23:46.941Z",
-      "actorEmail": "admin.director@whitecollarrealty.com",
-      "actorName": "Operations Administrator",
-      "actorRole": "ADMIN",
-      "action": "ROOM_STATUS_DUPLICATE_PREVENTED",
-      "entityType": "ROOM",
-      "entityId": "room-test-audit-1793100226892",
-      "details": "Room \"Audit Test Suite Room\" is already VACANT. Duplicate transition ignored."
-    },
-    {
-      "id": "audit-1793100226924-vdc0",
-      "timestamp": "2026-10-27T11:23:46.924Z",
-      "actorEmail": "admin.director@whitecollarrealty.com",
-      "actorName": "Operations Administrator",
-      "actorRole": "ADMIN",
-      "action": "ROOM_STATUS_TRANSITION",
-      "entityType": "ROOM",
-      "entityId": "room-test-audit-1793100226892",
-      "details": "Room \"Audit Test Suite Room\" transitioned from OCCUPIED to VACANT. Created automated chair/table rearrangement task \"[ROOM REARRANGEMENT] Rearrange Chairs & Tables in Audit Test Suite Room\" (#task-rearrange-room-test-audit-1793100226892-1793100226924-hzte) for Pantry Attendant Raju Sharma."
-    },
-    {
-      "id": "audit-1793100226904-szas",
-      "timestamp": "2026-10-27T11:23:46.904Z",
-      "actorEmail": "admin.director@whitecollarrealty.com",
-      "actorName": "Operations Administrator",
-      "actorRole": "ADMIN",
-      "action": "ROOM_STATUS_TRANSITION",
-      "entityType": "ROOM",
-      "entityId": "room-test-audit-1793100226892",
-      "details": "Room \"Audit Test Suite Room\" transitioned from AVAILABLE to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room\" (#task-water-room-test-audit-1793100226892-1793100226904-bj4z) for Pantry Attendant Raju Sharma."
-    },
-    {
-      "id": "audit-1793100226896-guko",
-      "timestamp": "2026-10-27T11:23:46.896Z",
-      "actorEmail": "admin.director@whitecollarrealty.com",
-      "actorName": "Operations Administrator",
-      "actorRole": "ADMIN",
-      "action": "ROOM_CREATED",
-      "entityType": "ROOM",
-      "entityId": "room-test-audit-1793100226892",
-      "details": "Created room area \"Audit Test Suite Room\" with priority P1"
-    },
-    {
       "id": "audit-1793100226889-i6v5",
       "timestamp": "2026-10-27T11:23:46.889Z",
       "actorEmail": "kimmi.mam@whitecollarrealty.com",
@@ -5359,17 +5046,6 @@
       "entityType": "USER",
       "entityId": "user-admin-1",
       "details": "Logged in successfully (Session wcr_sess_user-...)"
-    },
-    {
-      "id": "audit-1793100151764-odea",
-      "timestamp": "2026-10-27T11:22:31.764Z",
-      "actorEmail": "admin.director@whitecollarrealty.com",
-      "actorName": "Operations Administrator",
-      "actorRole": "ADMIN",
-      "action": "ROOM_CREATED",
-      "entityType": "ROOM",
-      "entityId": "room-1793100151762",
-      "details": "Created room area \"Audit Test Suite Room\" with priority P1"
     },
     {
       "id": "audit-1793100151755-e0d2",
@@ -8525,96 +8201,6 @@
       "targetOnlyPantryBoy": false,
       "read": false,
       "timestamp": "2026-10-27T11:23:58.151Z"
-    },
-    {
-      "id": "notif-1793100226976-8c9u",
-      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
-      "message": "Scheduled task is due now in Audit Test Suite Room (27 Oct 2026, 04:53 PM IST). Start task and complete mandatory checklist.",
-      "type": "TASK_DUE_NOW",
-      "recipientRole": "PANTRY_BOY",
-      "recipientEmail": "raju.sharma@whitecollarrealty.com",
-      "taskId": "task-water-room-test-audit-1793100226892-1793100226904-bj4z",
-      "roomId": "room-test-audit-1793100226892",
-      "roomName": "Audit Test Suite Room",
-      "priority": "URGENT",
-      "targetOnlyPantryBoy": false,
-      "read": false,
-      "timestamp": "2026-10-27T11:23:46.976Z"
-    },
-    {
-      "id": "notif-1793100226974-ttbc",
-      "title": "🔔 Task Time Now: [ROOM REARRANGEMENT] Rearrange Chairs & Tables in Audit Test Suite Room",
-      "message": "Scheduled task is due now in Audit Test Suite Room (27 Oct 2026, 04:53 PM IST). Start task and complete mandatory checklist.",
-      "type": "TASK_DUE_NOW",
-      "recipientRole": "PANTRY_BOY",
-      "recipientEmail": "raju.sharma@whitecollarrealty.com",
-      "taskId": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte",
-      "roomId": "room-test-audit-1793100226892",
-      "roomName": "Audit Test Suite Room",
-      "priority": "P2",
-      "targetOnlyPantryBoy": false,
-      "read": false,
-      "timestamp": "2026-10-27T11:23:46.974Z"
-    },
-    {
-      "id": "notif-1793100226971-bkz5",
-      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
-      "message": "Scheduled task is due now in Audit Test Suite Room (27 Oct 2026, 04:53 PM IST). Start task and complete mandatory checklist.",
-      "type": "TASK_DUE_NOW",
-      "recipientRole": "PANTRY_BOY",
-      "recipientEmail": "raju.sharma@whitecollarrealty.com",
-      "taskId": "task-water-room-test-audit-1793100226892-1793100226947-25ng",
-      "roomId": "room-test-audit-1793100226892",
-      "roomName": "Audit Test Suite Room",
-      "priority": "URGENT",
-      "targetOnlyPantryBoy": false,
-      "read": false,
-      "timestamp": "2026-10-27T11:23:46.971Z"
-    },
-    {
-      "id": "notif-1793100226949-r01s",
-      "title": "💧 Water Delivery Needed: Audit Test Suite Room",
-      "message": "Audit Test Suite Room is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
-      "type": "URGENT_TASK",
-      "recipientRole": "PANTRY_BOY",
-      "recipientEmail": "raju.sharma@whitecollarrealty.com",
-      "taskId": "task-water-room-test-audit-1793100226892-1793100226947-25ng",
-      "roomId": "room-test-audit-1793100226892",
-      "roomName": "Audit Test Suite Room",
-      "priority": "URGENT",
-      "targetOnlyPantryBoy": true,
-      "read": false,
-      "timestamp": "2026-10-27T11:23:46.949Z"
-    },
-    {
-      "id": "notif-1793100226926-ciqw",
-      "title": "🪑 Room Vacant: Rearrange Audit Test Suite Room",
-      "message": "Audit Test Suite Room is now VACANT. Please reset tables and rearrange all 6 chairs into standard configuration.",
-      "type": "ROOM_RELEASED",
-      "recipientRole": "PANTRY_BOY",
-      "recipientEmail": "raju.sharma@whitecollarrealty.com",
-      "taskId": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte",
-      "roomId": "room-test-audit-1793100226892",
-      "roomName": "Audit Test Suite Room",
-      "priority": "P2",
-      "targetOnlyPantryBoy": true,
-      "read": false,
-      "timestamp": "2026-10-27T11:23:46.926Z"
-    },
-    {
-      "id": "notif-1793100226906-pi6m",
-      "title": "💧 Water Delivery Needed: Audit Test Suite Room",
-      "message": "Audit Test Suite Room is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
-      "type": "URGENT_TASK",
-      "recipientRole": "PANTRY_BOY",
-      "recipientEmail": "raju.sharma@whitecollarrealty.com",
-      "taskId": "task-water-room-test-audit-1793100226892-1793100226904-bj4z",
-      "roomId": "room-test-audit-1793100226892",
-      "roomName": "Audit Test Suite Room",
-      "priority": "URGENT",
-      "targetOnlyPantryBoy": true,
-      "read": false,
-      "timestamp": "2026-10-27T11:23:46.906Z"
     },
     {
       "id": "notif-1793098933309-l4co",

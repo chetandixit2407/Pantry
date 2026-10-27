@@ -1648,6 +1648,80 @@ try {
         }
       });
 
+      // Remove all test, demo, dummy, and sample rooms
+      db.rooms = (db.rooms || []).filter((r: any) => {
+        const name = (r.name || '').toLowerCase();
+        const id = (r.id || '').toLowerCase();
+        return (
+          !name.includes('audit test') &&
+          !name.includes('test suite') &&
+          !name.includes('dummy') &&
+          !name.includes('sample room') &&
+          !id.startsWith('room-1793') &&
+          !id.startsWith('room-test')
+        );
+      });
+
+      // Remove test tasks
+      db.tasks = (db.tasks || []).filter((t: any) => {
+        const title = (t.title || '').toLowerCase();
+        const rName = (t.roomAreaName || '').toLowerCase();
+        const rId = (t.roomAreaId || '').toLowerCase();
+        return (
+          !title.includes('audit test') &&
+          !title.includes('test suite') &&
+          !rName.includes('audit test') &&
+          !rName.includes('test suite') &&
+          !rId.startsWith('room-1793') &&
+          !rId.startsWith('room-test')
+        );
+      });
+
+      // Clean task descriptions and checklist items that had test room names concatenated
+      db.tasks.forEach((t: any) => {
+        if (t.description && /audit test suite room/i.test(t.description)) {
+          t.description = t.description
+            .replace(/,?\s*Audit Test Suite Room/gi, '')
+            .replace(/\(\s*,\s*/g, '(')
+            .replace(/,\s*\)/g, ')');
+        }
+        if (Array.isArray(t.checklist)) {
+          t.checklist.forEach((c: any) => {
+            if (c.text && /audit test suite room/i.test(c.text)) {
+              c.text = c.text
+                .replace(/,?\s*Audit Test Suite Room/gi, '')
+                .replace(/\(\s*,\s*/g, '(')
+                .replace(/,\s*\)/g, ')');
+            }
+          });
+        }
+      });
+
+      // Remove test notifications
+      db.notifications = (db.notifications || []).filter((n: any) => {
+        const title = (n.title || '').toLowerCase();
+        const rName = (n.roomName || '').toLowerCase();
+        const rId = (n.roomId || '').toLowerCase();
+        return (
+          !title.includes('audit test') &&
+          !rName.includes('audit test') &&
+          !rId.startsWith('room-1793') &&
+          !rId.startsWith('room-test')
+        );
+      });
+
+      // Remove test audit logs
+      db.auditLogs = (db.auditLogs || []).filter((a: any) => {
+        const details = (a.details || '').toLowerCase();
+        const target = (a.targetId || '').toLowerCase();
+        return (
+          !details.includes('audit test suite room') &&
+          !details.includes('idemp-1793100226') &&
+          !target.startsWith('room-1793') &&
+          !target.startsWith('room-test')
+        );
+      });
+
       // Ensure all initial rooms exist in db.rooms
       for (const initRoom of INITIAL_ROOMS) {
         if (!db.rooms.some((r) => r.id === initRoom.id)) {
@@ -1840,6 +1914,7 @@ migrateExistingPastRoutineTasksInPlace();
 syncTodayRoutineTasks(getISTDateFormatted(), { isBoot: true });
 sortTasksArrayChronologically(db.tasks);
 db.lastGeneratedDate = getISTDateFormatted();
+saveDb();
 
 // -----------------------------------------------------------------------------
 // Real-time Attendance Engine (IST Timestamps)

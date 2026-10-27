@@ -2383,57 +2383,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               subTab === "CLEANING_TASKS" ||
               subTab === "REARRANGEMENT_TASKS") && (
         <div className="space-y-4">
-          {/* Quick Schedule Milestone Simulation Bar */}
-          {hasPermission('tasks', 'create') && (
-            <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-                <div>
-                  <span className="font-bold text-amber-900">Daily IST Schedule Automation:</span>
-                  <span className="text-amber-800 ml-1">
-                    9:00–9:30 AM Reception &amp; Desks · 10:00 AM Desk Water · By 11:00 AM Active Rooms + Post-Prep Sequence · 12:00 PM Plants · 4:00 PM Water Refill · 7:30 PM Closing.
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => handleTriggerMilestone('9AM_START')}
-                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100 cursor-pointer"
-                >
-                  9 AM Routine
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTriggerMilestone('10AM_WATER')}
-                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100 cursor-pointer"
-                >
-                  10 AM Desk Water
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTriggerMilestone('12PM_PLANTS')}
-                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100 cursor-pointer"
-                >
-                  12 PM Plants
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTriggerMilestone('4PM_WATER')}
-                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100 cursor-pointer"
-                >
-                  4 PM Water Refill
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTriggerMilestone('CLOSING_AUDIT')}
-                  className="px-2.5 py-1 font-medium bg-white border border-amber-300 text-amber-900 rounded-md hover:bg-amber-100 cursor-pointer"
-                >
-                  Closing Audit
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Filter Bar */}
           <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex flex-wrap items-center justify-between gap-3">
@@ -2842,19 +2791,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {hasPermission('rooms', 'edit') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAssignConflictError(null);
-                    setShowAssignModal(true);
-                  }}
-                  className="px-3.5 py-2 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
-                >
-                  <DoorOpen className="w-4 h-4 text-slate-950" />
-                  Assign Room
-                </button>
-              )}
               {hasPermission('rooms', 'create') && (
                 <button
                   type="button"
