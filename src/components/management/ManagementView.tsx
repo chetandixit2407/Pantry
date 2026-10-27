@@ -1148,6 +1148,8 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         return { label: 'Ready for Guest', bg: 'bg-teal-50 text-teal-800 border-teal-200', color: 'bg-teal-50 text-teal-800 border-teal-200', dot: 'bg-teal-500' };
       case 'OCCUPIED':
         return { label: 'Occupied', bg: 'bg-purple-50 text-purple-800 border-purple-200', color: 'bg-purple-50 text-purple-800 border-purple-200', dot: 'bg-purple-500' };
+      case 'VACANT':
+        return { label: 'Vacant', bg: 'bg-amber-50 text-amber-800 border-amber-200', color: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' };
       case 'CLEANING_REQUIRED':
         return { label: 'Cleaning Required', bg: 'bg-rose-50 text-rose-800 border-rose-200', color: 'bg-rose-50 text-rose-800 border-rose-200', dot: 'bg-rose-500' };
       case 'CLEANING_IN_PROGRESS':
@@ -3253,12 +3255,12 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             </button>
                           )}
 
-                          {/* 3. Mark Occupied (if READY_FOR_VISITOR, PREPARATION_REQUIRED, or ASSIGNED) */}
-                          {(room.status === 'READY_FOR_VISITOR' || room.status === 'PREPARATION_REQUIRED' || room.status === 'ASSIGNED') && (
+                          {/* 3. Mark Occupied (if READY_FOR_VISITOR, PREPARATION_REQUIRED, ASSIGNED, AVAILABLE, or VACANT) */}
+                          {(room.status === 'READY_FOR_VISITOR' || room.status === 'PREPARATION_REQUIRED' || room.status === 'ASSIGNED' || room.status === 'AVAILABLE' || room.status === 'VACANT') && (
                             <button
                               type="button"
                               onClick={() => handleRoomStatusAction(room.id, 'MARK_OCCUPIED')}
-                              className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex items-center justify-center gap-1"
+                              className="flex-1 py-1.5 px-2 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
                             >
                               <DoorOpen className="w-3 h-3 text-purple-600" />
                               Mark Occupied
@@ -3270,10 +3272,10 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             <button
                               type="button"
                               onClick={() => handleRoomStatusAction(room.id, 'RELEASE_VACANT')}
-                              className="w-full py-1.5 px-2.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                              className="w-full py-1.5 px-2.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                              Release Room (Vacant & Request Cleaning)
+                              Release Room (Mark Vacant & Rearrange)
                             </button>
                           )}
 

@@ -603,6 +603,99 @@
         }
       ],
       "currentAssignment": null
+    },
+    {
+      "id": "room-1793100151762",
+      "name": "Audit Test Suite Room",
+      "category": "MEETING_SUITE",
+      "defaultPriority": "P1",
+      "photoRequired": true,
+      "status": "AVAILABLE",
+      "recurrence": "ON_DEMAND",
+      "enabled": true,
+      "setupConfig": {
+        "tables": 1,
+        "tableType": "standard",
+        "chairs": 6,
+        "summary": "1 table + 6 chairs"
+      },
+      "defaultChecklist": [
+        "Sanitize conference table",
+        "Align 6 chairs",
+        "Verify readiness"
+      ],
+      "currentAssignment": null,
+      "assignmentHistory": [],
+      "statusHistory": [
+        {
+          "id": "hist-1793100151762",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T11:22:31.762Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Room created by Operations Administrator (ADMIN)"
+        }
+      ]
+    },
+    {
+      "id": "room-test-audit-1793100226892",
+      "name": "Audit Test Suite Room",
+      "category": "MEETING_SUITE",
+      "defaultPriority": "P1",
+      "photoRequired": true,
+      "status": "OCCUPIED",
+      "recurrence": "ON_DEMAND",
+      "enabled": true,
+      "setupConfig": {
+        "tables": 1,
+        "tableType": "standard",
+        "chairs": 6,
+        "summary": "1 table + 6 chairs"
+      },
+      "defaultChecklist": [
+        "Sanitize conference table",
+        "Align 6 chairs",
+        "Verify readiness"
+      ],
+      "currentAssignment": null,
+      "assignmentHistory": [],
+      "statusHistory": [
+        {
+          "id": "hist-1793100226947",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T11:23:46.947Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Idempotent OCCUPIED transition",
+          "taskId": "task-water-room-test-audit-1793100226892-1793100226947-25ng"
+        },
+        {
+          "id": "hist-1793100226924",
+          "status": "VACANT",
+          "timestamp": "2026-10-27T11:23:46.924Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Meeting concluded, guests departed",
+          "taskId": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte"
+        },
+        {
+          "id": "hist-1793100226904",
+          "status": "OCCUPIED",
+          "timestamp": "2026-10-27T11:23:46.904Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Delegation arrived for executive meeting",
+          "taskId": "task-water-room-test-audit-1793100226892-1793100226904-bj4z"
+        },
+        {
+          "id": "hist-1793100226894",
+          "status": "AVAILABLE",
+          "timestamp": "2026-10-27T11:23:46.894Z",
+          "actorName": "Operations Administrator",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "note": "Room created by Operations Administrator (ADMIN)"
+        }
+      ]
     }
   ],
   "tasks": [
@@ -1295,7 +1388,7 @@
     {
       "id": "task-2026-10-26-outer-area",
       "title": "12:20 PM – Clean Areas Outside & Around Prepared Rooms",
-      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
+      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
       "roomAreaId": "room-14",
       "roomAreaName": "Outer Area",
       "priority": "P3",
@@ -1312,7 +1405,7 @@
       "checklist": [
         {
           "id": "c-1",
-          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
+          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
           "completed": false
         },
         {
@@ -1501,7 +1594,7 @@
         },
         {
           "id": "c-4",
-          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
+          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
           "completed": false
         },
         {
@@ -2013,6 +2106,104 @@
       "overdueMarkedFor": "2026-10-27T05:10:00.000Z"
     },
     {
+      "id": "task-2026-10-27-room-room-1793100151762",
+      "title": "By 11:00 AM – Audit Test Suite Room Cleaning & Prep (1 Table + 6 Chairs)",
+      "description": "Complete cleaning, table sanitization, chair alignment, and readiness verification for Audit Test Suite Room (verified setup: 1 table + 6 chairs) before 11:00 AM IST.",
+      "roomAreaId": "room-1793100151762",
+      "roomAreaName": "Audit Test Suite Room",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-27T03:30:00.000Z",
+      "scheduledFor": "2026-10-27T05:18:00.000Z",
+      "dueTime": "11:00 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Audit Test Suite Room configuration: 1 table + 6 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 6 chairs neatly with uniform spacing",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-27T05:18:00.000Z",
+      "dueAlertSentFor": "2026-10-27T05:18:00.000Z",
+      "overdueMarkedFor": "2026-10-27T05:18:00.000Z"
+    },
+    {
+      "id": "task-2026-10-27-room-room-test-audit-1793100226892",
+      "title": "By 11:00 AM – Audit Test Suite Room Cleaning & Prep (1 Table + 6 Chairs)",
+      "description": "Complete cleaning, table sanitization, chair alignment, and readiness verification for Audit Test Suite Room (verified setup: 1 table + 6 chairs) before 11:00 AM IST.",
+      "roomAreaId": "room-test-audit-1793100226892",
+      "roomAreaName": "Audit Test Suite Room",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-27T03:30:00.000Z",
+      "scheduledFor": "2026-10-27T05:20:00.000Z",
+      "dueTime": "11:00 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Audit Test Suite Room configuration: 1 table + 6 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 6 chairs neatly with uniform spacing",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-27T05:20:00.000Z",
+      "dueAlertSentFor": "2026-10-27T05:20:00.000Z",
+      "overdueMarkedFor": "2026-10-27T05:20:00.000Z"
+    },
+    {
       "id": "task-2026-10-27-exec-cabin",
       "title": "By 12:00 PM – Lalit Sir Room Cleaning & Setup (1 Table + 4 Chairs)",
       "description": "Priority 2 schedule (complete by 12:00 PM IST): clean, sanitize, align chairs, and verify readiness for Lalit Sir Room (verified setup: 1 table + 4 chairs).",
@@ -2277,7 +2468,7 @@
     {
       "id": "task-2026-10-27-outer-area",
       "title": "12:20 PM – Clean Areas Outside & Around Prepared Rooms",
-      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
+      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
       "roomAreaId": "room-14",
       "roomAreaName": "Outer Area",
       "priority": "P3",
@@ -2294,7 +2485,7 @@
       "checklist": [
         {
           "id": "c-1",
-          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
+          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
           "completed": false
         },
         {
@@ -2430,6 +2621,174 @@
       "dueAlertSentFor": "2026-10-27T10:30:00.000Z"
     },
     {
+      "id": "task-water-room-test-audit-1793100226892-1793100226904-bj4z",
+      "title": "[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
+      "description": "Room \"Audit Test Suite Room\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-test-audit-1793100226892",
+      "roomAreaName": "Audit Test Suite Room",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T11:23:46.904Z",
+      "scheduledFor": "2026-10-27T11:23:46.904Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "AVAILABLE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to Audit Test Suite Room",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T11:23:46.904Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T11:23:46.904Z"
+    },
+    {
+      "id": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte",
+      "title": "[ROOM REARRANGEMENT] Rearrange Chairs & Tables in Audit Test Suite Room",
+      "description": "Room \"Audit Test Suite Room\" transitioned to VACANT. Restore room geometry: rearrange all 6 chairs around 1 table (1 table + 6 chairs), sanitize surfaces, and prepare room for next use.",
+      "roomAreaId": "room-test-audit-1793100226892",
+      "roomAreaName": "Audit Test Suite Room",
+      "priority": "P2",
+      "taskType": "VISITOR_RESET",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T11:23:46.924Z",
+      "scheduledFor": "2026-10-27T11:23:46.924Z",
+      "dueTime": "Within 20 mins",
+      "status": "AVAILABLE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clear used mineral water bottles, glasses, cups, and trash from Audit Test Suite Room",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Sanitize the 1 table surface and wipe presentation display/whiteboard",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Rearrange all 6 chairs neatly around the 1 table in standard geometric layout (1 table + 6 chairs)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check room air freshener, lighting, coasters, and empty waste bin",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live photo verification to certify room readiness",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T11:23:46.924Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to VACANT by Operations Administrator (ADMIN)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T11:23:46.924Z"
+    },
+    {
+      "id": "task-water-room-test-audit-1793100226892-1793100226947-25ng",
+      "title": "[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
+      "description": "Room \"Audit Test Suite Room\" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.",
+      "roomAreaId": "room-test-audit-1793100226892",
+      "roomAreaName": "Audit Test Suite Room",
+      "priority": "URGENT",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "admin.director@whitecollarrealty.com",
+      "createdByName": "Operations Administrator",
+      "createdAt": "2026-10-27T11:23:46.947Z",
+      "scheduledFor": "2026-10-27T11:23:46.947Z",
+      "dueTime": "Immediate (within 10 mins)",
+      "status": "AVAILABLE",
+      "isUrgent": true,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Prepare chilled sealed mineral water bottles and clean glassware in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver fresh drinking water bottles to Audit Test Suite Room",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Place clean glasses and coasters neatly at occupied seating positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check if tea, coffee, or refreshment requests are needed for attendees",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture live verification photo of completed water service delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-27T11:23:46.947Z",
+          "actorEmail": "admin.director@whitecollarrealty.com",
+          "actorName": "Operations Administrator",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
+        }
+      ],
+      "dueAlertSentFor": "2026-10-27T11:23:46.947Z"
+    },
+    {
       "id": "task-2026-10-27-closing",
       "title": "7:30 PM – Mandatory End-of-Day Office Closing Inspection",
       "description": "Comprehensive end-of-day check: Reception, Employee Desks, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Meeting Rooms, Dustbins, and Pantry Appliance Lockdown.",
@@ -2444,7 +2803,7 @@
       "createdAt": "2026-10-27T19:30:00.000Z",
       "scheduledFor": "2026-10-27T14:00:00.000Z",
       "dueTime": "07:55 PM",
-      "status": "AVAILABLE",
+      "status": "SCHEDULED",
       "isUrgent": false,
       "checklist": [
         {
@@ -2464,7 +2823,7 @@
         },
         {
           "id": "c-4",
-          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
+          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Audit Test Suite Room, Audit Test Suite Room, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
           "completed": false
         },
         {
@@ -2515,6 +2874,413 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793100238163-a6ou",
+      "timestamp": "2026-10-27T11:23:58.163Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793100238153-epct",
+      "timestamp": "2026-10-27T11:23:58.153Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793100236895-nw70",
+      "timestamp": "2026-10-27T11:23:56.895Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_DELETED",
+      "entityType": "TASK",
+      "entityId": "task-1793100236874-tmrl",
+      "details": "Deleted task \"Durability Verification Test Task\" in Prestige Loft"
+    },
+    {
+      "id": "audit-1793100236875-g543",
+      "timestamp": "2026-10-27T11:23:56.875Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_ASSIGNED",
+      "entityType": "TASK",
+      "entityId": "task-1793100236874-tmrl",
+      "details": "Assigned \"Durability Verification Test Task\" for Prestige Loft (27 Oct 2026, 04:53 PM IST) with priority P3 to Priya Sen"
+    },
+    {
+      "id": "audit-1793100236868-luyq",
+      "timestamp": "2026-10-27T11:23:56.868Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793100236864-a01x",
+      "timestamp": "2026-10-27T11:23:56.864Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100236855-46xl",
+      "timestamp": "2026-10-27T11:23:56.855Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100236850-4su1",
+      "timestamp": "2026-10-27T11:23:56.850Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100236844-dw9y",
+      "timestamp": "2026-10-27T11:23:56.844Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100236835-o4tk",
+      "timestamp": "2026-10-27T11:23:56.835Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100226963-r7zv",
+      "timestamp": "2026-10-27T11:23:46.963Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_DUPLICATE_PREVENTED",
+      "entityType": "ROOM",
+      "entityId": "room-test-audit-1793100226892",
+      "details": "Idempotency key \"idemp-1793100226945-abc\" re-submitted for room \"Audit Test Suite Room\". Returning previously executed OCCUPIED transition without creating duplicates."
+    },
+    {
+      "id": "audit-1793100226947-wr38",
+      "timestamp": "2026-10-27T11:23:46.947Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-test-audit-1793100226892",
+      "details": "Room \"Audit Test Suite Room\" transitioned from VACANT to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room\" (#task-water-room-test-audit-1793100226892-1793100226947-25ng) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793100226941-ihn1",
+      "timestamp": "2026-10-27T11:23:46.941Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_DUPLICATE_PREVENTED",
+      "entityType": "ROOM",
+      "entityId": "room-test-audit-1793100226892",
+      "details": "Room \"Audit Test Suite Room\" is already VACANT. Duplicate transition ignored."
+    },
+    {
+      "id": "audit-1793100226924-vdc0",
+      "timestamp": "2026-10-27T11:23:46.924Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-test-audit-1793100226892",
+      "details": "Room \"Audit Test Suite Room\" transitioned from OCCUPIED to VACANT. Created automated chair/table rearrangement task \"[ROOM REARRANGEMENT] Rearrange Chairs & Tables in Audit Test Suite Room\" (#task-rearrange-room-test-audit-1793100226892-1793100226924-hzte) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793100226904-szas",
+      "timestamp": "2026-10-27T11:23:46.904Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_STATUS_TRANSITION",
+      "entityType": "ROOM",
+      "entityId": "room-test-audit-1793100226892",
+      "details": "Room \"Audit Test Suite Room\" transitioned from AVAILABLE to OCCUPIED. Created automated water delivery task \"[WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room\" (#task-water-room-test-audit-1793100226892-1793100226904-bj4z) for Pantry Attendant Raju Sharma."
+    },
+    {
+      "id": "audit-1793100226896-guko",
+      "timestamp": "2026-10-27T11:23:46.896Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_CREATED",
+      "entityType": "ROOM",
+      "entityId": "room-test-audit-1793100226892",
+      "details": "Created room area \"Audit Test Suite Room\" with priority P1"
+    },
+    {
+      "id": "audit-1793100226889-i6v5",
+      "timestamp": "2026-10-27T11:23:46.889Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100226885-fdw9",
+      "timestamp": "2026-10-27T11:23:46.885Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100226878-j72i",
+      "timestamp": "2026-10-27T11:23:46.878Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100226870-zm7l",
+      "timestamp": "2026-10-27T11:23:46.870Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100151764-odea",
+      "timestamp": "2026-10-27T11:22:31.764Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "ROOM_CREATED",
+      "entityType": "ROOM",
+      "entityId": "room-1793100151762",
+      "details": "Created room area \"Audit Test Suite Room\" with priority P1"
+    },
+    {
+      "id": "audit-1793100151755-e0d2",
+      "timestamp": "2026-10-27T11:22:31.755Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100151751-z74i",
+      "timestamp": "2026-10-27T11:22:31.751Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100151737-wqex",
+      "timestamp": "2026-10-27T11:22:31.737Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGIN_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged in at 04:52:31 pm IST."
+    },
+    {
+      "id": "audit-1793100151729-u1cu",
+      "timestamp": "2026-10-27T11:22:31.729Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100151719-voa1",
+      "timestamp": "2026-10-27T11:22:31.719Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100003687-gnih",
+      "timestamp": "2026-10-27T11:20:03.687Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793100002451-fp97",
+      "timestamp": "2026-10-27T11:20:02.451Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793100002449-o9e2",
+      "timestamp": "2026-10-27T11:20:02.449Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGOUT_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged out at 04:50:02 pm IST. Total working duration: 0h 1m."
+    },
+    {
+      "id": "audit-1793099971293-bq7u",
+      "timestamp": "2026-10-27T11:19:31.293Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGIN_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged in at 04:49:31 pm IST."
+    },
+    {
+      "id": "audit-1793099971288-p1z8",
+      "timestamp": "2026-10-27T11:19:31.288Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793099970239-gein",
+      "timestamp": "2026-10-27T11:19:30.239Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793099967640-dksq",
+      "timestamp": "2026-10-27T11:19:27.640Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793099965804-vk8x",
+      "timestamp": "2026-10-27T11:19:25.804Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793099965802-ojsq",
+      "timestamp": "2026-10-27T11:19:25.802Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGOUT_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged out at 04:49:25 pm IST. Total working duration: 3h 9m."
+    },
+    {
+      "id": "audit-1793099962935-chkt",
+      "timestamp": "2026-10-27T11:19:22.935Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793099959324-osxd",
+      "timestamp": "2026-10-27T11:19:19.324Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
     {
       "id": "audit-1793098933312-tlaj",
       "timestamp": "2026-10-27T11:02:13.312Z",
@@ -5235,6 +6001,116 @@
   ],
   "notifications": [
     {
+      "id": "notif-1793100238161-yame",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:58.161Z"
+    },
+    {
+      "id": "notif-1793100238151-o8zq",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:58.151Z"
+    },
+    {
+      "id": "notif-1793100226976-8c9u",
+      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
+      "message": "Scheduled task is due now in Audit Test Suite Room (27 Oct 2026, 04:53 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-test-audit-1793100226892-1793100226904-bj4z",
+      "roomId": "room-test-audit-1793100226892",
+      "roomName": "Audit Test Suite Room",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:46.976Z"
+    },
+    {
+      "id": "notif-1793100226974-ttbc",
+      "title": "🔔 Task Time Now: [ROOM REARRANGEMENT] Rearrange Chairs & Tables in Audit Test Suite Room",
+      "message": "Scheduled task is due now in Audit Test Suite Room (27 Oct 2026, 04:53 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte",
+      "roomId": "room-test-audit-1793100226892",
+      "roomName": "Audit Test Suite Room",
+      "priority": "P2",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:46.974Z"
+    },
+    {
+      "id": "notif-1793100226971-bkz5",
+      "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room",
+      "message": "Scheduled task is due now in Audit Test Suite Room (27 Oct 2026, 04:53 PM IST). Start task and complete mandatory checklist.",
+      "type": "TASK_DUE_NOW",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-test-audit-1793100226892-1793100226947-25ng",
+      "roomId": "room-test-audit-1793100226892",
+      "roomName": "Audit Test Suite Room",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:46.971Z"
+    },
+    {
+      "id": "notif-1793100226949-r01s",
+      "title": "💧 Water Delivery Needed: Audit Test Suite Room",
+      "message": "Audit Test Suite Room is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
+      "type": "URGENT_TASK",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-test-audit-1793100226892-1793100226947-25ng",
+      "roomId": "room-test-audit-1793100226892",
+      "roomName": "Audit Test Suite Room",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:46.949Z"
+    },
+    {
+      "id": "notif-1793100226926-ciqw",
+      "title": "🪑 Room Vacant: Rearrange Audit Test Suite Room",
+      "message": "Audit Test Suite Room is now VACANT. Please reset tables and rearrange all 6 chairs into standard configuration.",
+      "type": "ROOM_RELEASED",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-rearrange-room-test-audit-1793100226892-1793100226924-hzte",
+      "roomId": "room-test-audit-1793100226892",
+      "roomName": "Audit Test Suite Room",
+      "priority": "P2",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:46.926Z"
+    },
+    {
+      "id": "notif-1793100226906-pi6m",
+      "title": "💧 Water Delivery Needed: Audit Test Suite Room",
+      "message": "Audit Test Suite Room is now OCCUPIED. Deliver fresh drinking water and glasses immediately.",
+      "type": "URGENT_TASK",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-water-room-test-audit-1793100226892-1793100226904-bj4z",
+      "roomId": "room-test-audit-1793100226892",
+      "roomName": "Audit Test Suite Room",
+      "priority": "URGENT",
+      "targetOnlyPantryBoy": true,
+      "read": false,
+      "timestamp": "2026-10-27T11:23:46.906Z"
+    },
+    {
       "id": "notif-1793098933309-l4co",
       "title": "9:00 AM IST Daily Schedule Verified",
       "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
@@ -5682,6 +6558,35 @@
   ],
   "attendance": [
     {
+      "id": "att-2026-10-27-user-pantry-1-s10",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-27",
+      "loginTime": "2026-10-27T11:22:31.733Z",
+      "loginTimeIST": "04:52:31 pm",
+      "status": "PRESENT",
+      "createdAt": "2026-10-27T11:22:31.733Z",
+      "updatedAt": "2026-10-27T11:23:56.846Z"
+    },
+    {
+      "id": "att-2026-10-27-user-pantry-1-s9",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-27",
+      "loginTime": "2026-10-27T11:19:31.290Z",
+      "loginTimeIST": "04:49:31 pm",
+      "status": "COMPLETED",
+      "createdAt": "2026-10-27T11:19:31.290Z",
+      "updatedAt": "2026-10-27T11:20:02.446Z",
+      "logoutTime": "2026-10-27T11:20:02.446Z",
+      "logoutTimeIST": "04:50:02 pm",
+      "elapsedMinutes": 1
+    },
+    {
       "id": "att-2026-10-27-user-pantry-1-s8",
       "userId": "user-pantry-1",
       "userEmail": "raju.sharma@whitecollarrealty.com",
@@ -5690,9 +6595,12 @@
       "date": "2026-10-27",
       "loginTime": "2026-10-27T08:10:38.214Z",
       "loginTimeIST": "01:40:38 pm",
-      "status": "PRESENT",
+      "status": "COMPLETED",
       "createdAt": "2026-10-27T08:10:38.214Z",
-      "updatedAt": "2026-10-27T11:02:11.584Z"
+      "updatedAt": "2026-10-27T11:19:25.799Z",
+      "logoutTime": "2026-10-27T11:19:25.799Z",
+      "logoutTimeIST": "04:49:25 pm",
+      "elapsedMinutes": 189
     },
     {
       "id": "att-2026-10-27-user-pantry-1-s7",
@@ -5837,6 +6745,7 @@
     "task-1793096991749-9i6j",
     "task-1793097089414-dhu0",
     "task-1793097210454-4snc",
-    "task-1793098931618-pm7p"
+    "task-1793098931618-pm7p",
+    "task-1793100236874-tmrl"
   ]
 }

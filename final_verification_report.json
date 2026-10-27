@@ -61,14 +61,14 @@
       "category": "Durability",
       "testName": "Atomic Disk Persistence on Creation",
       "passed": true,
-      "evidence": "Task task-1793097210454-4snc immediately verified in data/smart_pantry_db.json on disk (HTTP 201)"
+      "evidence": "Task task-1793100236874-tmrl immediately verified in data/smart_pantry_db.json on disk (HTTP 201)"
     },
     {
       "environment": "LOCAL",
       "category": "Durability",
       "testName": "Atomic Deletion Durability & Clean-Up",
       "passed": true,
-      "evidence": "Task task-1793097210454-4snc cleanly purged from disk database"
+      "evidence": "Task task-1793100236874-tmrl cleanly purged from disk database"
     },
     {
       "environment": "LOCAL",
@@ -89,7 +89,7 @@
       "category": "Automation",
       "testName": "Idempotent Milestone Trigger Execution (Zero Duplicate Tasks)",
       "passed": true,
-      "evidence": "Count before: 33, Count after 2x triggers: 33 (0 duplicates generated)"
+      "evidence": "Count before: 38, Count after 2x triggers: 38 (0 duplicates generated)"
     },
     {
       "environment": "LOCAL",
@@ -103,7 +103,7 @@
       "category": "RBAC",
       "testName": "Admin Authorized For Audit Logs",
       "passed": true,
-      "evidence": "Admin retrieved 224 audit records"
+      "evidence": "Admin retrieved 284 audit records"
     },
     {
       "environment": "LOCAL",

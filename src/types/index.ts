@@ -77,6 +77,7 @@ export type RoomStatus =
   | 'RESERVED'
   | 'ASSIGNED'
   | 'OCCUPIED'
+  | 'VACANT'
   | 'PREPARATION_REQUIRED'
   | 'READY_FOR_VISITOR'
   | 'CLEANING_REQUIRED'
@@ -103,6 +104,9 @@ export interface RoomAssignment {
   resetTaskId?: string;
   releasedAt?: string;
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  assignedEmployeeId?: string;
+  assignedEmployeeName?: string;
+  assignedEmployeeEmail?: string;
 }
 
 export interface RoomStatusHistoryEntry {
@@ -136,6 +140,10 @@ export interface RoomArea {
   enabled: boolean;
   setupConfig?: RoomSetupConfig;
   notes?: string;
+  assignedEmployeeId?: string;
+  assignedEmployeeName?: string;
+  assignedEmployeeEmail?: string;
+  assignedEmployeeRole?: string;
   currentAssignment?: RoomAssignment | null;
   assignmentHistory?: RoomAssignment[];
   statusHistory?: RoomStatusHistoryEntry[];
@@ -301,6 +309,7 @@ export interface AppNotification {
     | 'ROOM_RELEASED'
     | 'ROOM_CLEANING_NEEDED';
   read: boolean;
+  targetOnlyPantryBoy?: boolean;
   timestamp: string;
 }
 

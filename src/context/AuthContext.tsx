@@ -268,8 +268,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = api.subscribeRealtime((event, payload) => {
       if (event === 'notification:new' && payload?.notification) {
         const notif = payload.notification;
+        // Strict RBAC: targetOnlyPantryBoy notifications are only shown to active PANTRY_BOY
+        if (notif.targetOnlyPantryBoy) {
+          if (currentUser.role !== 'PANTRY_BOY' || currentUser.status !== 'active') {
+            return;
+          }
+          if (notif.recipientEmail && currentUser.email.toLowerCase() !== notif.recipientEmail.toLowerCase()) {
+            return;
+          }
+        }
+
         const isRelevant =
-          !notif.recipientRole && !notif.recipientEmail
+          notif.targetOnlyPantryBoy
+            ? currentUser.role === 'PANTRY_BOY' && currentUser.status === 'active'
+            : !notif.recipientRole && !notif.recipientEmail
             ? true
             : notif.recipientRole === currentUser.role
             ? true

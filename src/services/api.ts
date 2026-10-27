@@ -1,6 +1,7 @@
 import type {
   UserAccount,
   RoomArea,
+  RoomStatus,
   RoomAssignment,
   RoomStatusHistoryEntry,
   PhotoEvidence,
@@ -302,15 +303,66 @@ export const api = {
     };
   },
 
-  async roomStatusAction(
+  async assignRoomEmployee(
     id: string,
-    action: 'MARK_OCCUPIED' | 'MARK_READY' | 'RELEASE_VACANT' | 'REQUEST_CLEANING' | 'REOPEN',
-    note?: string
-  ): Promise<{ room: RoomArea }> {
-    const res = await fetch(`${BASE_URL}/rooms/${id}/status-action`, {
+    payload: {
+      employeeId: string;
+      notes?: string;
+      forceOverride?: boolean;
+    }
+  ): Promise<{ room: RoomArea; assignment: RoomAssignment }> {
+    const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(id)}/assign-employee`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action, note }),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const errorObj: any = new Error(err.error || 'Failed to assign room to employee');
+      errorObj.code = err.code;
+      errorObj.conflictingRoom = err.conflictingRoom;
+      errorObj.currentAssignedEmployee = err.currentAssignedEmployee;
+      errorObj.employee = err.employee;
+      throw errorObj;
+    }
+    const data = await res.json();
+    return {
+      ...data,
+      room: data.room ? normalizeRoomRecord(data.room) : data.room,
+    };
+  },
+
+  async unassignRoomEmployee(id: string): Promise<{ room: RoomArea }> {
+    const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(id)}/unassign-employee`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to unassign room');
+    }
+    const data = await res.json();
+    return {
+      ...data,
+      room: data.room ? normalizeRoomRecord(data.room) : data.room,
+    };
+  },
+
+  async roomStatusAction(
+    id: string,
+    action: 'MARK_OCCUPIED' | 'MARK_READY' | 'RELEASE_VACANT' | 'MARK_VACANT' | 'REQUEST_CLEANING' | 'REOPEN',
+    note?: string,
+    idempotencyKey?: string
+  ): Promise<{ room: RoomArea; task?: Task; transition?: any }> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    const res = await fetch(`${BASE_URL}/rooms/${id}/status-action`, {
+      method: 'POST',
+      headers: getAuthHeaders(headers),
+      body: JSON.stringify({ action, note, idempotencyKey }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -320,6 +372,34 @@ export const api = {
     return {
       ...data,
       room: data.room ? normalizeRoomRecord(data.room) : data.room,
+      task: data.task ? normalizeTaskRecord(data.task) : undefined,
+    };
+  },
+
+  async updateRoomStatus(
+    id: string,
+    status: RoomStatus,
+    note?: string,
+    idempotencyKey?: string
+  ): Promise<{ room: RoomArea; task?: Task; transitionTriggered?: boolean; duplicate?: boolean }> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    const res = await fetch(`${BASE_URL}/rooms/${id}/status`, {
+      method: 'POST',
+      headers: getAuthHeaders(headers),
+      body: JSON.stringify({ status, note, idempotencyKey }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to update room status to ${status}`);
+    }
+    const data = await res.json();
+    return {
+      ...data,
+      room: data.room ? normalizeRoomRecord(data.room) : data.room,
+      task: data.task ? normalizeTaskRecord(data.task) : undefined,
     };
   },
 

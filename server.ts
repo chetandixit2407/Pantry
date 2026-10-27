@@ -97,6 +97,12 @@ function broadcastRealtime(event: string, payload: any) {
   const message = `event: ${event}\ndata: ${JSON.stringify({ event, payload: enrichedPayload, timestamp: nowIso })}\n\n`;
   for (const client of sseClients) {
     try {
+      if (event === 'notification:new' && payload?.notification?.targetOnlyPantryBoy) {
+        const user = getCurrentUser(client.req);
+        if (!user || user.role !== 'PANTRY_BOY' || user.status !== 'active') {
+          continue;
+        }
+      }
       client.res.write(message);
     } catch {
       sseClients.delete(client);
@@ -2229,6 +2235,7 @@ function notify(
     roomId?: string;
     roomName?: string;
     priority?: TaskPriority;
+    targetOnlyPantryBoy?: boolean;
   }
 ) {
   const notif: AppNotification = {
@@ -2242,6 +2249,7 @@ function notify(
     roomId: options?.roomId,
     roomName: options?.roomName,
     priority: options?.priority,
+    targetOnlyPantryBoy: Boolean(options?.targetOnlyPantryBoy),
     read: false,
     timestamp: new Date().toISOString(),
   };
@@ -2250,7 +2258,13 @@ function notify(
     db.notifications.pop();
   }
   saveDb();
-  broadcastRealtime('notification:new', { notification: notif });
+
+  if (options?.targetOnlyPantryBoy) {
+    broadcastToPantryBoy(options?.email || '', 'notification:new', { notification: notif });
+  } else {
+    broadcastRealtime('notification:new', { notification: notif });
+  }
+  return notif;
 }
 
 // -----------------------------------------------------------------------------
@@ -2886,7 +2900,7 @@ app.post('/api/rooms', (req, res) => {
 
   const now = new Date().toISOString();
   const baseRoom: RoomArea = {
-    id: `room-${Date.now()}`,
+    id: (req.body.id && String(req.body.id).trim()) || `room-${Date.now()}`,
     name: cleanedName,
     category: category || 'MEETING_SUITE',
     defaultPriority: defaultPriority || 'P2',
@@ -2942,7 +2956,13 @@ app.put('/api/rooms/:id', (req, res) => {
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
   const prevName = room.name;
-  Object.assign(room, req.body);
+  const prevStatus = room.status;
+  const targetStatus = req.body.status as RoomStatus | undefined;
+
+  const updatePayload = { ...req.body };
+  delete updatePayload.status;
+  Object.assign(room, updatePayload);
+
   room.name = normalizeRoomName(room.name) || prevName;
   if (room.notes !== undefined) {
     room.notes = normalizeDisplayText(room.notes);
@@ -2953,6 +2973,10 @@ app.put('/api/rooms/:id', (req, res) => {
   const verifiedCfg = verifyRoomSetupConfig(room);
   if (verifiedCfg) {
     room.setupConfig = verifiedCfg;
+  }
+
+  if (targetStatus && targetStatus !== prevStatus) {
+    handleRoomStatusTransition(room, targetStatus, actor, { note: room.notes });
   }
   if (room.name !== prevName) {
     if (room.currentAssignment) {
@@ -2991,6 +3015,27 @@ app.put('/api/rooms/:id', (req, res) => {
   }
 
   res.json({ success: true, room: normalizedRoom });
+});
+
+app.delete('/api/rooms/:id', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor || !checkUserPermission(actor, 'rooms', 'delete')) {
+    return res.status(403).json({ error: 'Permission denied: Only authorized administrators can delete rooms.' });
+  }
+
+  // Prevent deleting canonical routine rooms
+  if (BUILTIN_ROUTINE_ROOM_IDS.has(req.params.id)) {
+    return res.status(403).json({ error: 'Cannot delete canonical company room', code: 'CANONICAL_ROOM_PROTECTED' });
+  }
+
+  const roomIdx = db.rooms.findIndex((r) => r.id === req.params.id);
+  if (roomIdx === -1) return res.status(404).json({ error: 'Room not found' });
+
+  const [removedRoom] = db.rooms.splice(roomIdx, 1);
+  addAuditLog(actor, 'ROOM_DELETED', 'ROOM', removedRoom.id, `Deleted room "${removedRoom.name}"`);
+  saveDb();
+  broadcastRealtime('room:deleted', { roomId: removedRoom.id, rooms: db.rooms.map((r) => normalizeRoomRecord(r)) });
+  res.json({ success: true, message: `Room "${removedRoom.name}" deleted` });
 });
 
 // Toggle Room Active / Inactive
@@ -3204,6 +3249,566 @@ app.post('/api/rooms/:id/assign', (req, res) => {
   res.json({ success: true, room, assignment, prepTask });
 });
 
+// Helper: Authorize Admin, HR, and Kimmi Mam (KIMMY_MAM) to manage room employee assignments
+function canManageRoomAssignments(actor: UserAccount | null): boolean {
+  if (!actor || actor.status === 'inactive') return false;
+  if (actor.role === 'PANTRY_BOY') return false;
+  if (actor.role === 'ADMIN' || actor.role === 'HR' || actor.role === 'KIMMY_MAM') return true;
+  if (actor.isSuperAdmin) return true;
+  return checkUserPermission(actor, 'rooms', 'edit');
+}
+
+// Assign room to any employee (Admin, HR, Kimmi Mam) with conflict prevention & force override
+app.post('/api/rooms/:id/assign-employee', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({ error: 'Unauthenticated' });
+  }
+  if (!canManageRoomAssignments(actor)) {
+    return res.status(403).json({
+      error: 'Permission denied: Only Admin, HR, and Kimmi Mam can assign rooms to employees.',
+      code: 'FORBIDDEN_ROLE',
+    });
+  }
+
+  const room = db.rooms.find((r) => r.id === req.params.id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  if (!room.enabled) {
+    return res.status(400).json({ error: 'Cannot assign deactivated room. Please activate the room first.' });
+  }
+
+  const { employeeId, notes, forceOverride } = req.body;
+  if (!employeeId || String(employeeId).trim().length === 0) {
+    return res.status(400).json({ error: 'Employee ID is required.' });
+  }
+
+  const cleanEmpId = String(employeeId).trim();
+  const targetEmployee = db.users.find(
+    (u) => u.id === cleanEmpId || u.email.toLowerCase() === cleanEmpId.toLowerCase()
+  );
+  if (!targetEmployee) {
+    return res.status(404).json({ error: 'Employee account not found.' });
+  }
+
+  if (targetEmployee.status === 'inactive') {
+    return res.status(400).json({ error: 'Cannot assign room to a deactivated employee account.' });
+  }
+
+  // Conflict 1: Room is already assigned to a different employee
+  if (room.assignedEmployeeId && room.assignedEmployeeId !== targetEmployee.id && !forceOverride) {
+    return res.status(409).json({
+      error: `Room Conflict: "${room.name}" is already assigned to ${room.assignedEmployeeName || 'another employee'}. Unassign first or use force override.`,
+      code: 'ROOM_ALREADY_ASSIGNED',
+      conflictingRoom: { id: room.id, name: room.name },
+      currentAssignedEmployee: {
+        id: room.assignedEmployeeId,
+        name: room.assignedEmployeeName,
+        email: room.assignedEmployeeEmail,
+      },
+    });
+  }
+
+  // Conflict 2: Target employee is already assigned to another room
+  const conflictingRoom = db.rooms.find(
+    (r) => r.id !== room.id && r.assignedEmployeeId === targetEmployee.id
+  );
+  if (conflictingRoom && !forceOverride) {
+    return res.status(409).json({
+      error: `Employee Conflict: ${targetEmployee.name} is already assigned to "${conflictingRoom.name}". Unassign from previous room or use force override.`,
+      code: 'EMPLOYEE_ALREADY_ASSIGNED',
+      conflictingRoom: { id: conflictingRoom.id, name: conflictingRoom.name },
+      employee: { id: targetEmployee.id, name: targetEmployee.name, email: targetEmployee.email },
+    });
+  }
+
+  const now = new Date().toISOString();
+
+  // If forceOverride, safely unassign conflicting room
+  if (conflictingRoom) {
+    conflictingRoom.assignedEmployeeId = undefined;
+    conflictingRoom.assignedEmployeeName = undefined;
+    conflictingRoom.assignedEmployeeEmail = undefined;
+    conflictingRoom.assignedEmployeeRole = undefined;
+    if (conflictingRoom.currentAssignment) {
+      conflictingRoom.currentAssignment.status = 'COMPLETED';
+      conflictingRoom.currentAssignment.releasedAt = now;
+      if (!conflictingRoom.assignmentHistory) conflictingRoom.assignmentHistory = [];
+      conflictingRoom.assignmentHistory.unshift({ ...conflictingRoom.currentAssignment });
+      conflictingRoom.currentAssignment = null;
+    }
+    addAuditLog(
+      actor,
+      'ROOM_UNASSIGNED_EMPLOYEE',
+      'ROOM',
+      conflictingRoom.id,
+      `Unassigned room "${conflictingRoom.name}" from ${targetEmployee.name} due to reassignment override to "${room.name}".`
+    );
+  }
+
+  // Archive previous assignment for target room if present
+  if (room.currentAssignment && room.assignedEmployeeId !== targetEmployee.id) {
+    room.currentAssignment.status = 'COMPLETED';
+    room.currentAssignment.releasedAt = now;
+    if (!room.assignmentHistory) room.assignmentHistory = [];
+    room.assignmentHistory.unshift({ ...room.currentAssignment });
+  }
+
+  room.assignedEmployeeId = targetEmployee.id;
+  room.assignedEmployeeName = targetEmployee.name;
+  room.assignedEmployeeEmail = targetEmployee.email;
+  room.assignedEmployeeRole = targetEmployee.role;
+
+  const assignment: RoomAssignment = {
+    id: `assign-emp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    roomAreaId: room.id,
+    roomAreaName: normalizeRoomName(room.name),
+    visitorName: targetEmployee.name,
+    reference: `Staff Assignment: ${targetEmployee.name} (${targetEmployee.department || targetEmployee.role})`,
+    expectedArrival: 'Active Assigned',
+    expectedDuration: 'Standing Assignment',
+    prepRequirements: ['Verify room setup', 'Clean desk and surfaces'],
+    waterRequirements: '1 Bottle on Desk',
+    priority: 'P2',
+    instructions: notes ? normalizeDisplayText(String(notes)) : `Assigned by ${actor.name} (${actor.role})`,
+    assignedBy: `${actor.name} (${actor.role})`,
+    assignedAt: now,
+    status: 'ACTIVE',
+    assignedEmployeeId: targetEmployee.id,
+    assignedEmployeeName: targetEmployee.name,
+    assignedEmployeeEmail: targetEmployee.email,
+  };
+
+  room.currentAssignment = assignment;
+
+  if (!room.statusHistory) room.statusHistory = [];
+  room.statusHistory.unshift({
+    id: `hist-${Date.now()}`,
+    status: room.status,
+    timestamp: now,
+    actorName: actor.name,
+    actorEmail: actor.email,
+    note: `Assigned room to employee ${targetEmployee.name} (${targetEmployee.email})${notes ? ': ' + notes : ''}`,
+    assignmentId: assignment.id,
+  });
+
+  addAuditLog(
+    actor,
+    'ROOM_ASSIGNED_EMPLOYEE',
+    'ROOM',
+    room.id,
+    `Assigned room "${room.name}" to employee ${targetEmployee.name} (${targetEmployee.email}) by ${actor.name} (${actor.role}).`
+  );
+
+  saveDb();
+  const normalizedRoom = normalizeRoomRecord(room);
+  const normalizedRooms = db.rooms.map((r) => normalizeRoomRecord(r));
+  broadcastRealtime('room:updated', { room: normalizedRoom, rooms: normalizedRooms });
+
+  res.json({ success: true, room: normalizedRoom, assignment });
+});
+
+// Unassign room from employee (Admin, HR, Kimmi Mam)
+app.post(['/api/rooms/:id/unassign-employee', '/api/rooms/:id/unassign'], (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({ error: 'Unauthenticated' });
+  }
+  if (!canManageRoomAssignments(actor)) {
+    return res.status(403).json({
+      error: 'Permission denied: Only Admin, HR, and Kimmi Mam can unassign rooms.',
+      code: 'FORBIDDEN_ROLE',
+    });
+  }
+
+  const room = db.rooms.find((r) => r.id === req.params.id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  const now = new Date().toISOString();
+  const prevEmpName = room.assignedEmployeeName || room.currentAssignment?.visitorName || 'Employee';
+
+  room.assignedEmployeeId = undefined;
+  room.assignedEmployeeName = undefined;
+  room.assignedEmployeeEmail = undefined;
+  room.assignedEmployeeRole = undefined;
+
+  if (room.currentAssignment) {
+    room.currentAssignment.status = 'COMPLETED';
+    room.currentAssignment.releasedAt = now;
+    if (!room.assignmentHistory) room.assignmentHistory = [];
+    room.assignmentHistory.unshift({ ...room.currentAssignment });
+    room.currentAssignment = null;
+  }
+
+  if (!room.statusHistory) room.statusHistory = [];
+  room.statusHistory.unshift({
+    id: `hist-${Date.now()}`,
+    status: room.status,
+    timestamp: now,
+    actorName: actor.name,
+    actorEmail: actor.email,
+    note: `Unassigned room from ${prevEmpName} by ${actor.name} (${actor.role})`,
+  });
+
+  addAuditLog(
+    actor,
+    'ROOM_UNASSIGNED_EMPLOYEE',
+    'ROOM',
+    room.id,
+    `Unassigned room "${room.name}" from ${prevEmpName} by ${actor.name} (${actor.role}).`
+  );
+
+  saveDb();
+  const normalizedRoom = normalizeRoomRecord(room);
+  const normalizedRooms = db.rooms.map((r) => normalizeRoomRecord(r));
+  broadcastRealtime('room:updated', { room: normalizedRoom, rooms: normalizedRooms });
+
+  res.json({ success: true, room: normalizedRoom });
+});
+
+// -----------------------------------------------------------------------------
+// Automated Room-Status Workflow Engine & Idempotency Store
+// -----------------------------------------------------------------------------
+interface RoomTransitionOptions {
+  note?: string;
+  idempotencyKey?: string;
+  source?: string;
+}
+
+interface RoomTransitionResult {
+  success: boolean;
+  room: RoomArea;
+  previousStatus: RoomStatus;
+  currentStatus: RoomStatus;
+  transitionTriggered: boolean;
+  duplicate?: boolean;
+  task?: Task;
+  notification?: AppNotification;
+  message: string;
+}
+
+const transitionIdempotencyCache = new Map<
+  string,
+  {
+    taskId?: string;
+    notificationId?: string;
+    status: RoomStatus;
+    timestamp: string;
+    result: RoomTransitionResult;
+  }
+>();
+
+// Clean up idempotency entries older than 15 minutes periodically
+setInterval(() => {
+  const cutoff = Date.now() - 15 * 60 * 1000;
+  for (const [k, v] of transitionIdempotencyCache.entries()) {
+    if (new Date(v.timestamp).getTime() < cutoff) {
+      transitionIdempotencyCache.delete(k);
+    }
+  }
+}, 60000);
+
+function handleRoomStatusTransition(
+  room: RoomArea,
+  newStatus: RoomStatus,
+  actor: UserAccount,
+  options?: RoomTransitionOptions
+): RoomTransitionResult {
+  const prevStatus = room.status;
+  const now = new Date().toISOString();
+  const rawIdempKey = options?.idempotencyKey ? String(options.idempotencyKey).trim() : '';
+
+  // 1. Idempotency Check: Return previously executed result if same idempotency key is submitted
+  if (rawIdempKey && transitionIdempotencyCache.has(rawIdempKey)) {
+    const cached = transitionIdempotencyCache.get(rawIdempKey)!;
+    addAuditLog(
+      actor,
+      'ROOM_STATUS_DUPLICATE_PREVENTED',
+      'ROOM',
+      room.id,
+      `Idempotency key "${rawIdempKey}" re-submitted for room "${room.name}". Returning previously executed ${cached.status} transition without creating duplicates.`
+    );
+    return {
+      ...cached.result,
+      duplicate: true,
+      transitionTriggered: false,
+      message: `Idempotent request: Transition to ${cached.status} was already processed.`,
+    };
+  }
+
+  // 2. Actual Transition Check: Trigger only on actual status transitions
+  if (prevStatus === newStatus) {
+    addAuditLog(
+      actor,
+      'ROOM_STATUS_DUPLICATE_PREVENTED',
+      'ROOM',
+      room.id,
+      `Room "${room.name}" is already ${newStatus}. Duplicate transition ignored.`
+    );
+    const existingTask = db.tasks.find(
+      (t) =>
+        t.roomAreaId === room.id &&
+        ((newStatus === 'OCCUPIED' && t.taskType === 'WATER_DISTRIBUTION') ||
+          (newStatus === 'VACANT' && t.taskType === 'VISITOR_RESET'))
+    );
+    return {
+      success: true,
+      room: normalizeRoomRecord(room),
+      previousStatus: prevStatus,
+      currentStatus: room.status,
+      transitionTriggered: false,
+      duplicate: true,
+      task: existingTask ? normalizeTaskRecord(existingTask) : undefined,
+      message: `Room "${room.name}" is already ${newStatus}. No new task or alert created.`,
+    };
+  }
+
+  // 3. Locate active PANTRY_BOY account (Raju Sharma)
+  const activePantry =
+    db.users.find((u) => u.role === 'PANTRY_BOY' && u.status === 'active') ||
+    db.users.find((u) => u.role === 'PANTRY_BOY') ||
+    INITIAL_USERS[0];
+
+  let generatedTask: Task | undefined;
+  let generatedNotification: AppNotification | undefined;
+
+  if (newStatus === 'OCCUPIED') {
+    room.status = 'OCCUPIED';
+
+    // 1. When a room changes to OCCUPIED, automatically create a water-delivery task.
+    const waterChecklist: ChecklistItem[] = [
+      { id: 'c-1', text: `Prepare chilled sealed mineral water bottles and clean glassware in pantry`, completed: false },
+      { id: 'c-2', text: `Deliver fresh drinking water bottles to ${room.name}`, completed: false },
+      { id: 'c-3', text: `Place clean glasses and coasters neatly at occupied seating positions`, completed: false },
+      { id: 'c-4', text: `Check if tea, coffee, or refreshment requests are needed for attendees`, completed: false },
+      { id: 'c-5', text: `Capture live verification photo of completed water service delivery`, completed: false },
+    ];
+
+    generatedTask = {
+      id: `task-water-${room.id}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title: `[WATER SERVICE] Deliver Fresh Water to ${room.name}`,
+      description: `Room "${room.name}" transitioned to OCCUPIED. Immediate hospitality setup required: deliver chilled mineral water bottles and clean glassware to attendees.`,
+      roomAreaId: room.id,
+      roomAreaName: room.name,
+      priority: 'URGENT',
+      taskType: 'WATER_DISTRIBUTION',
+      assignedToEmail: activePantry.email,
+      assignedToName: activePantry.name,
+      createdByEmail: actor.email,
+      createdByName: actor.name,
+      createdAt: now,
+      scheduledFor: now,
+      dueTime: 'Immediate (within 10 mins)',
+      status: 'AVAILABLE',
+      isUrgent: true,
+      checklist: waterChecklist,
+      changeHistory: [
+        {
+          timestamp: now,
+          actorEmail: actor.email,
+          actorName: actor.name,
+          fromStatus: 'NONE',
+          toStatus: 'AVAILABLE',
+          note: `Auto-generated upon room transition to OCCUPIED by ${actor.name} (${actor.role})`,
+        },
+      ],
+    };
+
+    db.tasks.unshift(generatedTask);
+
+    if (!room.statusHistory) room.statusHistory = [];
+    room.statusHistory.unshift({
+      id: `hist-${Date.now()}`,
+      status: 'OCCUPIED',
+      timestamp: now,
+      actorName: actor.name,
+      actorEmail: actor.email,
+      note: options?.note || `Room occupied. Auto-created water delivery task #${generatedTask.id}.`,
+      taskId: generatedTask.id,
+      assignmentId: room.currentAssignment?.id,
+    });
+
+    addAuditLog(
+      actor,
+      'ROOM_STATUS_TRANSITION',
+      'ROOM',
+      room.id,
+      `Room "${room.name}" transitioned from ${prevStatus} to OCCUPIED. Created automated water delivery task "${generatedTask.title}" (#${generatedTask.id}) for Pantry Attendant ${activePantry.name}.`
+    );
+
+    // 3. Send real-time in-app alerts ONLY to the active PANTRY_BOY account (Raju Sharma). Never alert Admin, HR, Co-Founder, or other roles.
+    generatedNotification = notify(
+      `💧 Water Delivery Needed: ${room.name}`,
+      `${room.name} is now OCCUPIED. Deliver fresh drinking water and glasses immediately.`,
+      'URGENT_TASK',
+      {
+        role: 'PANTRY_BOY',
+        email: activePantry.email,
+        roomId: room.id,
+        roomName: room.name,
+        taskId: generatedTask.id,
+        priority: 'URGENT',
+        targetOnlyPantryBoy: true,
+      }
+    );
+  } else if (newStatus === 'VACANT') {
+    room.status = 'VACANT';
+
+    // 2. When a room changes to VACANT, automatically create a chair/table rearrangement task.
+    const setup = verifyRoomSetupConfig(room) || { tables: 1, tableType: 'standard', chairs: 4, summary: '1 table + 4 chairs' };
+    const tablePhrase =
+      setup.tables === 1
+        ? `1 ${setup.tableType === 'large' ? 'large ' : ''}table`
+        : `${setup.tables} tables`;
+
+    const rearrangeChecklist: ChecklistItem[] = [
+      { id: 'c-1', text: `Clear used mineral water bottles, glasses, cups, and trash from ${room.name}`, completed: false },
+      { id: 'c-2', text: `Sanitize the ${tablePhrase} surface and wipe presentation display/whiteboard`, completed: false },
+      { id: 'c-3', text: `Rearrange all ${setup.chairs} chairs neatly around the ${tablePhrase} in standard geometric layout (${setup.summary})`, completed: false },
+      { id: 'c-4', text: `Check room air freshener, lighting, coasters, and empty waste bin`, completed: false },
+      { id: 'c-5', text: `Capture live photo verification to certify room readiness`, completed: false },
+    ];
+
+    generatedTask = {
+      id: `task-rearrange-${room.id}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title: `[ROOM REARRANGEMENT] Rearrange Chairs & Tables in ${room.name}`,
+      description: `Room "${room.name}" transitioned to VACANT. Restore room geometry: rearrange all ${setup.chairs} chairs around ${tablePhrase} (${setup.summary}), sanitize surfaces, and prepare room for next use.`,
+      roomAreaId: room.id,
+      roomAreaName: room.name,
+      priority: 'P2',
+      taskType: 'VISITOR_RESET',
+      assignedToEmail: activePantry.email,
+      assignedToName: activePantry.name,
+      createdByEmail: actor.email,
+      createdByName: actor.name,
+      createdAt: now,
+      scheduledFor: now,
+      dueTime: 'Within 20 mins',
+      status: 'AVAILABLE',
+      isUrgent: false,
+      checklist: rearrangeChecklist,
+      changeHistory: [
+        {
+          timestamp: now,
+          actorEmail: actor.email,
+          actorName: actor.name,
+          fromStatus: 'NONE',
+          toStatus: 'AVAILABLE',
+          note: `Auto-generated upon room transition to VACANT by ${actor.name} (${actor.role})`,
+        },
+      ],
+    };
+
+    db.tasks.unshift(generatedTask);
+
+    if (room.currentAssignment) {
+      room.currentAssignment.releasedAt = now;
+      room.currentAssignment.status = 'COMPLETED';
+      room.currentAssignment.resetTaskId = generatedTask.id;
+      if (!room.assignmentHistory) room.assignmentHistory = [];
+      room.assignmentHistory.unshift({ ...room.currentAssignment });
+      room.currentAssignment = null;
+    }
+
+    if (!room.statusHistory) room.statusHistory = [];
+    room.statusHistory.unshift({
+      id: `hist-${Date.now()}`,
+      status: 'VACANT',
+      timestamp: now,
+      actorName: actor.name,
+      actorEmail: actor.email,
+      note: options?.note || `Room vacant. Auto-created chair/table rearrangement task #${generatedTask.id}.`,
+      taskId: generatedTask.id,
+    });
+
+    addAuditLog(
+      actor,
+      'ROOM_STATUS_TRANSITION',
+      'ROOM',
+      room.id,
+      `Room "${room.name}" transitioned from ${prevStatus} to VACANT. Created automated chair/table rearrangement task "${generatedTask.title}" (#${generatedTask.id}) for Pantry Attendant ${activePantry.name}.`
+    );
+
+    // 3. Send real-time in-app alerts ONLY to the active PANTRY_BOY account (Raju Sharma). Never alert Admin, HR, Co-Founder, or other roles.
+    generatedNotification = notify(
+      `🪑 Room Vacant: Rearrange ${room.name}`,
+      `${room.name} is now VACANT. Please reset tables and rearrange all ${setup.chairs} chairs into standard configuration.`,
+      'ROOM_RELEASED',
+      {
+        role: 'PANTRY_BOY',
+        email: activePantry.email,
+        roomId: room.id,
+        roomName: room.name,
+        taskId: generatedTask.id,
+        priority: 'P2',
+        targetOnlyPantryBoy: true,
+      }
+    );
+  } else {
+    // General room status transition (AVAILABLE, READY_FOR_VISITOR, CLEANING_REQUIRED, etc.)
+    room.status = newStatus;
+    if (newStatus === 'AVAILABLE' && room.currentAssignment) {
+      room.currentAssignment.status = 'CANCELLED';
+      if (!room.assignmentHistory) room.assignmentHistory = [];
+      room.assignmentHistory.unshift({ ...room.currentAssignment });
+      room.currentAssignment = null;
+    }
+    if (!room.statusHistory) room.statusHistory = [];
+    room.statusHistory.unshift({
+      id: `hist-${Date.now()}`,
+      status: newStatus,
+      timestamp: now,
+      actorName: actor.name,
+      actorEmail: actor.email,
+      note: options?.note || `Transitioned to ${newStatus}`,
+    });
+    addAuditLog(
+      actor,
+      'ROOM_STATUS_TRANSITION',
+      'ROOM',
+      room.id,
+      `Room "${room.name}" transitioned from ${prevStatus} to ${newStatus}.`
+    );
+  }
+
+  saveDb();
+
+  const normalizedRoom = normalizeRoomRecord(room);
+  const normalizedRooms = db.rooms.map((r) => normalizeRoomRecord(r));
+  broadcastRealtime('room:updated', { room: normalizedRoom, rooms: normalizedRooms });
+
+  if (generatedTask) {
+    const normalizedTask = normalizeTaskRecord(generatedTask);
+    const normalizedTasks = db.tasks.map((t) => normalizeTaskRecord(t));
+    broadcastRealtime('task:created', { task: normalizedTask, tasks: normalizedTasks });
+    broadcastRealtime('task:updated', { task: normalizedTask, tasks: normalizedTasks });
+  }
+
+  const result: RoomTransitionResult = {
+    success: true,
+    room: normalizedRoom,
+    previousStatus: prevStatus,
+    currentStatus: room.status,
+    transitionTriggered: true,
+    duplicate: false,
+    task: generatedTask ? normalizeTaskRecord(generatedTask) : undefined,
+    notification: generatedNotification,
+    message: `Room "${room.name}" successfully transitioned from ${prevStatus} to ${room.status}.`,
+  };
+
+  if (rawIdempKey) {
+    transitionIdempotencyCache.set(rawIdempKey, {
+      taskId: generatedTask?.id,
+      notificationId: generatedNotification?.id,
+      status: room.status,
+      timestamp: now,
+      result,
+    });
+  }
+
+  return result;
+}
+
 // Room Lifecycle Status Actions (Mark Occupied, Ready, Release/Vacant, Request Cleaning, Reopen)
 app.post('/api/rooms/:id/status-action', (req, res) => {
   const actor = getCurrentUser(req);
@@ -3222,7 +3827,9 @@ app.post('/api/rooms/:id/status-action', (req, res) => {
   const room = db.rooms.find((r) => r.id === req.params.id);
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
-  const { action, note } = req.body;
+  const { action, note, idempotencyKey } = req.body;
+  const headerIdempotency = req.headers['idempotency-key'] as string | undefined;
+  const effectiveIdempotencyKey = idempotencyKey || headerIdempotency;
   const now = new Date().toISOString();
   const assignedPantry = db.users.find((u) => u.role === 'PANTRY_BOY' && u.status === 'active') || db.users[0];
 
@@ -3230,28 +3837,23 @@ app.post('/api/rooms/:id/status-action', (req, res) => {
   if (!room.assignmentHistory) room.assignmentHistory = [];
 
   switch (action) {
-    case 'MARK_OCCUPIED': {
-      // Room entered by candidate / visitor
-      room.status = 'OCCUPIED';
-      const actorNote = note || `Room occupied: Meeting started for ${room.currentAssignment?.visitorName || 'guest'}`;
-      room.statusHistory.unshift({
-        id: `hist-${Date.now()}`,
-        status: 'OCCUPIED',
-        timestamp: now,
-        actorName: actor.name,
-        actorEmail: actor.email,
-        note: actorNote,
-        assignmentId: room.currentAssignment?.id,
+    case 'MARK_OCCUPIED':
+    case 'OCCUPIED': {
+      const result = handleRoomStatusTransition(room, 'OCCUPIED', actor, {
+        note,
+        idempotencyKey: effectiveIdempotencyKey,
       });
+      return res.json({ success: true, room: result.room, task: result.task, transition: result });
+    }
 
-      addAuditLog(actor, 'ROOM_MARKED_OCCUPIED', 'ROOM', room.id, `Marked "${room.name}" as OCCUPIED. ${actorNote}`);
-      notify(
-        `Room Occupied: ${room.name}`,
-        `${room.name} is now occupied (${room.currentAssignment?.visitorName || 'Guest'}). Do not disturb.`,
-        'ROOM_OCCUPIED',
-        { role: 'PANTRY_BOY', roomId: room.id, roomName: room.name }
-      );
-      break;
+    case 'RELEASE_VACANT':
+    case 'MARK_VACANT':
+    case 'VACANT': {
+      const result = handleRoomStatusTransition(room, 'VACANT', actor, {
+        note,
+        idempotencyKey: effectiveIdempotencyKey,
+      });
+      return res.json({ success: true, room: result.room, task: result.task, transition: result });
     }
 
     case 'MARK_READY': {
@@ -3274,82 +3876,6 @@ app.post('/api/rooms/:id/status-action', (req, res) => {
         `${room.name} has been certified ready for visitor entry.`,
         'ROOM_READY',
         { role: 'HR', roomId: room.id, roomName: room.name }
-      );
-      break;
-    }
-
-    case 'RELEASE_VACANT': {
-      // Meeting finished, guest departed. Room MUST transition to CLEANING_REQUIRED.
-      // Room remains unavailable until cleaning + photo verification is complete!
-      room.status = 'CLEANING_REQUIRED';
-      const previousVisitor = room.currentAssignment?.visitorName || 'Meeting guests';
-
-      if (room.currentAssignment) {
-        room.currentAssignment.releasedAt = now;
-        room.currentAssignment.status = 'COMPLETED';
-        room.assignmentHistory.unshift({ ...room.currentAssignment });
-      }
-
-      // Auto-generate post-meeting cleaning/reset task
-      const resetTask: Task = {
-        id: `task-reset-${room.id}-${Date.now()}`,
-        title: `[POST-MEETING RESET] Clean & Sanitize ${room.name}`,
-        description: `Guests (${previousVisitor}) have departed. Clear used bottles, sanitize tables, realign chairs, and restore room to AVAILABLE.`,
-        roomAreaId: room.id,
-        roomAreaName: room.name,
-        priority: 'P2',
-        taskType: 'VISITOR_RESET',
-        assignedToEmail: assignedPantry.email,
-        assignedToName: assignedPantry.name,
-        createdByEmail: actor.email,
-        createdByName: actor.name,
-        createdAt: now,
-        scheduledFor: now,
-        dueTime: 'Within 20 mins',
-        status: 'AVAILABLE',
-        isUrgent: false,
-        checklist: [
-          { id: 'c-1', text: 'Clear used water bottles, glasses, and paper waste to pantry', completed: false },
-          { id: 'c-2', text: 'Sanitize table surface and clean whiteboard if used', completed: false },
-          { id: 'c-3', text: 'Realign all chairs in standard geometric layout', completed: false },
-          { id: 'c-4', text: 'Check room fragrance and empty waste bin', completed: false },
-          { id: 'c-5', text: `Capture live camera photo to return ${room.name} to AVAILABLE status`, completed: false },
-        ],
-        changeHistory: [
-          {
-            timestamp: now,
-            actorEmail: actor.email,
-            actorName: actor.name,
-            fromStatus: 'NONE',
-            toStatus: 'AVAILABLE',
-            note: `Auto-generated upon room release by ${actor.name} (${actor.role})`,
-          },
-        ],
-      };
-
-      if (room.currentAssignment) {
-        room.currentAssignment.resetTaskId = resetTask.id;
-      }
-      room.currentAssignment = null;
-
-      room.statusHistory.unshift({
-        id: `hist-${Date.now()}`,
-        status: 'CLEANING_REQUIRED',
-        timestamp: now,
-        actorName: actor.name,
-        actorEmail: actor.email,
-        note: `Room released by ${actor.name}. Status transitioned to CLEANING_REQUIRED. Auto-generated task #${resetTask.id}.`,
-        taskId: resetTask.id,
-      });
-
-      db.tasks.unshift(resetTask);
-
-      addAuditLog(actor, 'ROOM_RELEASED_VACANT', 'ROOM', room.id, `Released "${room.name}". Generated cleaning task "${resetTask.title}".`);
-      notify(
-        `🧹 Room Vacant: Clean ${room.name}`,
-        `${room.name} was released by ${actor.name}. Meeting finished. Please clear glasses, sanitize, and submit photo evidence.`,
-        'ROOM_RELEASED',
-        { role: 'PANTRY_BOY', taskId: resetTask.id, roomId: room.id, roomName: room.name }
       );
       break;
     }
@@ -3416,32 +3942,10 @@ app.post('/api/rooms/:id/status-action', (req, res) => {
     }
 
     case 'REOPEN': {
-      // Management override: make room AVAILABLE
-      room.status = 'AVAILABLE';
-      if (room.currentAssignment) {
-        room.currentAssignment.status = 'CANCELLED';
-        room.assignmentHistory.unshift({ ...room.currentAssignment });
-        room.currentAssignment = null;
-      }
-
-      const overrideNote = note || `Reopened / restored to AVAILABLE by ${actor.name}`;
-      room.statusHistory.unshift({
-        id: `hist-${Date.now()}`,
-        status: 'AVAILABLE',
-        timestamp: now,
-        actorName: actor.name,
-        actorEmail: actor.email,
-        note: overrideNote,
+      const result = handleRoomStatusTransition(room, 'AVAILABLE', actor, {
+        note: note || `Reopened / restored to AVAILABLE by ${actor.name}`,
       });
-
-      addAuditLog(actor, 'ROOM_REOPENED', 'ROOM', room.id, `Restored "${room.name}" to AVAILABLE. ${overrideNote}`);
-      notify(
-        `Room Reopened: ${room.name}`,
-        `${room.name} is now AVAILABLE for new assignments.`,
-        'ROOM_READY',
-        { role: 'HR', roomId: room.id, roomName: room.name }
-      );
-      break;
+      return res.json({ success: true, room: result.room, transition: result });
     }
 
     default:
@@ -3449,10 +3953,93 @@ app.post('/api/rooms/:id/status-action', (req, res) => {
   }
 
   saveDb();
-  broadcastRealtime('room:updated', { room, rooms: db.rooms });
-  broadcastRealtime('task:updated', { tasks: db.tasks });
+  broadcastRealtime('room:updated', { room: normalizeRoomRecord(room), rooms: db.rooms.map((r) => normalizeRoomRecord(r)) });
+  broadcastRealtime('task:updated', { tasks: db.tasks.map((t) => normalizeTaskRecord(t)) });
 
-  res.json({ success: true, room });
+  res.json({ success: true, room: normalizeRoomRecord(room) });
+});
+
+// Direct Room Status Update Endpoints (POST / PATCH /api/rooms/:id/status)
+app.post(['/api/rooms/:id/status', '/api/rooms/:id/set-status'], (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({ error: 'Unauthenticated' });
+  }
+  if (!checkUserPermission(actor, 'rooms', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: You are not authorized to modify room status.' });
+  }
+  const room = db.rooms.find((r) => r.id === req.params.id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  const { status, note, idempotencyKey } = req.body;
+  if (!status) return res.status(400).json({ error: 'Missing required status field' });
+
+  const headerIdempotency = req.headers['idempotency-key'] as string | undefined;
+  const effectiveIdempotencyKey = idempotencyKey || headerIdempotency;
+
+  const validStatuses: RoomStatus[] = [
+    'AVAILABLE',
+    'RESERVED',
+    'ASSIGNED',
+    'OCCUPIED',
+    'VACANT',
+    'PREPARATION_REQUIRED',
+    'READY_FOR_VISITOR',
+    'CLEANING_REQUIRED',
+    'CLEANING_IN_PROGRESS',
+    'PENDING_VERIFICATION',
+  ];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: `Invalid room status: ${status}` });
+  }
+
+  const result = handleRoomStatusTransition(room, status as RoomStatus, actor, {
+    note,
+    idempotencyKey: effectiveIdempotencyKey,
+  });
+
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+app.patch('/api/rooms/:id/status', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({ error: 'Unauthenticated' });
+  }
+  if (!checkUserPermission(actor, 'rooms', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: You are not authorized to modify room status.' });
+  }
+  const room = db.rooms.find((r) => r.id === req.params.id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  const { status, note, idempotencyKey } = req.body;
+  if (!status) return res.status(400).json({ error: 'Missing required status field' });
+
+  const headerIdempotency = req.headers['idempotency-key'] as string | undefined;
+  const effectiveIdempotencyKey = idempotencyKey || headerIdempotency;
+
+  const validStatuses: RoomStatus[] = [
+    'AVAILABLE',
+    'RESERVED',
+    'ASSIGNED',
+    'OCCUPIED',
+    'VACANT',
+    'PREPARATION_REQUIRED',
+    'READY_FOR_VISITOR',
+    'CLEANING_REQUIRED',
+    'CLEANING_IN_PROGRESS',
+    'PENDING_VERIFICATION',
+  ];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: `Invalid room status: ${status}` });
+  }
+
+  const result = handleRoomStatusTransition(room, status as RoomStatus, actor, {
+    note,
+    idempotencyKey: effectiveIdempotencyKey,
+  });
+
+  res.status(result.success ? 200 : 400).json(result);
 });
 
 // Get Room Assignment & Status History
@@ -4826,12 +5413,24 @@ app.get('/api/reports/export', (req, res) => {
   res.send(csvContent);
 });
 
-// 8. Notifications & Audit Logs
 app.get('/api/notifications', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor) return res.json({ notifications: [] });
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated', notifications: [] });
 
   const relevant = db.notifications.filter((n) => {
+    // CRITICAL RBAC ENFORCEMENT:
+    // If notification is marked targetOnlyPantryBoy, ONLY active PANTRY_BOY can receive it.
+    // Admin, HR, Co-Founder, and all other non-pantry roles are strictly blocked from seeing it.
+    if (n.targetOnlyPantryBoy) {
+      if (actor.role !== 'PANTRY_BOY' || actor.status !== 'active') {
+        return false;
+      }
+      if (n.recipientEmail && actor.email.toLowerCase() !== n.recipientEmail.toLowerCase()) {
+        return false;
+      }
+      return true;
+    }
+
     if (actor.role === 'ADMIN' || actor.isSuperAdmin) return true;
     if (!n.recipientRole && !n.recipientEmail) return true;
     if (n.recipientRole === actor.role) return true;
