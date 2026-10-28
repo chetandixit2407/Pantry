@@ -94,6 +94,27 @@ export const syncServerTime = (serverIso?: string): void => {
 export const getServerNowMs = (): number => Date.now() + serverTimeOffsetMs;
 export const getServerDate = (): Date => new Date(getServerNowMs());
 
+export interface EvidenceLoadError extends Error {
+  status?: number;
+  code?: string;
+  isExpiredSession?: boolean;
+  isForbidden?: boolean;
+  isMissingFile?: boolean;
+}
+
+export function resolvePersistedEvidenceUrl(photoUrl: string, cacheBust?: number): string {
+  const trimmed = String(photoUrl || '').trim();
+  if (!trimmed || trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    return '';
+  }
+  const withoutQuery = trimmed.split('?')[0].split('#')[0];
+  const segments = withoutQuery.split('/').filter(Boolean);
+  const fileName = segments[segments.length - 1] || '';
+  if (!fileName) return '';
+  const suffix = cacheBust ? `?retry=${cacheBust}` : '';
+  return `${BASE_URL}/photos/${encodeURIComponent(fileName)}${suffix}`;
+}
+
 export const api = {
   // Auth
   async getCurrentUser(): Promise<UserAccount | null> {
@@ -103,6 +124,7 @@ export const api = {
     try {
       const res = await fetch(`${BASE_URL}/auth/current`, {
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
       if (res.status === 401 || res.status === 403) {
         clearSessionToken();
@@ -120,6 +142,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
@@ -138,6 +161,7 @@ export const api = {
       await fetch(`${BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify({}),
       });
     } catch (e) {
@@ -151,6 +175,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/auth/switch-user`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
       body: JSON.stringify({ userId }),
     });
     if (!res.ok) {
@@ -626,6 +651,93 @@ export const api = {
     return await res.json();
   },
 
+  async getTaskEvidence(taskId: string): Promise<{
+    taskId: string;
+    taskTitle: string;
+    roomId: string;
+    roomName: string;
+    status: TaskStatus;
+    submittedAt?: string;
+    photoCount: number;
+    photoEvidences: PhotoEvidence[];
+  }> {
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/evidence`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const errorObj: EvidenceLoadError = new Error(err.error || 'Failed to load task photo evidence');
+      errorObj.status = res.status;
+      errorObj.code = err.code;
+      errorObj.isExpiredSession = res.status === 401;
+      errorObj.isForbidden = res.status === 403;
+      errorObj.isMissingFile = res.status === 404;
+      throw errorObj;
+    }
+    return await res.json();
+  },
+
+  async fetchEvidenceImageBlob(
+    photoUrl: string,
+    options?: { signal?: AbortSignal; cacheBust?: number }
+  ): Promise<Blob> {
+    const targetUrl = resolvePersistedEvidenceUrl(photoUrl, options?.cacheBust);
+    if (!targetUrl) {
+      const invalidErr: EvidenceLoadError = new Error(
+        'Invalid or non-persisted photo evidence reference. Temporary browser URLs are not permitted.'
+      );
+      invalidErr.status = 400;
+      invalidErr.code = 'INVALID_PHOTO_REFERENCE';
+      throw invalidErr;
+    }
+
+    const res = await fetch(targetUrl, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      cache: options?.cacheBust ? 'reload' : 'no-store',
+      signal: options?.signal,
+    });
+
+    if (!res.ok) {
+      const errPayload = await safeJson<{ error?: string; code?: string }>(res, {});
+      let fallbackMsg = `Failed to load evidence photo (HTTP ${res.status}).`;
+      if (res.status === 401) {
+        fallbackMsg = 'Session expired or unauthenticated. Please sign in again to view photo evidence.';
+      } else if (res.status === 403) {
+        fallbackMsg = 'Access denied: Your account is not authorized to view this photo evidence.';
+      } else if (res.status === 404) {
+        fallbackMsg = 'Evidence image file is missing from server storage.';
+      }
+      const errObj: EvidenceLoadError = new Error(errPayload?.error || fallbackMsg);
+      errObj.status = res.status;
+      errObj.code = errPayload?.code;
+      errObj.isExpiredSession = res.status === 401;
+      errObj.isForbidden = res.status === 403;
+      errObj.isMissingFile = res.status === 404;
+      throw errObj;
+    }
+
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      const fmtErr: EvidenceLoadError = new Error('Server returned an unexpected non-image response.');
+      fmtErr.status = 502;
+      fmtErr.code = 'INVALID_IMAGE_RESPONSE';
+      throw fmtErr;
+    }
+
+    const blob = await res.blob();
+    if (!blob || blob.size === 0) {
+      const emptyErr: EvidenceLoadError = new Error('Evidence image file on server is empty (0 bytes).');
+      emptyErr.status = 502;
+      emptyErr.code = 'EMPTY_IMAGE_FILE';
+      throw emptyErr;
+    }
+
+    return blob;
+  },
+
   async uploadPhotoEvidence(
     taskId: string,
     photoData: string,
@@ -635,6 +747,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/photo`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
       body: JSON.stringify({ photoData, metadata, sessionId }),
     });
     if (!res.ok) {
@@ -651,18 +764,121 @@ export const api = {
   async uploadMultiPhotoEvidence(
     taskId: string,
     photos: Array<{ photoData: string; metadata?: any; capturedAt?: string }>,
-    sessionId?: string
-  ): Promise<{ task: Task; photoEvidence: PhotoEvidence; photoEvidences: PhotoEvidence[]; count: number }> {
-    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/photos`, {
+    sessionId?: string,
+    options?: {
+      submissionId?: string;
+      onProgress?: (progress: { loadedBytes: number; totalBytes: number; percent: number }) => void;
+    }
+  ): Promise<{
+    task: Task;
+    photoEvidence: PhotoEvidence;
+    photoEvidences: PhotoEvidence[];
+    count: number;
+    duplicate?: boolean;
+  }> {
+    const url = `${BASE_URL}/tasks/${encodeURIComponent(taskId)}/photos`;
+    const extraHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (options?.submissionId) {
+      extraHeaders['Idempotency-Key'] = options.submissionId;
+    }
+    const headers = getAuthHeaders(extraHeaders);
+    const bodyStr = JSON.stringify({
+      photos,
+      sessionId,
+      submissionId: options?.submissionId,
+    });
+
+    if (typeof XMLHttpRequest !== 'undefined') {
+      return await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url, true);
+        xhr.withCredentials = true;
+        xhr.timeout = 60000;
+
+        Object.entries(headers).forEach(([k, v]) => {
+          xhr.setRequestHeader(k, v);
+        });
+
+        xhr.upload.onprogress = (evt) => {
+          if (!options?.onProgress) return;
+          const totalBytes = evt.lengthComputable && evt.total > 0 ? evt.total : bodyStr.length;
+          const loadedBytes = Math.min(evt.loaded, totalBytes);
+          const rawPct = totalBytes > 0 ? Math.round((loadedBytes / totalBytes) * 95) : 50;
+          options.onProgress({
+            loadedBytes,
+            totalBytes,
+            percent: Math.max(5, Math.min(95, rawPct)),
+          });
+        };
+
+        xhr.onload = () => {
+          let parsed: any = {};
+          try {
+            parsed = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+          } catch {
+            parsed = {};
+          }
+
+          if (xhr.status >= 200 && xhr.status < 300) {
+            options?.onProgress?.({
+              loadedBytes: bodyStr.length,
+              totalBytes: bodyStr.length,
+              percent: 100,
+            });
+            resolve({
+              ...parsed,
+              task: parsed.task ? normalizeTaskRecord(parsed.task) : parsed.task,
+            });
+          } else {
+            const errObj: any = new Error(
+              parsed?.error || `Failed to upload photo batch (HTTP ${xhr.status})`
+            );
+            errObj.status = xhr.status;
+            errObj.code = parsed?.code;
+            errObj.failedPhotoIndex = parsed?.failedPhotoIndex;
+            reject(errObj);
+          }
+        };
+
+        xhr.onerror = () => {
+          const netErr: any = new Error(
+            'Network connection interrupted during photo upload. Your captured photos are safe — please click Retry.'
+          );
+          netErr.code = 'NETWORK_ERROR';
+          reject(netErr);
+        };
+
+        xhr.ontimeout = () => {
+          const timeoutErr: any = new Error(
+            'Photo upload timed out. Your captured photos are safe — please click Retry.'
+          );
+          timeoutErr.code = 'UPLOAD_TIMEOUT';
+          reject(timeoutErr);
+        };
+
+        xhr.send(bodyStr);
+      });
+    }
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ photos, sessionId }),
+      headers,
+      body: bodyStr,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to upload multi-photo evidence batch');
+      const errObj: any = new Error(err.error || 'Failed to upload multi-photo evidence batch');
+      errObj.status = res.status;
+      errObj.code = err.code;
+      errObj.failedPhotoIndex = err.failedPhotoIndex;
+      throw errObj;
     }
     const data = await res.json();
+    options?.onProgress?.({
+      loadedBytes: bodyStr.length,
+      totalBytes: bodyStr.length,
+      percent: 100,
+    });
     return {
       ...data,
       task: data.task ? normalizeTaskRecord(data.task) : data.task,

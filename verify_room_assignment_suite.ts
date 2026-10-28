@@ -1,7 +1,11 @@
 import http from 'http';
 import fs from 'fs';
 
-const BASE_URL = 'http://127.0.0.1:3000';
+import path from 'path';
+
+const TEST_PORT = parseInt(process.env.WCR_TEST_PORT || '3000', 10);
+const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
+const DATA_DIR = process.env.WCR_DATA_DIR || 'data';
 
 interface TestResult {
   name: string;
@@ -346,7 +350,7 @@ async function runSuite() {
   );
 
   // Check Database file persistence
-  const dbContent = JSON.parse(fs.readFileSync('data/smart_pantry_db.json', 'utf8'));
+  const dbContent = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'smart_pantry_db.json'), 'utf8'));
   const dbRoom = dbContent.rooms.find((r: any) => r.id === testRoom1.id);
   const auditLogs = dbContent.auditLogs || [];
   const hasAssignLog = auditLogs.some((l: any) => l.action === 'ROOM_ASSIGNED_EMPLOYEE');

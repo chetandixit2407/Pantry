@@ -40,6 +40,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
 // AI Studio dev server must always run on port 3000. Ignore Cloud Run's internal PORT=8080.
 function resolveServerPort(): number {
   const portArgIdx = process.argv.indexOf('--port');
@@ -55,16 +58,79 @@ function resolveServerPort(): number {
 }
 const PORT = resolveServerPort();
 
-// Body parser with 20MB limit for camera photo uploads
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// Security headers middleware (compatible with AI Studio iframe hosting)
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
+  if (req.path.startsWith('/api') && !req.path.startsWith('/api/realtime')) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+  next();
+});
+
+// Sliding-window rate limiting middleware (protects auth & API endpoints against burst abuse)
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_AUTH_MAX = Math.max(10, parseInt(process.env.WCR_RATE_LIMIT_AUTH_MAX || '60', 10) || 60);
+const RATE_LIMIT_API_MAX = Math.max(50, parseInt(process.env.WCR_RATE_LIMIT_API_MAX || '600', 10) || 600);
+const rateLimitBuckets = new Map<string, number[]>();
+
+function getClientIpKey(req: express.Request): string {
+  const xff = req.headers['x-forwarded-for'];
+  const forwarded = Array.isArray(xff) ? xff[0] : typeof xff === 'string' ? xff.split(',')[0] : '';
+  return (forwarded || req.socket.remoteAddress || 'local').trim();
+}
+
+app.use('/api', (req, res, next) => {
+  const now = Date.now();
+  const isAuthRoute = req.path.startsWith('/auth/login') || req.path.startsWith('/auth/switch-user');
+  const bucketKey = `${isAuthRoute ? 'auth' : 'api'}:${getClientIpKey(req)}`;
+  const maxAllowed = isAuthRoute ? RATE_LIMIT_AUTH_MAX : RATE_LIMIT_API_MAX;
+
+  const existing = rateLimitBuckets.get(bucketKey) || [];
+  const activeTimestamps = existing.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  if (activeTimestamps.length >= maxAllowed) {
+    const retryAfterSec = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - activeTimestamps[0])) / 1000));
+    res.setHeader('Retry-After', String(retryAfterSec));
+    rateLimitBuckets.set(bucketKey, activeTimestamps);
+    return res.status(429).json({
+      error: isAuthRoute
+        ? 'Too many authentication attempts. Please wait before retrying.'
+        : 'API rate limit exceeded. Please slow down and retry shortly.',
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: retryAfterSec,
+    });
+  }
+  activeTimestamps.push(now);
+  rateLimitBuckets.set(bucketKey, activeTimestamps);
+  next();
+});
+
+// Body parser with 50MB limit for multi-photo camera evidence batches
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    return res.status(400).json({ error: 'Malformed JSON request payload.', code: 'INVALID_JSON' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request payload exceeds maximum 50MB limit.', code: 'PAYLOAD_TOO_LARGE' });
+  }
+  next(err);
+});
 
 // -----------------------------------------------------------------------------
-// Local Storage & Database Persistence Layer
+// Local Storage & Database Persistence Layer (Supports Isolated Staging Overrides)
 // -----------------------------------------------------------------------------
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.WCR_DATA_DIR
+  ? path.resolve(process.env.WCR_DATA_DIR)
+  : path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'smart_pantry_db.json');
-const UPLOADS_DIR = path.join(__dirname, 'uploads', 'photos');
+const UPLOADS_DIR = process.env.WCR_UPLOADS_DIR
+  ? path.resolve(process.env.WCR_UPLOADS_DIR)
+  : path.join(__dirname, 'uploads', 'photos');
+const UPLOADS_ROOT_DIR = path.resolve(UPLOADS_DIR, '..');
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -73,8 +139,144 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Serve uploaded photos and public assets directly via Express
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+function resolvePhotoMimeType(fileName: string): string {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+}
+
+function isEvidenceFileOnDisk(photoUrl?: string): boolean {
+  if (!photoUrl || typeof photoUrl !== 'string') return false;
+  const cleanPath = photoUrl.split('?')[0].trim();
+  const base = path.basename(cleanPath);
+  if (!base || base === '.' || base === '..') return false;
+  return fs.existsSync(path.join(UPLOADS_DIR, base));
+}
+
+function serveAuthorizedPhotoFile(req: express.Request, res: express.Response, rawFileName: string) {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({
+      error: 'Session expired or authentication required to view operational photo evidence.',
+      code: 'SESSION_EXPIRED_OR_UNAUTHENTICATED',
+    });
+  }
+
+  let decodedName = '';
+  try {
+    decodedName = decodeURIComponent(String(rawFileName || '').split('?')[0].trim());
+  } catch {
+    return res.status(400).json({
+      error: 'Invalid photo evidence reference.',
+      code: 'INVALID_PHOTO_REFERENCE',
+    });
+  }
+
+  const safeFileName = path.basename(decodedName);
+  if (
+    !safeFileName ||
+    safeFileName !== decodedName ||
+    safeFileName === '.' ||
+    safeFileName === '..' ||
+    !/\.(png|jpe?g|webp)$/i.test(safeFileName)
+  ) {
+    return res.status(400).json({
+      error: 'Invalid photo evidence file name.',
+      code: 'INVALID_PHOTO_REFERENCE',
+    });
+  }
+
+  const perms = actor.permissions || getDefaultPermissions(actor.role);
+  const canViewAnyOperationalArea =
+    checkUserPermission(actor, 'tasks', 'view') || checkUserPermission(actor, 'rooms', 'view');
+  if (!canViewAnyOperationalArea) {
+    return res.status(403).json({
+      error: 'Access denied: Your account does not have permission to view operational photo evidence.',
+      code: 'FORBIDDEN_EVIDENCE_ACCESS',
+    });
+  }
+
+  const isManagementViewer =
+    actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin) || Boolean(perms.dashboards?.management);
+
+  const matchingTasks = db.tasks.filter((t) => {
+    const evidences =
+      Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0
+        ? t.photoEvidences
+        : t.photoEvidence
+        ? [t.photoEvidence]
+        : [];
+    return evidences.some((ev) => {
+      if (!ev?.photoUrl) return false;
+      const evBase = path.basename(ev.photoUrl.split('?')[0]);
+      return evBase === safeFileName;
+    });
+  });
+
+  if (!isManagementViewer) {
+    const actorEmailLower = actor.email.toLowerCase();
+    if (matchingTasks.length > 0) {
+      const ownsOrAssigned = matchingTasks.some((t) => {
+        if (t.assignedToEmail && t.assignedToEmail.toLowerCase() === actorEmailLower) return true;
+        const evidences =
+          Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0
+            ? t.photoEvidences
+            : t.photoEvidence
+            ? [t.photoEvidence]
+            : [];
+        return evidences.some((ev) => ev?.userEmail?.toLowerCase() === actorEmailLower);
+      });
+      if (!ownsOrAssigned) {
+        return res.status(403).json({
+          error: 'Access denied: You are only authorized to view photo evidence for your own assigned tasks.',
+          code: 'FORBIDDEN_EVIDENCE_ACCESS',
+        });
+      }
+    } else if (fs.existsSync(path.join(UPLOADS_DIR, safeFileName))) {
+      return res.status(403).json({
+        error: 'Access denied: Photo evidence is not associated with your assigned tasks.',
+        code: 'FORBIDDEN_EVIDENCE_ACCESS',
+      });
+    }
+  }
+
+  const targetPath = path.join(UPLOADS_DIR, safeFileName);
+  if (!fs.existsSync(targetPath)) {
+    return res.status(404).json({
+      error: 'Uploaded photo evidence file was not found in server storage.',
+      code: 'EVIDENCE_FILE_MISSING',
+      fileName: safeFileName,
+    });
+  }
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, no-cache');
+  res.setHeader('Content-Type', resolvePhotoMimeType(safeFileName));
+  return res.sendFile(targetPath);
+}
+
+// Protect operational photo evidence under /uploads with strict session authentication & RBAC
+const requirePhotoAuth: express.RequestHandler = (req, res, next) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({
+      error: 'Session expired or authentication required to view operational photo evidence.',
+      code: 'SESSION_EXPIRED_OR_UNAUTHENTICATED',
+    });
+  }
+  res.setHeader('Cache-Control', 'private, no-cache');
+  next();
+};
+app.get('/uploads/photos/:fileName', (req, res) => {
+  return serveAuthorizedPhotoFile(req, res, req.params.fileName);
+});
+app.use('/uploads', requirePhotoAuth, (_req, res) => {
+  return res.status(404).json({
+    error: 'Uploaded photo evidence file was not found in server storage.',
+    code: 'EVIDENCE_FILE_MISSING',
+  });
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 
@@ -84,25 +286,72 @@ app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 interface SSEClientEntry {
   res: express.Response;
   req: express.Request;
+  userId?: string;
 }
 
 const sseClients = new Set<SSEClientEntry>();
 
 function broadcastRealtime(event: string, payload: any) {
   const nowIso = new Date().toISOString();
-  const enrichedPayload =
+  const basePayload =
     payload && typeof payload === 'object' && !Array.isArray(payload)
       ? { ...payload, serverTime: payload.serverTime || nowIso }
       : payload;
-  const message = `event: ${event}\ndata: ${JSON.stringify({ event, payload: enrichedPayload, timestamp: nowIso })}\n\n`;
+
   for (const client of sseClients) {
     try {
-      if (event === 'notification:new' && payload?.notification?.targetOnlyPantryBoy) {
-        const user = getCurrentUser(client.req);
-        if (!user || user.role !== 'PANTRY_BOY' || user.status !== 'active') {
+      const user = getCurrentUser(client.req);
+
+      // Deliver immediate revocation signal to a just-deactivated/deleted user, then close their stream
+      if (!user) {
+        if (
+          (event === 'account:revoked' && basePayload?.userId && basePayload.userId === client.userId) ||
+          (event === 'user:updated' && basePayload?.user?.id && basePayload.user.id === client.userId)
+        ) {
+          const message = `event: ${event}\ndata: ${JSON.stringify({ event, payload: basePayload, timestamp: nowIso })}\n\n`;
+          client.res.write(message);
+          if (event === 'account:revoked') {
+            client.res.end();
+            sseClients.delete(client);
+          }
+        } else {
+          client.res.end();
+          sseClients.delete(client);
+        }
+        continue;
+      }
+
+      if (event === 'notification:new' && basePayload?.notification) {
+        if (!canUserReceiveNotification(user, basePayload.notification)) {
           continue;
         }
       }
+
+      let clientPayload = basePayload;
+      if (
+        (event === 'task:created' || event === 'task:updated') &&
+        user.role === 'PANTRY_BOY' &&
+        basePayload &&
+        typeof basePayload === 'object'
+      ) {
+        const ownEmail = user.email.toLowerCase();
+        const filteredTasks = Array.isArray(basePayload.tasks)
+          ? basePayload.tasks
+              .filter((t: Task) => t.assignedToEmail.toLowerCase() === ownEmail)
+              .map((t: Task) => normalizeTaskRecord(t))
+          : undefined;
+        const singleTask =
+          basePayload.task && basePayload.task.assignedToEmail?.toLowerCase() === ownEmail
+            ? normalizeTaskRecord(basePayload.task)
+            : undefined;
+        clientPayload = {
+          ...basePayload,
+          ...(filteredTasks !== undefined ? { tasks: filteredTasks } : {}),
+          task: singleTask,
+        };
+      }
+
+      const message = `event: ${event}\ndata: ${JSON.stringify({ event, payload: clientPayload, timestamp: nowIso })}\n\n`;
       client.res.write(message);
     } catch {
       sseClients.delete(client);
@@ -2008,33 +2257,36 @@ function recordPantryLogout(user: UserAccount): AttendanceRecord | null {
 
   if (!Array.isArray(db.attendance)) return null;
 
-  const existing =
-    db.attendance.find((a) => a.userId === user.id && a.date === today && a.status === 'PRESENT' && !a.logoutTime) ||
-    db.attendance.find((a) => a.userId === user.id && a.date === today);
+  const activeSession = db.attendance.find(
+    (a) => a.userId === user.id && a.date === today && a.status === 'PRESENT' && !a.logoutTime
+  );
 
-  if (!existing) return null;
+  if (!activeSession) {
+    // Idempotently return already-completed record for today without overwriting its logout timestamp
+    return db.attendance.find((a) => a.userId === user.id && a.date === today) || null;
+  }
 
-  existing.logoutTime = now.toISOString();
-  existing.logoutTimeIST = getISTTimeString(now);
-  existing.status = 'COMPLETED';
+  activeSession.logoutTime = now.toISOString();
+  activeSession.logoutTimeIST = getISTTimeString(now);
+  activeSession.status = 'COMPLETED';
 
-  const loginMs = new Date(existing.loginTime).getTime();
+  const loginMs = new Date(activeSession.loginTime).getTime();
   const logoutMs = now.getTime();
-  existing.elapsedMinutes = Math.max(1, Math.round((logoutMs - loginMs) / (60 * 1000)));
-  existing.updatedAt = now.toISOString();
+  activeSession.elapsedMinutes = Math.max(1, Math.round((logoutMs - loginMs) / (60 * 1000)));
+  activeSession.updatedAt = now.toISOString();
 
   saveDb();
-  broadcastRealtime('attendance:updated', { attendance: existing });
+  broadcastRealtime('attendance:updated', { attendance: activeSession });
 
   addAuditLog(
     { email: user.email, name: user.name, role: user.role },
     'ATTENDANCE_LOGOUT_RECORDED',
     'USER',
     user.id,
-    `Pantry Boy logged out at ${existing.logoutTimeIST} IST. Total working duration: ${Math.floor(existing.elapsedMinutes / 60)}h ${existing.elapsedMinutes % 60}m.`
+    `Pantry Boy logged out at ${activeSession.logoutTimeIST} IST. Total working duration: ${Math.floor(activeSession.elapsedMinutes / 60)}h ${activeSession.elapsedMinutes % 60}m.`
   );
 
-  return existing;
+  return activeSession;
 }
 
 // Seed initial attendance record for today if empty so dashboard displays live metrics immediately
@@ -2058,8 +2310,15 @@ if (!db.attendance.some((a) => a.date === currentToday && a.role === 'PANTRY_BOY
 
 function saveDbStrict() {
   const tmpFile = `${DB_FILE}.${Date.now()}.${crypto.randomBytes(4).toString('hex')}.tmp`;
-  fs.writeFileSync(tmpFile, JSON.stringify(db, null, 2), 'utf-8');
-  fs.renameSync(tmpFile, DB_FILE);
+  try {
+    fs.writeFileSync(tmpFile, JSON.stringify(db, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, DB_FILE);
+  } catch (err) {
+    try {
+      if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+    } catch {}
+    throw err;
+  }
 }
 
 function saveDb() {
@@ -2355,7 +2614,55 @@ interface ActiveSession {
 const activeSessions = new Map<string, ActiveSession>();
 const revokedTokens = new Set<string>();
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'wcr-smart-pantry-super-secret-key-2026';
+const SESSION_SECRET =
+  process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16
+    ? process.env.SESSION_SECRET.trim()
+    : crypto.randomBytes(32).toString('hex');
+
+const SESSION_COOKIE_NAME = 'wcr_session';
+
+function parseCookies(cookieHeader?: string): Record<string, string> {
+  if (!cookieHeader) return {};
+  const out: Record<string, string> = {};
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    const val = part.slice(idx + 1).trim();
+    if (key) {
+      try {
+        out[key] = decodeURIComponent(val);
+      } catch {
+        out[key] = val;
+      }
+    }
+  }
+  return out;
+}
+
+function setSessionCookie(req: express.Request, res: express.Response, token: string) {
+  const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  const attrs = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    'HttpOnly',
+    'Path=/',
+    'Max-Age=604800',
+    isSecure ? 'SameSite=None; Secure' : 'SameSite=Lax',
+  ];
+  res.setHeader('Set-Cookie', attrs.join('; '));
+}
+
+function clearSessionCookie(req: express.Request, res: express.Response) {
+  const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  const attrs = [
+    `${SESSION_COOKIE_NAME}=`,
+    'HttpOnly',
+    'Path=/',
+    'Max-Age=0',
+    isSecure ? 'SameSite=None; Secure' : 'SameSite=Lax',
+  ];
+  res.setHeader('Set-Cookie', attrs.join('; '));
+}
 
 function generateSessionToken(userId: string): string {
   const timestamp = Date.now();
@@ -2396,6 +2703,10 @@ function extractSessionToken(req?: express.Request): string {
   }
   if (typeof req.query?.token === 'string') {
     return req.query.token.trim();
+  }
+  const cookies = parseCookies(req.headers.cookie);
+  if (cookies[SESSION_COOKIE_NAME]) {
+    return cookies[SESSION_COOKIE_NAME].trim();
   }
   return '';
 }
@@ -2460,12 +2771,16 @@ app.get('/api/auth/current', (req, res) => {
       message: 'No active authenticated session found. Please log in with your company credentials.',
     });
   }
+  const token = extractSessionToken(req);
+  if (token) {
+    setSessionCookie(req, res, token);
+  }
   res.json({ user });
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { email } = req.body;
-  if (!email) {
+  const { email } = req.body || {};
+  if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Company email is required' });
   }
 
@@ -2500,6 +2815,7 @@ app.post('/api/auth/login', (req, res) => {
     createdAt: new Date().toISOString(),
     expiresAt,
   });
+  setSessionCookie(req, res, token);
 
   addAuditLog(
     { email: user.email, name: user.name, role: user.role },
@@ -2538,17 +2854,31 @@ app.post('/api/auth/logout', (req, res) => {
     revokedTokens.add(token);
   }
 
+  clearSessionCookie(req, res);
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
 app.post('/api/auth/switch-user', (req, res) => {
-  const prevToken = extractSessionToken(req);
-  if (prevToken) {
-    activeSessions.delete(prevToken);
-    revokedTokens.add(prevToken);
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({
+      error: 'Unauthenticated: Active session required to switch accounts.',
+      code: 'UNAUTHENTICATED',
+    });
   }
 
-  const { userId } = req.body;
+  const { userId } = req.body || {};
+  if (!userId || typeof userId !== 'string') {
+    return res.status(400).json({ error: 'Target userId is required' });
+  }
+
+  if (actor.role !== 'ADMIN' && !actor.isSuperAdmin && actor.id !== userId) {
+    return res.status(403).json({
+      error: 'Permission denied: Only System Administrators may switch into another account session.',
+      code: 'FORBIDDEN_ROLE',
+    });
+  }
+
   const user = db.users.find((u) => u.id === userId);
   if (!user) {
     return res.status(404).json({ error: 'User account not found' });
@@ -2556,6 +2886,12 @@ app.post('/api/auth/switch-user', (req, res) => {
 
   if (user.status === 'inactive') {
     return res.status(403).json({ error: 'Cannot switch to deactivated account' });
+  }
+
+  const prevToken = extractSessionToken(req);
+  if (prevToken) {
+    activeSessions.delete(prevToken);
+    revokedTokens.add(prevToken);
   }
 
   const token = generateSessionToken(user.id);
@@ -2567,13 +2903,14 @@ app.post('/api/auth/switch-user', (req, res) => {
     createdAt: new Date().toISOString(),
     expiresAt,
   });
+  setSessionCookie(req, res, token);
 
   addAuditLog(
-    { email: user.email, name: user.name, role: user.role },
+    { email: actor.email, name: actor.name, role: actor.role },
     'USER_SWITCHED',
     'USER',
     user.id,
-    `Switched active account session to ${user.name} (${user.role})`
+    `${actor.name} (${actor.role}) switched active account session to ${user.name} (${user.role})`
   );
 
   let attendance: AttendanceRecord | undefined;
@@ -2643,6 +2980,9 @@ app.post('/api/attendance/record-login', (req, res) => {
 app.post('/api/attendance/record-logout', (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthenticated' });
+  if (user.role !== 'PANTRY_BOY') {
+    return res.status(403).json({ error: 'Attendance check-out is only for Pantry Attendants' });
+  }
   const record = recordPantryLogout(user);
   res.json({ success: true, attendance: record });
 });
@@ -2668,6 +3008,21 @@ function checkUserPermission(
 
 // 2. User Management
 app.get('/api/users', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    // Public login screen only receives safe directory summary fields (no phones, permissions, or super-admin flags)
+    const publicUsers = db.users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      department: u.department,
+      status: u.status,
+      avatarUrl: u.avatarUrl,
+      createdAt: u.createdAt,
+    }));
+    return res.json({ users: publicUsers });
+  }
   res.json({ users: db.users });
 });
 
@@ -2737,50 +3092,136 @@ app.post('/api/users/:id/toggle-status', (req, res) => {
   res.json({ success: true, user: targetUser });
 });
 
+const VALID_USER_ROLES: Role[] = ['PANTRY_BOY', 'HR', 'KIMMY_MAM', 'ADMIN'];
+const EMAIL_FORMAT_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function sanitizeAndClampPermissions(
+  requested: Partial<UserPermissions> | undefined,
+  targetRole: Role,
+  actor: UserAccount
+): UserPermissions {
+  const defaults = getDefaultPermissions(targetRole);
+  if (!requested) return defaults;
+
+  const isAdminActor = actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin);
+  const actorPerms = actor.permissions || getDefaultPermissions(actor.role);
+
+  const clampBool = (reqVal: unknown, fallback: boolean, actorAllowed: boolean): boolean => {
+    const desired = reqVal !== undefined ? Boolean(reqVal) : fallback;
+    return isAdminActor ? desired : desired && actorAllowed;
+  };
+
+  return {
+    dashboards: {
+      pantry: clampBool(requested.dashboards?.pantry, defaults.dashboards.pantry, Boolean(actorPerms.dashboards?.pantry || isAdminActor)),
+      management: clampBool(requested.dashboards?.management, defaults.dashboards.management, Boolean(actorPerms.dashboards?.management)),
+    },
+    sidebarItems: {
+      dashboard: clampBool(requested.sidebarItems?.dashboard, defaults.sidebarItems.dashboard, Boolean(actorPerms.sidebarItems?.dashboard || isAdminActor)),
+      myTasks: clampBool(requested.sidebarItems?.myTasks, defaults.sidebarItems.myTasks, Boolean(actorPerms.sidebarItems?.myTasks || isAdminActor)),
+      roomSupport: clampBool(requested.sidebarItems?.roomSupport, defaults.sidebarItems.roomSupport, Boolean(actorPerms.sidebarItems?.roomSupport || isAdminActor)),
+      pantryRequests: clampBool(requested.sidebarItems?.pantryRequests, defaults.sidebarItems.pantryRequests, Boolean(actorPerms.sidebarItems?.pantryRequests || isAdminActor)),
+      notifications: clampBool(requested.sidebarItems?.notifications, defaults.sidebarItems.notifications, Boolean(actorPerms.sidebarItems?.notifications || isAdminActor)),
+      taskHistory: clampBool(requested.sidebarItems?.taskHistory, defaults.sidebarItems.taskHistory, Boolean(actorPerms.sidebarItems?.taskHistory || isAdminActor)),
+      myProfile: clampBool(requested.sidebarItems?.myProfile, defaults.sidebarItems.myProfile, Boolean(actorPerms.sidebarItems?.myProfile || isAdminActor)),
+      overview: clampBool(requested.sidebarItems?.overview, defaults.sidebarItems.overview, Boolean(actorPerms.sidebarItems?.overview)),
+      tasks: clampBool(requested.sidebarItems?.tasks, defaults.sidebarItems.tasks, Boolean(actorPerms.sidebarItems?.tasks)),
+      rooms: clampBool(requested.sidebarItems?.rooms, defaults.sidebarItems.rooms, Boolean(actorPerms.sidebarItems?.rooms)),
+      visitors: clampBool(requested.sidebarItems?.visitors, defaults.sidebarItems.visitors, Boolean(actorPerms.sidebarItems?.visitors)),
+      reports: clampBool(requested.sidebarItems?.reports, defaults.sidebarItems.reports, Boolean(actorPerms.sidebarItems?.reports)),
+      users: clampBool(requested.sidebarItems?.users, defaults.sidebarItems.users, Boolean(actorPerms.sidebarItems?.users)),
+      audit: clampBool(requested.sidebarItems?.audit, defaults.sidebarItems.audit, Boolean(actorPerms.sidebarItems?.audit)),
+      settings: clampBool(requested.sidebarItems?.settings, defaults.sidebarItems.settings, Boolean(actorPerms.sidebarItems?.settings)),
+    },
+    actions: {
+      tasks: {
+        view: clampBool(requested.actions?.tasks?.view, defaults.actions.tasks.view, Boolean(actorPerms.actions?.tasks?.view)),
+        create: clampBool(requested.actions?.tasks?.create, defaults.actions.tasks.create, Boolean(actorPerms.actions?.tasks?.create)),
+        edit: clampBool(requested.actions?.tasks?.edit, defaults.actions.tasks.edit, Boolean(actorPerms.actions?.tasks?.edit)),
+        delete:
+          targetRole === 'PANTRY_BOY'
+            ? false
+            : clampBool(requested.actions?.tasks?.delete, defaults.actions.tasks.delete, Boolean(actorPerms.actions?.tasks?.delete)),
+      },
+      rooms: {
+        view: clampBool(requested.actions?.rooms?.view, defaults.actions.rooms.view, Boolean(actorPerms.actions?.rooms?.view)),
+        create: clampBool(requested.actions?.rooms?.create, defaults.actions.rooms.create, Boolean(actorPerms.actions?.rooms?.create)),
+        edit: clampBool(requested.actions?.rooms?.edit, defaults.actions.rooms.edit, Boolean(actorPerms.actions?.rooms?.edit)),
+        delete: clampBool(requested.actions?.rooms?.delete, defaults.actions.rooms.delete, Boolean(actorPerms.actions?.rooms?.delete)),
+      },
+      visitors: {
+        view: clampBool(requested.actions?.visitors?.view, defaults.actions.visitors.view, Boolean(actorPerms.actions?.visitors?.view)),
+        create: clampBool(requested.actions?.visitors?.create, defaults.actions.visitors.create, Boolean(actorPerms.actions?.visitors?.create)),
+        edit: clampBool(requested.actions?.visitors?.edit, defaults.actions.visitors.edit, Boolean(actorPerms.actions?.visitors?.edit)),
+        delete: clampBool(requested.actions?.visitors?.delete, defaults.actions.visitors.delete, Boolean(actorPerms.actions?.visitors?.delete)),
+      },
+      users: {
+        view: clampBool(requested.actions?.users?.view, defaults.actions.users.view, Boolean(actorPerms.actions?.users?.view)),
+        create: clampBool(requested.actions?.users?.create, defaults.actions.users.create, Boolean(actorPerms.actions?.users?.create)),
+        edit: clampBool(requested.actions?.users?.edit, defaults.actions.users.edit, Boolean(actorPerms.actions?.users?.edit)),
+        delete: clampBool(requested.actions?.users?.delete, defaults.actions.users.delete, Boolean(actorPerms.actions?.users?.delete)),
+      },
+      reports: {
+        view: clampBool(requested.actions?.reports?.view, defaults.actions.reports.view, Boolean(actorPerms.actions?.reports?.view)),
+        export: clampBool(requested.actions?.reports?.export, defaults.actions.reports.export, Boolean(actorPerms.actions?.reports?.export)),
+      },
+    },
+  };
+}
+
 app.post('/api/users', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor || !checkUserPermission(actor, 'users', 'create')) {
     return res.status(403).json({ error: 'Permission denied: Only Admin or authorized managers can register company accounts.' });
   }
 
-  const { name, email, role, department, phone, permissions } = req.body;
-  if (!name || !email) {
-    return res.status(400).json({ error: 'Name and email are required' });
+  const { name, email, role, department, phone, permissions } = req.body || {};
+  const cleanedName = normalizeDisplayText(String(name || ''));
+  if (!cleanedName || !email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Valid name and email are required' });
   }
 
   const cleanEmail = String(email).trim().toLowerCase();
+  if (!EMAIL_FORMAT_REGEX.test(cleanEmail)) {
+    return res.status(400).json({ error: 'Invalid email address format.' });
+  }
   if (db.users.some((u) => u.email.toLowerCase() === cleanEmail)) {
     return res.status(400).json({ error: 'A user with this company email already exists.' });
   }
 
-  const userRole: Role = role || 'PANTRY_BOY';
+  const userRole: Role = role ? (role as Role) : 'PANTRY_BOY';
+  if (!VALID_USER_ROLES.includes(userRole)) {
+    return res.status(400).json({ error: `Invalid role "${String(role)}". Must be one of: ${VALID_USER_ROLES.join(', ')}` });
+  }
   if (userRole === 'ADMIN' && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
     return res.status(403).json({ error: 'Permission denied: Only an Administrator can create another Administrator account.' });
   }
 
-  const sanitizedPermissions: UserPermissions = permissions
-    ? {
-        dashboards: permissions.dashboards,
-        sidebarItems: permissions.sidebarItems,
-        actions: {
-          ...permissions.actions,
-          tasks: {
-            ...permissions.actions.tasks,
-            delete: userRole === 'PANTRY_BOY' ? false : Boolean(permissions.actions?.tasks?.delete),
-          },
-        },
-      }
-    : getDefaultPermissions(userRole);
+  // Prevent non-Admins from granting permissions they do not possess
+  if (permissions && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
+    const actorPerms = actor.permissions || getDefaultPermissions(actor.role);
+    if (
+      (permissions.actions?.users?.delete && !actorPerms.actions?.users?.delete) ||
+      (permissions.actions?.rooms?.delete && !actorPerms.actions?.rooms?.delete)
+    ) {
+      return res.status(403).json({
+        error: 'Permission denied: Cannot grant elevated deletion privileges beyond your own role permissions.',
+        code: 'PRIVILEGE_ESCALATION_BLOCKED',
+      });
+    }
+  }
+
+  const sanitizedPermissions = sanitizeAndClampPermissions(permissions, userRole, actor);
 
   const newUser: UserAccount = {
-    id: `user-${Date.now()}`,
-    name: normalizeDisplayText(String(name)),
+    id: `user-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+    name: cleanedName,
     email: cleanEmail,
     role: userRole,
     department: normalizeDisplayText(department || (userRole === 'PANTRY_BOY' ? 'Hospitality & Operations' : 'Administration')),
     status: 'active',
     avatarUrl: '/assets/wcr_logo.png',
-    phone: phone || '',
+    phone: phone ? normalizeDisplayText(String(phone)).slice(0, 32) : '',
     createdAt: new Date().toISOString(),
     permissions: sanitizedPermissions,
   };
@@ -2804,7 +3245,11 @@ app.put('/api/users/:id', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  const { name, email, role, department, phone, permissions } = req.body;
+  const { name, email, role, department, phone, permissions } = req.body || {};
+
+  if (role !== undefined && !VALID_USER_ROLES.includes(role as Role)) {
+    return res.status(400).json({ error: `Invalid role "${String(role)}". Must be one of: ${VALID_USER_ROLES.join(', ')}` });
+  }
 
   // Protect Super Admin account from non-Admin edits or role demotion
   if ((targetUser.isSuperAdmin || targetUser.role === 'ADMIN') && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
@@ -2817,31 +3262,55 @@ app.put('/api/users/:id', (req, res) => {
     return res.status(403).json({ error: 'Permission denied: Only an Administrator can grant Administrator role.' });
   }
 
-  if (name) targetUser.name = normalizeDisplayText(String(name));
-  if (email && email.toLowerCase() !== targetUser.email.toLowerCase()) {
+  // Block non-Admin horizontal/vertical privilege escalation via custom permissions payload
+  if (permissions && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
+    const actorPerms = actor.permissions || getDefaultPermissions(actor.role);
+    if (
+      (permissions.actions?.users?.delete && !actorPerms.actions?.users?.delete) ||
+      (permissions.actions?.rooms?.delete && !actorPerms.actions?.rooms?.delete)
+    ) {
+      return res.status(403).json({
+        error: 'Permission denied: Cannot grant elevated deletion privileges beyond your own role permissions.',
+        code: 'PRIVILEGE_ESCALATION_BLOCKED',
+      });
+    }
+  }
+
+  if (name !== undefined) {
+    const cleanedName = normalizeDisplayText(String(name));
+    if (!cleanedName) return res.status(400).json({ error: 'User name cannot be empty.' });
+    targetUser.name = cleanedName;
+  }
+  let emailChanged = false;
+  if (email && String(email).toLowerCase() !== targetUser.email.toLowerCase()) {
     const cleanEmail = String(email).trim().toLowerCase();
+    if (!EMAIL_FORMAT_REGEX.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Invalid email address format.' });
+    }
     if (db.users.some((u) => u.id !== targetUser.id && u.email.toLowerCase() === cleanEmail)) {
       return res.status(400).json({ error: 'Another user with this email already exists.' });
     }
     targetUser.email = cleanEmail;
+    emailChanged = true;
   }
-  if (role) targetUser.role = role;
+  const prevRole = targetUser.role;
+  if (role) targetUser.role = role as Role;
   if (department !== undefined) targetUser.department = normalizeDisplayText(String(department));
-  if (phone !== undefined) targetUser.phone = phone;
+  if (phone !== undefined) targetUser.phone = normalizeDisplayText(String(phone)).slice(0, 32);
   if (permissions) {
-    targetUser.permissions = {
-      dashboards: permissions.dashboards,
-      sidebarItems: permissions.sidebarItems,
-      actions: {
-        ...permissions.actions,
-        tasks: {
-          ...permissions.actions.tasks,
-          delete: targetUser.role === 'PANTRY_BOY' ? false : Boolean(permissions.actions?.tasks?.delete),
-        },
-      },
-    };
+    targetUser.permissions = sanitizeAndClampPermissions(permissions, targetUser.role, actor);
   } else if (targetUser.role === 'PANTRY_BOY' && targetUser.permissions?.actions?.tasks) {
     targetUser.permissions.actions.tasks.delete = false;
+  }
+
+  // If another user's email or role changed, revoke their existing tokens so they re-authenticate cleanly
+  if ((emailChanged || (role && role !== prevRole)) && targetUser.id !== actor.id) {
+    for (const [token, session] of activeSessions.entries()) {
+      if (session.userId === targetUser.id) {
+        activeSessions.delete(token);
+        revokedTokens.add(token);
+      }
+    }
   }
 
   addAuditLog(
@@ -2922,13 +3391,21 @@ app.get('/api/server-time', (_req, res) => {
 });
 
 app.get(['/api/realtime/stream', '/api/realtime'], (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({
+      error: 'Unauthenticated: Valid session token required for real-time event stream.',
+      code: 'UNAUTHENTICATED',
+    });
+  }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
 
-  const clientEntry: SSEClientEntry = { res, req };
+  const clientEntry: SSEClientEntry = { res, req, userId: actor.id };
   sseClients.add(clientEntry);
 
   const nowIso = new Date().toISOString();
@@ -2944,6 +3421,12 @@ app.get(['/api/realtime/stream', '/api/realtime'], (req, res) => {
 
   const heartbeat = setInterval(() => {
     try {
+      if (!getCurrentUser(req)) {
+        clearInterval(heartbeat);
+        sseClients.delete(clientEntry);
+        res.end();
+        return;
+      }
       const hbIso = new Date().toISOString();
       res.write(`event: server:time\ndata: ${JSON.stringify({ serverTime: hbIso, timezone: 'Asia/Kolkata' })}\n\n`);
     } catch {
@@ -2958,8 +3441,36 @@ app.get(['/api/realtime/stream', '/api/realtime'], (req, res) => {
   });
 });
 
+const VALID_ROOM_CATEGORIES: RoomArea['category'][] = [
+  'RECEPTION',
+  'WORKSTATION',
+  'EXECUTIVE_CABIN',
+  'MEETING_SUITE',
+  'COMMON_AREA',
+  'FACILITIES',
+];
+const VALID_ROOM_PRIORITIES: TaskPriority[] = ['P1', 'P2', 'P3', 'P4', 'P5', 'URGENT'];
+const VALID_ROOM_RECURRENCES: RoomArea['recurrence'][] = [
+  'DAILY',
+  'ALTERNATE_DAYS',
+  'EVERY_3_DAYS',
+  'ON_DEMAND',
+];
+const VALID_ROOM_STATUSES: RoomStatus[] = [
+  'AVAILABLE',
+  'RESERVED',
+  'ASSIGNED',
+  'OCCUPIED',
+  'VACANT',
+  'PREPARATION_REQUIRED',
+  'READY_FOR_VISITOR',
+  'CLEANING_REQUIRED',
+  'CLEANING_IN_PROGRESS',
+  'PENDING_VERIFICATION',
+];
+
 // 3. Room Management
-app.get('/api/rooms', (req, res) => {
+app.get('/api/rooms', (_req, res) => {
   res.json({ rooms: db.rooms.map((r) => normalizeRoomRecord(r)) });
 });
 
@@ -2969,13 +3480,28 @@ app.post('/api/rooms', (req, res) => {
     return res.status(403).json({ error: 'Permission denied: Only authorized users can create rooms.' });
   }
 
-  const { name, category, defaultPriority, photoRequired, defaultChecklist, recurrence, setupConfig } = req.body;
+  const { name, category, defaultPriority, photoRequired, defaultChecklist, recurrence, setupConfig } = req.body || {};
   const cleanedName = normalizeRoomName(String(name || ''));
   if (!cleanedName) return res.status(400).json({ error: 'Room name is required' });
 
+  if (category !== undefined && !VALID_ROOM_CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: `Invalid room category "${String(category)}".` });
+  }
+  if (defaultPriority !== undefined && !VALID_ROOM_PRIORITIES.includes(defaultPriority)) {
+    return res.status(400).json({ error: `Invalid defaultPriority "${String(defaultPriority)}".` });
+  }
+  if (recurrence !== undefined && !VALID_ROOM_RECURRENCES.includes(recurrence)) {
+    return res.status(400).json({ error: `Invalid recurrence "${String(recurrence)}".` });
+  }
+
+  const requestedId = req.body?.id ? String(req.body.id).trim().replace(/[^a-zA-Z0-9_-]/g, '') : '';
+  if (requestedId && db.rooms.some((r) => r.id === requestedId)) {
+    return res.status(409).json({ error: `A room with ID "${requestedId}" already exists.` });
+  }
+
   const now = new Date().toISOString();
   const baseRoom: RoomArea = {
-    id: (req.body.id && String(req.body.id).trim()) || `room-${Date.now()}`,
+    id: requestedId || `room-${Date.now()}`,
     name: cleanedName,
     category: category || 'MEETING_SUITE',
     defaultPriority: defaultPriority || 'P2',
@@ -3007,7 +3533,7 @@ app.post('/api/rooms', (req, res) => {
     Array.isArray(defaultChecklist) && defaultChecklist.length > 0
       ? defaultChecklist
       : buildVerifiedRoomChecklistStrings(baseRoom)
-  ).map((item: string) => normalizeDisplayText(item));
+  ).map((item: string) => normalizeDisplayText(String(item)));
 
   db.rooms.push(baseRoom);
   const tasksSynced = syncTodayRoutineTasks(getISTDateFormatted());
@@ -3032,19 +3558,61 @@ app.put('/api/rooms/:id', (req, res) => {
 
   const prevName = room.name;
   const prevStatus = room.status;
-  const targetStatus = req.body.status as RoomStatus | undefined;
+  const body = req.body || {};
+  const targetStatus = body.status as RoomStatus | undefined;
 
-  const updatePayload = { ...req.body };
-  delete updatePayload.status;
-  Object.assign(room, updatePayload);
+  if (targetStatus !== undefined && !VALID_ROOM_STATUSES.includes(targetStatus)) {
+    return res.status(400).json({ error: `Invalid room status "${String(targetStatus)}".` });
+  }
+  if (body.category !== undefined && !VALID_ROOM_CATEGORIES.includes(body.category)) {
+    return res.status(400).json({ error: `Invalid room category "${String(body.category)}".` });
+  }
+  if (body.defaultPriority !== undefined && !VALID_ROOM_PRIORITIES.includes(body.defaultPriority)) {
+    return res.status(400).json({ error: `Invalid defaultPriority "${String(body.defaultPriority)}".` });
+  }
+  if (body.recurrence !== undefined && !VALID_ROOM_RECURRENCES.includes(body.recurrence)) {
+    return res.status(400).json({ error: `Invalid recurrence "${String(body.recurrence)}".` });
+  }
 
-  room.name = normalizeRoomName(room.name) || prevName;
-  if (room.notes !== undefined) {
-    room.notes = normalizeDisplayText(room.notes);
+  // Explicit field whitelist prevents mass assignment of room.id, statusHistory, assignmentHistory, or assignedEmployeeId
+  if (body.name !== undefined) {
+    room.name = normalizeRoomName(String(body.name)) || prevName;
   }
-  if (Array.isArray(room.defaultChecklist)) {
-    room.defaultChecklist = room.defaultChecklist.map((c) => normalizeDisplayText(c));
+  if (body.category !== undefined) {
+    room.category = body.category;
   }
+  if (body.defaultPriority !== undefined) {
+    room.defaultPriority = body.defaultPriority;
+  }
+  if (body.photoRequired !== undefined) {
+    room.photoRequired = Boolean(body.photoRequired);
+  }
+  if (body.recurrence !== undefined) {
+    room.recurrence = body.recurrence;
+  }
+  if (body.enabled !== undefined) {
+    room.enabled = Boolean(body.enabled);
+  }
+  if (body.notes !== undefined) {
+    room.notes = normalizeDisplayText(String(body.notes));
+  }
+  if (body.setupConfig !== undefined && body.setupConfig && typeof body.setupConfig === 'object') {
+    const tables = Math.max(0, Number(body.setupConfig.tables) || 0);
+    const chairs = Math.max(0, Number(body.setupConfig.chairs) || 0);
+    const tableType = ['round', 'standard', 'desk_cluster', 'none'].includes(body.setupConfig.tableType)
+      ? body.setupConfig.tableType
+      : room.setupConfig?.tableType || 'standard';
+    room.setupConfig = {
+      tables,
+      tableType,
+      chairs,
+      summary: normalizeDisplayText(String(body.setupConfig.summary || `${tables} table + ${chairs} chairs`)),
+    };
+  }
+  if (Array.isArray(body.defaultChecklist)) {
+    room.defaultChecklist = body.defaultChecklist.map((c: unknown) => normalizeDisplayText(String(c)));
+  }
+
   const verifiedCfg = verifyRoomSetupConfig(room);
   if (verifiedCfg) {
     room.setupConfig = verifiedCfg;
@@ -4132,15 +4700,64 @@ app.patch('/api/rooms/:id/status', (req, res) => {
 
 // Get Room Assignment & Status History
 app.get('/api/rooms/:id/history', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated', code: 'SESSION_EXPIRED_OR_UNAUTHENTICATED' });
+  if (!checkUserPermission(actor, 'rooms', 'view')) {
+    return res.status(403).json({ error: 'Permission denied: Room history access not authorized.' });
+  }
+
   const room = db.rooms.find((r) => r.id === req.params.id);
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
-  // Gather all photo evidence associated with this room's tasks
-  const roomTasks = db.tasks.filter((t) => t.roomAreaId === room.id && t.photoEvidence);
-  const photoHistory = roomTasks.map((t) => t.photoEvidence!);
+  const perms = actor.permissions || getDefaultPermissions(actor.role);
+  const isManagementViewer =
+    actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin) || Boolean(perms.dashboards?.management);
+  const actorEmailLower = actor.email.toLowerCase();
+
+  // Gather all photo evidence associated with this room's tasks across single & multi-photo submissions (with internal disk filePath redacted)
+  const roomTasks = db.tasks.filter((t) => {
+    if (t.roomAreaId !== room.id) return false;
+    const hasEvidence = (Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0) || Boolean(t.photoEvidence);
+    if (!hasEvidence) return false;
+    if (!isManagementViewer) {
+      return t.assignedToEmail?.toLowerCase() === actorEmailLower;
+    }
+    return true;
+  });
+
+  const photoHistory: PhotoEvidence[] = roomTasks
+    .flatMap((t) => {
+      const normalizedTask = normalizeTaskRecord(t);
+      const list =
+        Array.isArray(normalizedTask.photoEvidences) && normalizedTask.photoEvidences.length > 0
+          ? normalizedTask.photoEvidences
+          : normalizedTask.photoEvidence
+          ? [normalizedTask.photoEvidence]
+          : [];
+      return list.map((ev) => {
+        const uploaderAccount = db.users.find(
+          (u) => u.email.toLowerCase() === String(ev.userEmail || '').toLowerCase()
+        );
+        const { filePath: _fp, ...safeEvidence } = ev;
+        return {
+          ...safeEvidence,
+          taskId: safeEvidence.taskId || normalizedTask.id,
+          taskTitle: safeEvidence.taskTitle || normalizedTask.title,
+          roomId: room.id,
+          roomName: normalizeRoomName(room.name),
+          userName: safeEvidence.userName || uploaderAccount?.name || normalizedTask.assignedToName,
+          fileAvailable: isEvidenceFileOnDisk(safeEvidence.photoUrl),
+        };
+      });
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.serverTimestamp || a.capturedAt || 0).getTime() || 0;
+      const timeB = new Date(b.serverTimestamp || b.capturedAt || 0).getTime() || 0;
+      return timeB - timeA;
+    });
 
   res.json({
-    room,
+    room: normalizeRoomRecord(room),
     statusHistory: room.statusHistory || [],
     assignmentHistory: room.assignmentHistory || [],
     currentAssignment: room.currentAssignment || null,
@@ -4329,6 +4946,19 @@ app.post('/api/tasks', (req, res) => {
   res.status(201).json({ success: true, task: newTask, serverTime: now });
 });
 
+const VALID_TASK_STATUSES: TaskStatus[] = [
+  'SCHEDULED',
+  'AVAILABLE',
+  'IN_PROGRESS',
+  'SUBMITTED',
+  'PENDING_VERIFICATION',
+  'COMPLETED',
+  'REJECTED',
+  'BLOCKED',
+  'OVERDUE',
+  'CANCELLED',
+];
+
 // Edit, Reschedule, Reassign, or Cancel Task (Authorized Managers / Admin)
 app.put('/api/tasks/:id', (req, res) => {
   const actor = getCurrentUser(req);
@@ -4354,7 +4984,14 @@ app.put('/api/tasks/:id', (req, res) => {
     status,
     checklist,
     cancelReason,
-  } = req.body;
+  } = req.body || {};
+
+  if (status !== undefined && !VALID_TASK_STATUSES.includes(status as TaskStatus)) {
+    return res.status(400).json({ error: `Invalid task status "${String(status)}".` });
+  }
+  if (priority !== undefined && !VALID_ROOM_PRIORITIES.includes(priority as TaskPriority)) {
+    return res.status(400).json({ error: `Invalid task priority "${String(priority)}".` });
+  }
 
   const nowDate = new Date();
   const now = nowDate.toISOString();
@@ -4456,7 +5093,7 @@ app.put('/api/tasks/:id', (req, res) => {
   }
 
   if (task.status === 'CANCELLED' && prevStatus !== 'CANCELLED') {
-    const reasonText = cancelReason ? String(cancelReason).trim() : `Cancelled by ${actor.name}`;
+    const reasonText = cancelReason ? normalizeDisplayText(String(cancelReason)) : `Cancelled by ${actor.name}`;
     task.changeHistory.push({
       timestamp: now,
       actorEmail: actor.email,
@@ -4522,14 +5159,15 @@ app.put('/api/tasks/:id', (req, res) => {
 
   sortTasksArrayChronologically(db.tasks);
   saveDb();
-  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: now });
+  const normalizedTask = normalizeTaskRecord(task);
+  broadcastRealtime('task:updated', { task: normalizedTask, tasks: db.tasks.map((t) => normalizeTaskRecord(t)), serverTime: now });
 
   // Re-evaluate alert windows immediately in case rescheduled within 5 mins or due now
   if (task.status !== 'CANCELLED' && task.status !== 'COMPLETED') {
     runTaskScheduleEngine();
   }
 
-  res.json({ success: true, task, serverTime: now });
+  res.json({ success: true, task: normalizedTask, serverTime: now });
 });
 
 // Update task status (Start task, Block task, Cancel task, etc.)
@@ -4540,7 +5178,11 @@ app.patch('/api/tasks/:id/status', (req, res) => {
     return res.status(403).json({ error: 'Permission denied: You do not have permission to update tasks.' });
   }
 
-  const { status, blockedReason, rejectionReason, note } = req.body;
+  const { status, blockedReason, rejectionReason, note } = req.body || {};
+  if (!status || !VALID_TASK_STATUSES.includes(status as TaskStatus)) {
+    return res.status(400).json({ error: `Invalid or missing task status "${String(status || '')}".` });
+  }
+
   const task = db.tasks.find((t) => t.id === req.params.id);
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
@@ -4580,8 +5222,9 @@ app.patch('/api/tasks/:id/status', (req, res) => {
       broadcastRealtime('room:updated', { room, rooms: db.rooms });
     }
   }
+  const cleanBlockedReason = blockedReason ? normalizeDisplayText(String(blockedReason)) : '';
   if (status === 'BLOCKED') {
-    task.blockedReason = blockedReason || 'Room currently occupied / interview in progress';
+    task.blockedReason = cleanBlockedReason || 'Room currently occupied / interview in progress';
     notify(
       `Task Blocked: ${task.roomAreaName}`,
       `${actor.name} marked task "${task.title}" as blocked: ${task.blockedReason}`,
@@ -4608,16 +5251,19 @@ app.patch('/api/tasks/:id/status', (req, res) => {
     );
   }
   if (status === 'REJECTED') {
-    task.rejectionReason = rejectionReason || 'Photo evidence rejected: does not show clean alignment';
+    task.rejectionReason = rejectionReason
+      ? normalizeDisplayText(String(rejectionReason))
+      : 'Photo evidence rejected: does not show clean alignment';
   }
 
+  const cleanNote = note ? normalizeDisplayText(String(note)) : '';
   task.changeHistory.push({
     timestamp: now,
     actorEmail: actor.email,
     actorName: actor.name,
     fromStatus: prevStatus,
     toStatus: status,
-    note: note || (status === 'BLOCKED' ? `Reason: ${blockedReason}` : ''),
+    note: cleanNote || (status === 'BLOCKED' ? `Reason: ${task.blockedReason}` : ''),
   });
 
   addAuditLog(
@@ -4629,8 +5275,9 @@ app.patch('/api/tasks/:id/status', (req, res) => {
   );
 
   saveDb();
-  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: now });
-  res.json({ success: true, task, serverTime: now });
+  const normalizedTask = normalizeTaskRecord(task);
+  broadcastRealtime('task:updated', { task: normalizedTask, tasks: db.tasks.map((t) => normalizeTaskRecord(t)), serverTime: now });
+  res.json({ success: true, task: normalizedTask, serverTime: now });
 });
 
 // Update Checklist Item
@@ -4819,22 +5466,33 @@ app.delete('/api/tasks/:id', (req, res) => {
 interface ActiveCaptureSession {
   sessionId: string;
   taskId: string;
+  roomAreaId: string;
   userId: string;
   userEmail: string;
   captureSessionTimestamp: string;
   createdAtMs: number;
   expiresAtMs: number;
   maxPhotos: number;
+  submittedAt?: string;
+  submittedPayload?: any;
 }
 
 const activeCaptureSessions = new Map<string, ActiveCaptureSession>();
+const photoSubmissionCache = new Map<string, { createdAtMs: number; response: any }>();
+const inFlightPhotoSubmissions = new Set<string>();
 
-// Cleanup expired capture sessions periodically
+// Cleanup expired capture sessions and submission idempotency cache periodically
 setInterval(() => {
   const now = Date.now();
   for (const [key, session] of activeCaptureSessions.entries()) {
     if (now > session.expiresAtMs) {
       activeCaptureSessions.delete(key);
+    }
+  }
+  const cacheCutoff = now - 15 * 60 * 1000;
+  for (const [subKey, entry] of photoSubmissionCache.entries()) {
+    if (entry.createdAtMs < cacheCutoff) {
+      photoSubmissionCache.delete(subKey);
     }
   }
 }, 60000);
@@ -4849,7 +5507,7 @@ function validateAndDecodeCameraImage(photoData: string): { buffer: Buffer; mime
   const rawType = match ? match[1].toLowerCase() : 'jpeg';
   let mimeType = `image/${rawType}`;
   let ext = rawType === 'jpeg' ? 'jpg' : rawType;
-  const base64Clean = match ? match[2] : photoData;
+  const base64Clean = (match ? match[2] : photoData).replace(/\s+/g, '');
   const buffer = Buffer.from(base64Clean, 'base64');
 
   if (buffer.length < 20) {
@@ -4917,6 +5575,7 @@ app.post('/api/tasks/:id/capture-session', (req, res) => {
   activeCaptureSessions.set(sessionId, {
     sessionId,
     taskId: task.id,
+    roomAreaId: task.roomAreaId,
     userId: actor.id,
     userEmail: actor.email,
     captureSessionTimestamp,
@@ -4933,12 +5592,13 @@ app.post('/api/tasks/:id/capture-session', (req, res) => {
     task: {
       id: task.id,
       title: task.title,
+      roomAreaId: task.roomAreaId,
       roomAreaName: task.roomAreaName,
     },
   });
 });
 
-// 5b. Live Camera Photo Upload (Single or Multi-Photo Batch)
+// 5b. Live Camera Photo Upload (Single or Multi-Photo Batch — Atomic Validation & Idempotent Submission)
 app.post(['/api/tasks/:id/photo', '/api/tasks/:id/photos'], async (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
@@ -4953,20 +5613,39 @@ app.post(['/api/tasks/:id/photo', '/api/tasks/:id/photos'], async (req, res) => 
     return res.status(403).json({ error: 'Permission denied: You can only upload photos for tasks assigned to you.' });
   }
 
+  const { photoData, photos, metadata, sessionId, submissionId } = req.body || {};
+  const headerIdempKey = typeof req.headers['idempotency-key'] === 'string' ? req.headers['idempotency-key'].trim() : '';
+  const rawSubmissionKey = String(submissionId || headerIdempKey || '').trim().slice(0, 140);
+  const scopedIdempKey = rawSubmissionKey ? `${actor.id}:${task.id}:${rawSubmissionKey}` : '';
+
+  // 1. Idempotent replay check BEFORE status rejection (so retries of an already-succeeded request return 200 cleanly)
+  if (scopedIdempKey && photoSubmissionCache.has(scopedIdempKey)) {
+    const cached = photoSubmissionCache.get(scopedIdempKey)!;
+    addAuditLog(
+      actor,
+      'PHOTO_SUBMISSION_DUPLICATE_PREVENTED',
+      'PHOTO',
+      task.id,
+      `Duplicate photo submission "${rawSubmissionKey}" prevented for task "${task.title}". Returning cached batch result.`
+    );
+    return res.json({
+      ...cached.response,
+      duplicate: true,
+    });
+  }
+
   if (task.status === 'COMPLETED' || task.status === 'CANCELLED') {
     return res.status(400).json({ error: `Cannot submit photos for task with status ${task.status}.` });
   }
 
-  const { photoData, photos, metadata, sessionId } = req.body;
-
-  // Build input photos list
+  // Build input photos list (supports any valid count 1..MAX_PHOTOS_PER_TASK without forcing a fixed number)
   let incomingPhotos: Array<{ photoData: string; metadata?: any; capturedAt?: string }> = [];
   if (Array.isArray(photos) && photos.length > 0) {
     incomingPhotos = photos;
   } else if (photoData && typeof photoData === 'string') {
     incomingPhotos = [{ photoData, metadata, capturedAt: metadata?.capturedAt }];
   } else {
-    return res.status(400).json({ error: 'Either photoData string or photos array is required.' });
+    return res.status(400).json({ error: 'Either photoData string or non-empty photos array is required.' });
   }
 
   const MAX_PHOTOS_PER_TASK = 10;
@@ -4974,162 +5653,335 @@ app.post(['/api/tasks/:id/photo', '/api/tasks/:id/photos'], async (req, res) => 
     return res.status(400).json({ error: `Exceeded maximum allowable photos (${MAX_PHOTOS_PER_TASK} photos per task).` });
   }
 
-  // Session verification
-  const session = sessionId ? activeCaptureSessions.get(sessionId) : null;
-  const captureSessionTimestamp = session?.captureSessionTimestamp || new Date().toISOString();
-  const serverTimestamp = new Date().toISOString();
-  const createdEvidences: PhotoEvidence[] = [];
+  // Authoritative capture session verification (enforces task, actor, and expiry binding when sessionId is supplied)
+  let session: ActiveCaptureSession | undefined = undefined;
+  if (sessionId !== undefined && sessionId !== null && String(sessionId).trim() !== '') {
+    session = activeCaptureSessions.get(String(sessionId));
+    if (!session) {
+      return res.status(400).json({ error: 'Invalid or unknown live camera capture session ID.', code: 'INVALID_CAPTURE_SESSION' });
+    }
+    if (Date.now() > session.expiresAtMs) {
+      activeCaptureSessions.delete(session.sessionId);
+      return res.status(400).json({ error: 'Live camera capture session has expired. Please reopen camera.', code: 'EXPIRED_CAPTURE_SESSION' });
+    }
+    if (session.taskId !== task.id) {
+      return res.status(403).json({ error: 'Security rejection: Capture session does not belong to this task.', code: 'SESSION_TASK_MISMATCH' });
+    }
+    if (session.userId !== actor.id && actor.role !== 'ADMIN' && !actor.isSuperAdmin) {
+      return res.status(403).json({ error: 'Security rejection: Capture session belongs to a different user.', code: 'SESSION_USER_MISMATCH' });
+    }
+    // If this exact capture session was already submitted and caller did not supply a distinct submission key, prevent accidental duplicate re-submit
+    if (session.submittedPayload && !scopedIdempKey) {
+      addAuditLog(
+        actor,
+        'PHOTO_SUBMISSION_DUPLICATE_PREVENTED',
+        'PHOTO',
+        task.id,
+        `Capture session "${session.sessionId}" was already submitted for task "${task.title}". Duplicate submission prevented.`
+      );
+      return res.json({
+        ...session.submittedPayload,
+        duplicate: true,
+      });
+    }
+  }
 
-  for (let i = 0; i < incomingPhotos.length; i++) {
-    const item = incomingPhotos[i];
-    let decoded;
-    try {
-      decoded = validateAndDecodeCameraImage(item.photoData);
-    } catch (valErr: any) {
-      return res.status(400).json({ error: `Photo #${i + 1} validation failed: ${valErr.message}` });
+  const lockKey = scopedIdempKey || (session ? `sess:${session.sessionId}` : '');
+  if (lockKey && inFlightPhotoSubmissions.has(lockKey)) {
+    return res.status(409).json({
+      error: 'Photo batch submission is already in progress. Duplicate request ignored.',
+      code: 'DUPLICATE_SUBMISSION_IN_PROGRESS',
+    });
+  }
+  if (lockKey) {
+    inFlightPhotoSubmissions.add(lockKey);
+  }
+
+  try {
+    // PHASE 1: Validate ALL photos in memory BEFORE writing any file to disk (prevents partial/orphan writes on failure)
+    const validatedFrames: Array<{
+      buffer: Buffer;
+      mimeType: string;
+      ext: string;
+      capturedAt?: string;
+      itemMeta: Record<string, any>;
+    }> = [];
+
+    for (let i = 0; i < incomingPhotos.length; i++) {
+      const item = incomingPhotos[i];
+      if (!item || typeof item !== 'object') {
+        return res.status(400).json({
+          error: `Photo #${i + 1} validation failed: Missing photo object.`,
+          code: 'INVALID_PHOTO_PAYLOAD',
+          failedPhotoIndex: i + 1,
+        });
+      }
+      try {
+        const decoded = validateAndDecodeCameraImage(item.photoData);
+        const itemMeta = item.metadata && typeof item.metadata === 'object' ? item.metadata : metadata || {};
+        validatedFrames.push({
+          ...decoded,
+          capturedAt: item.capturedAt || itemMeta.capturedAt,
+          itemMeta,
+        });
+      } catch (valErr: any) {
+        return res.status(400).json({
+          error: `Photo #${i + 1} validation failed: ${valErr.message}`,
+          code: 'INVALID_PHOTO_PAYLOAD',
+          failedPhotoIndex: i + 1,
+        });
+      }
     }
 
-    const photoId = `photo-${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${i + 1}`;
-    const sanitizedTaskId = task.id.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const fileName = `${sanitizedTaskId}_${photoId}.${decoded.ext}`;
-    const diskFilePath = path.join(UPLOADS_DIR, fileName);
+    // PHASE 2: Persist all validated frames to disk with rollback on I/O error
+    const captureSessionTimestamp = session?.captureSessionTimestamp || new Date().toISOString();
+    const serverTimestamp = new Date().toISOString();
+    const createdEvidences: PhotoEvidence[] = [];
+    const writtenDiskPaths: string[] = [];
 
-    try {
-      fs.writeFileSync(diskFilePath, decoded.buffer);
-    } catch (writeErr) {
-      console.error('Failed writing photo to disk file:', writeErr);
-      return res.status(500).json({ error: `Failed to save photo #${i + 1} to storage disk.` });
+    for (let i = 0; i < validatedFrames.length; i++) {
+      const frame = validatedFrames[i];
+      const photoId = `photo-${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${i + 1}`;
+      const sanitizedTaskId = task.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `${sanitizedTaskId}_${photoId}.${frame.ext}`;
+      const diskFilePath = path.join(UPLOADS_DIR, fileName);
+
+      try {
+        fs.writeFileSync(diskFilePath, frame.buffer);
+        writtenDiskPaths.push(diskFilePath);
+      } catch (writeErr) {
+        for (const p of writtenDiskPaths) {
+          try {
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+          } catch {}
+        }
+        console.error('Failed writing photo to disk file:', writeErr);
+        return res.status(500).json({
+          error: `Failed to save photo #${i + 1} to storage disk. Please retry submission.`,
+          code: 'STORAGE_WRITE_ERROR',
+        });
+      }
+
+      const savedPhotoUrl = `/uploads/photos/${fileName}`;
+
+      const evidence: PhotoEvidence = {
+        id: photoId,
+        taskId: task.id,
+        taskTitle: normalizeDisplayText(task.title),
+        roomId: task.roomAreaId,
+        roomName: normalizeRoomName(task.roomAreaName),
+        userEmail: actor.email,
+        userName: actor.name,
+        capturedAt: frame.capturedAt || serverTimestamp,
+        serverTimestamp,
+        photoUrl: savedPhotoUrl,
+        metadata: {
+          device: normalizeDisplayText(String(frame.itemMeta.device || 'Browser Live Camera (getUserMedia)')).slice(0, 120),
+          resolution: normalizeDisplayText(String(frame.itemMeta.resolution || '1280x720')).slice(0, 32),
+          mode: 'LIVE_CAMERA',
+          sessionId: session?.sessionId || undefined,
+          captureSessionTimestamp,
+          uploadTimestamp: serverTimestamp,
+          photoIndex: i + 1,
+          totalInBatch: validatedFrames.length,
+          fileSizeBytes: frame.buffer.length,
+          mimeType: frame.mimeType,
+        },
+        status: 'UPLOADED',
+      };
+
+      createdEvidences.push(evidence);
     }
 
-    const savedPhotoUrl = `/uploads/photos/${fileName}`;
-    const itemMeta = item.metadata || metadata || {};
+    // Capture previous status BEFORE mutating task.status so changeHistory is accurate
+    const prevStatus = task.status;
 
-    const evidence: PhotoEvidence = {
-      id: photoId,
-      taskId: task.id,
+    // PHASE 3: Update task, room, audit log, notifications & realtime broadcasts
+    task.photoEvidences = createdEvidences;
+    task.photoEvidence = createdEvidences[0]; // Primary photo for backwards compatibility
+    task.photoCount = createdEvidences.length;
+    task.submittedAt = serverTimestamp;
+    task.status = 'PENDING_VERIFICATION';
+
+    // Mark photo checklist items completed
+    task.checklist.forEach((item) => {
+      if (item.text.toLowerCase().includes('photo') || item.text.toLowerCase().includes('capture')) {
+        item.completed = true;
+      }
+    });
+
+    task.changeHistory.push({
+      timestamp: serverTimestamp,
+      actorEmail: actor.email,
+      actorName: actor.name,
+      fromStatus: prevStatus,
+      toStatus: 'PENDING_VERIFICATION',
+      note: `Uploaded ${createdEvidences.length} live camera photo(s) in session ${session?.sessionId || 'live'}`,
+    });
+
+    // Always record photo submission in room statusHistory; transition status to PENDING_VERIFICATION when in cleaning/prep flow
+    const room = db.rooms.find((r) => r.id === task.roomAreaId);
+    if (room) {
+      const shouldTransitionRoomStatus =
+        room.status === 'CLEANING_IN_PROGRESS' ||
+        room.status === 'PREPARATION_REQUIRED' ||
+        room.status === 'CLEANING_REQUIRED';
+      if (shouldTransitionRoomStatus) {
+        room.status = 'PENDING_VERIFICATION';
+      }
+      if (!room.statusHistory) room.statusHistory = [];
+      room.statusHistory.unshift({
+        id: `hist-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+        status: shouldTransitionRoomStatus ? 'PENDING_VERIFICATION' : room.status,
+        timestamp: serverTimestamp,
+        actorName: actor.name,
+        actorEmail: actor.email,
+        note: shouldTransitionRoomStatus
+          ? `${createdEvidences.length} live camera photo(s) uploaded for task "${task.title}". Status transitioned to PENDING_VERIFICATION.`
+          : `${createdEvidences.length} live camera photo(s) uploaded for task "${task.title}" (Session: ${session?.sessionId || 'live'}).`,
+        taskId: task.id,
+        photoUrl: createdEvidences[0].photoUrl,
+        photoCount: createdEvidences.length,
+      });
+      broadcastRealtime('room:updated', {
+        room: normalizeRoomRecord(room),
+        rooms: db.rooms.map((r) => normalizeRoomRecord(r)),
+        serverTime: serverTimestamp,
+      });
+    }
+
+    addAuditLog(
+      actor,
+      'PHOTO_SUBMITTED',
+      'PHOTO',
+      createdEvidences[0].id,
+      `Uploaded ${createdEvidences.length} live camera photo(s) for task "${task.title}" in ${task.roomAreaName}. Server timestamp: ${serverTimestamp}. Session: ${session?.sessionId || 'live'}.`
+    );
+
+    notify(
+      `Photo Evidence Submitted: ${task.roomAreaName}`,
+      `${actor.name} uploaded ${createdEvidences.length} photo(s) for "${task.title}". Under review by HR / Kimmi.`,
+      'PHOTO_SUBMITTED',
+      { role: 'HR', taskId: task.id, roomId: task.roomAreaId, roomName: task.roomAreaName }
+    );
+
+    saveDb();
+    const normalizedTask = normalizeTaskRecord(task);
+    broadcastRealtime('task:updated', {
+      task: normalizedTask,
+      tasks: db.tasks.map((t) => normalizeTaskRecord(t)),
+      serverTime: serverTimestamp,
+    });
+
+    const responsePayload = {
+      success: true,
+      duplicate: false,
+      photoEvidence: normalizedTask.photoEvidence,
+      photoEvidences: normalizedTask.photoEvidences,
+      count: createdEvidences.length,
+      sessionId: session?.sessionId,
+      roomId: task.roomAreaId,
       roomName: task.roomAreaName,
-      userEmail: actor.email,
-      capturedAt: item.capturedAt || itemMeta.capturedAt || serverTimestamp,
-      serverTimestamp,
-      photoUrl: savedPhotoUrl,
-      filePath: diskFilePath,
-      metadata: {
-        device: itemMeta.device || 'Browser Live Camera (getUserMedia)',
-        resolution: itemMeta.resolution || '1280x720',
-        mode: 'LIVE_CAMERA',
-        sessionId: session?.sessionId || sessionId || undefined,
-        captureSessionTimestamp,
-        uploadTimestamp: serverTimestamp,
-        photoIndex: i + 1,
-        totalInBatch: incomingPhotos.length,
-        fileSizeBytes: decoded.buffer.length,
-        mimeType: decoded.mimeType,
-      },
-      status: 'UPLOADED',
+      task: normalizedTask,
+      serverTime: serverTimestamp,
     };
 
-    createdEvidences.push(evidence);
-  }
-
-  // Update task evidence records
-  task.photoEvidences = createdEvidences;
-  task.photoEvidence = createdEvidences[0]; // Primary photo for backwards compatibility
-  task.photoCount = createdEvidences.length;
-  task.submittedAt = serverTimestamp;
-  task.status = 'PENDING_VERIFICATION';
-
-  // Mark photo checklist items completed
-  task.checklist.forEach((item) => {
-    if (item.text.toLowerCase().includes('photo') || item.text.toLowerCase().includes('capture')) {
-      item.completed = true;
+    if (session) {
+      session.submittedAt = serverTimestamp;
+      session.submittedPayload = responsePayload;
     }
-  });
+    if (scopedIdempKey) {
+      photoSubmissionCache.set(scopedIdempKey, {
+        createdAtMs: Date.now(),
+        response: responsePayload,
+      });
+    }
 
-  task.changeHistory.push({
-    timestamp: serverTimestamp,
-    actorEmail: actor.email,
-    actorName: actor.name,
-    fromStatus: task.status,
-    toStatus: 'PENDING_VERIFICATION',
-    note: `Uploaded ${createdEvidences.length} live camera photo(s) in session ${session?.sessionId || sessionId || 'live'}`,
-  });
-
-  // Room transitions to PENDING_VERIFICATION
-  const room = db.rooms.find((r) => r.id === task.roomAreaId);
-  if (
-    room &&
-    (room.status === 'CLEANING_IN_PROGRESS' ||
-      room.status === 'PREPARATION_REQUIRED' ||
-      room.status === 'CLEANING_REQUIRED')
-  ) {
-    room.status = 'PENDING_VERIFICATION';
-    if (!room.statusHistory) room.statusHistory = [];
-    room.statusHistory.unshift({
-      id: `hist-${Date.now()}`,
-      status: 'PENDING_VERIFICATION',
-      timestamp: serverTimestamp,
-      actorName: actor.name,
-      actorEmail: actor.email,
-      note: `${createdEvidences.length} live camera photo(s) uploaded for task "${task.title}". Status transitioned to PENDING_VERIFICATION.`,
-      taskId: task.id,
-      photoUrl: createdEvidences[0].photoUrl,
-    });
-    broadcastRealtime('room:updated', { room, rooms: db.rooms, serverTime: serverTimestamp });
+    return res.json(responsePayload);
+  } finally {
+    if (lockKey) {
+      inFlightPhotoSubmissions.delete(lockKey);
+    }
   }
-
-  addAuditLog(
-    actor,
-    'PHOTO_SUBMITTED',
-    'PHOTO',
-    createdEvidences[0].id,
-    `Uploaded ${createdEvidences.length} live camera photo(s) for task "${task.title}". Server timestamp: ${serverTimestamp}. Session: ${sessionId || 'live'}.`
-  );
-
-  notify(
-    `Photo Evidence Submitted: ${task.roomAreaName}`,
-    `${actor.name} uploaded ${createdEvidences.length} photo(s) for "${task.title}". Under review by HR / Kimmi.`,
-    'PHOTO_SUBMITTED',
-    { role: 'HR', taskId: task.id, roomName: task.roomAreaName }
-  );
-
-  saveDb();
-  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: serverTimestamp });
-
-  res.json({
-    success: true,
-    photoEvidence: task.photoEvidence,
-    photoEvidences: task.photoEvidences,
-    count: task.photoEvidences.length,
-    task,
-    serverTime: serverTimestamp,
-  });
 });
 
-// 5c. Authorized Photo Asset Retrieval
+// 5c. Authorized Photo Asset Retrieval & Task Evidence Metadata
 app.get('/api/photos/:fileName', (req, res) => {
+  return serveAuthorizedPhotoFile(req, res, req.params.fileName);
+});
+
+app.get('/api/tasks/:id/evidence', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) {
-    return res.status(401).json({ error: 'Unauthorized: Authentication required to view operational photo evidence.' });
+    return res.status(401).json({
+      error: 'Session expired or authentication required to view photo evidence.',
+      code: 'SESSION_EXPIRED_OR_UNAUTHENTICATED',
+    });
+  }
+  if (!checkUserPermission(actor, 'tasks', 'view')) {
+    return res.status(403).json({
+      error: 'Permission denied: Tasks view access is required to inspect photo evidence.',
+      code: 'FORBIDDEN_EVIDENCE_ACCESS',
+    });
   }
 
-  const safeFileName = path.basename(req.params.fileName);
-  const targetPath = path.join(UPLOADS_DIR, safeFileName);
-
-  if (!fs.existsSync(targetPath)) {
-    return res.status(404).json({ error: 'Photo not found.' });
+  const task = db.tasks.find((t) => t.id === req.params.id);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found.', code: 'TASK_NOT_FOUND' });
   }
 
-  res.sendFile(targetPath);
+  const perms = actor.permissions || getDefaultPermissions(actor.role);
+  const isManagementViewer =
+    actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin) || Boolean(perms.dashboards?.management);
+  if (!isManagementViewer && task.assignedToEmail.toLowerCase() !== actor.email.toLowerCase()) {
+    return res.status(403).json({
+      error: 'Access denied: You can only view photo evidence for tasks assigned to you.',
+      code: 'FORBIDDEN_EVIDENCE_ACCESS',
+    });
+  }
+
+  const normalized = normalizeTaskRecord(task);
+  const evidences = (normalized.photoEvidences || []).map((ev) => {
+    const uploaderAccount = db.users.find(
+      (u) => u.email.toLowerCase() === String(ev.userEmail || '').toLowerCase()
+    );
+    return {
+      ...ev,
+      taskId: normalized.id,
+      taskTitle: ev.taskTitle || normalized.title,
+      roomId: normalized.roomAreaId,
+      roomName: normalized.roomAreaName,
+      userName: ev.userName || uploaderAccount?.name || normalized.assignedToName,
+      fileAvailable: isEvidenceFileOnDisk(ev.photoUrl),
+    };
+  });
+
+  return res.json({
+    taskId: normalized.id,
+    taskTitle: normalized.title,
+    roomId: normalized.roomAreaId,
+    roomName: normalized.roomAreaName,
+    status: normalized.status,
+    submittedAt: normalized.submittedAt,
+    photoCount: evidences.length,
+    photoEvidences: evidences,
+    serverTime: new Date().toISOString(),
+  });
 });
 
 // Verify / Approve / Reject photo evidence (HR & Kimmi & Admin)
 app.post('/api/tasks/:id/verify', (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || actor.role === 'PANTRY_BOY' || !checkUserPermission(actor, 'tasks', 'edit')) {
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
+  if (actor.role === 'PANTRY_BOY' || !checkUserPermission(actor, 'tasks', 'edit')) {
     return res.status(403).json({ error: 'Permission denied: Only authorized management or admin can verify photo evidence.' });
   }
 
-  const { decision, reason } = req.body;
+  const { decision, reason } = req.body || {};
+  if (decision !== 'APPROVE' && decision !== 'REJECT') {
+    return res.status(400).json({ error: 'Invalid verification decision. Expected "APPROVE" or "REJECT".' });
+  }
+
   const task = db.tasks.find((t) => t.id === req.params.id);
   if (!task || !task.photoEvidence) {
     return res.status(404).json({ error: 'Task or photo evidence not found' });
@@ -5137,6 +5989,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
 
   const now = new Date().toISOString();
   const room = db.rooms.find((r) => r.id === task.roomAreaId);
+  const prevStatus = task.status;
 
   if (decision === 'APPROVE') {
     task.photoEvidence.status = 'VERIFIED';
@@ -5167,6 +6020,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
           note: `Preparation photo evidence verified and approved by ${actor.name}. Room is now READY_FOR_VISITOR.`,
           taskId: task.id,
           photoUrl: task.photoEvidence.photoUrl,
+          photoCount: Array.isArray(task.photoEvidences) ? task.photoEvidences.length : 1,
         });
       } else {
         room.status = 'AVAILABLE';
@@ -5186,6 +6040,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
           note: `Cleaning/reset task "${task.title}" verified and approved by ${actor.name}. Room restored to AVAILABLE.`,
           taskId: task.id,
           photoUrl: task.photoEvidence.photoUrl,
+          photoCount: Array.isArray(task.photoEvidences) ? task.photoEvidences.length : 1,
         });
       }
       broadcastRealtime('room:updated', { room, rooms: db.rooms, serverTime: now });
@@ -5195,7 +6050,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
       timestamp: now,
       actorEmail: actor.email,
       actorName: actor.name,
-      fromStatus: 'PENDING_VERIFICATION',
+      fromStatus: prevStatus,
       toStatus: 'COMPLETED',
       note: `Approved by ${actor.name} (${actor.role})`,
     });
@@ -5216,7 +6071,9 @@ app.post('/api/tasks/:id/verify', (req, res) => {
     }
 
     task.status = 'REJECTED';
-    task.rejectionReason = reason || 'Photograph does not clearly show chair alignment or cleanliness standard.';
+    task.rejectionReason = reason
+      ? normalizeDisplayText(String(reason))
+      : 'Photograph does not clearly show chair alignment or cleanliness standard.';
 
     if (room) {
       room.status = 'CLEANING_REQUIRED';
@@ -5237,7 +6094,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
       timestamp: now,
       actorEmail: actor.email,
       actorName: actor.name,
-      fromStatus: 'PENDING_VERIFICATION',
+      fromStatus: prevStatus,
       toStatus: 'REJECTED',
       note: `Rejected by ${actor.name}: ${task.rejectionReason}`,
     });
@@ -5252,8 +6109,9 @@ app.post('/api/tasks/:id/verify', (req, res) => {
   }
 
   saveDb();
-  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: now });
-  res.json({ success: true, task, serverTime: now });
+  const normalizedTask = normalizeTaskRecord(task);
+  broadcastRealtime('task:updated', { task: normalizedTask, tasks: db.tasks.map((t) => normalizeTaskRecord(t)), serverTime: now });
+  res.json({ success: true, task: normalizedTask, serverTime: now });
 });
 
 // 6. Visitor Arrival & Departure Automation
@@ -5282,6 +6140,8 @@ app.get('/api/visitors', (req, res) => {
 
 // 6b. Pantry Requests API
 app.get('/api/pantry-requests', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
   res.json({ requests: db.pantryRequests || [] });
 });
 
@@ -5289,23 +6149,36 @@ app.post('/api/pantry-requests', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { roomAreaId, items, instructions, priority } = req.body;
-  if (!roomAreaId || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'Room and items are required' });
+  const { roomAreaId, items, instructions, priority } = req.body || {};
+  if (!roomAreaId || !Array.isArray(items) || items.length === 0 || items.length > 25) {
+    return res.status(400).json({ error: 'Valid roomAreaId and 1–25 items are required' });
   }
 
+  const cleanedItems = items
+    .map((it: unknown) => normalizeDisplayText(String(it || '')).slice(0, 120))
+    .filter((it: string) => it.length > 0);
+  if (cleanedItems.length === 0) {
+    return res.status(400).json({ error: 'At least one non-empty item is required' });
+  }
+
+  const validPriorities: PantryRequest['priority'][] = ['NORMAL', 'HIGH', 'URGENT'];
+  const resolvedPriority: PantryRequest['priority'] =
+    priority && validPriorities.includes(priority) ? priority : 'NORMAL';
+
   const room = db.rooms.find((r) => r.id === roomAreaId);
-  const roomName = room ? room.name : 'Office Room';
+  const roomName = room ? normalizeRoomName(room.name) : 'Office Room';
 
   const newRequest: PantryRequest = {
-    id: `preq-${Date.now()}`,
-    roomAreaId,
+    id: `preq-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+    roomAreaId: String(roomAreaId),
     roomAreaName: roomName,
     requesterName: actor.name,
     requesterRole: actor.role === 'KIMMY_MAM' ? 'Co-Founder' : actor.role === 'ADMIN' ? 'Admin' : actor.role,
-    items,
-    instructions: instructions || 'Deliver to room as requested.',
-    priority: priority || 'NORMAL',
+    items: cleanedItems,
+    instructions: instructions
+      ? normalizeDisplayText(String(instructions))
+      : 'Deliver to room as requested.',
+    priority: resolvedPriority,
     status: 'PENDING',
     createdAt: new Date().toISOString(),
   };
@@ -5313,10 +6186,10 @@ app.post('/api/pantry-requests', (req, res) => {
   if (!Array.isArray(db.pantryRequests)) db.pantryRequests = [];
   db.pantryRequests.unshift(newRequest);
 
-  addAuditLog(actor, 'PANTRY_REQUEST_CREATED', 'TASK', newRequest.id, `Created pantry request for ${roomName}: ${items.join(', ')}`);
+  addAuditLog(actor, 'PANTRY_REQUEST_CREATED', 'TASK', newRequest.id, `Created pantry request for ${roomName}: ${cleanedItems.join(', ')}`);
   notify(
     `☕ New Pantry Request: ${roomName}`,
-    `${actor.name} requested: ${items.join(', ')}. Priority: ${newRequest.priority}.`,
+    `${actor.name} requested: ${cleanedItems.join(', ')}. Priority: ${newRequest.priority}.`,
     'TASK_ASSIGNED',
     { role: 'PANTRY_BOY', roomId: roomAreaId, roomName }
   );
@@ -5330,13 +6203,17 @@ app.patch('/api/pantry-requests/:id/status', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { status } = req.body;
+  const { status } = req.body || {};
   if (!['PENDING', 'IN_PREPARATION', 'SERVED', 'CANCELLED'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
 
   const reqItem = db.pantryRequests?.find((p) => p.id === req.params.id);
   if (!reqItem) return res.status(404).json({ error: 'Pantry request not found' });
+
+  if (status === 'CANCELLED' && actor.role === 'PANTRY_BOY' && reqItem.requesterName !== actor.name) {
+    return res.status(403).json({ error: 'Permission denied: Pantry Attendant cannot cancel management pantry requests.' });
+  }
 
   const prevStatus = reqItem.status;
   reqItem.status = status;
@@ -5679,59 +6556,67 @@ app.get('/api/reports/export', (req, res) => {
     'Photo Verified',
   ];
 
+  const escapeCsvCell = (raw: unknown): string => {
+    const str = String(raw ?? '').replace(/\r?\n/g, ' ');
+    // Neutralize spreadsheet formula/DDE injection vectors (=, +, -, @, leading tab/CR)
+    const formulaSafe = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+    return `"${formulaSafe.replace(/"/g, '""')}"`;
+  };
+
   const rows = db.tasks.map((t) => [
-    `"${t.id}"`,
-    `"${t.title.replace(/"/g, '""')}"`,
-    `"${t.roomAreaName.replace(/"/g, '""')}"`,
-    `"${t.priority}"`,
-    `"${t.status}"`,
-    `"${t.assignedToName}"`,
-    `"${t.createdByName}"`,
-    `"${formatISTScheduleLabel(t.scheduledFor)}"`,
-    `"${t.dueTime}"`,
-    `"${t.startedAt || ''}"`,
-    `"${t.submittedAt || ''}"`,
-    `"${t.completedAt || ''}"`,
-    `"${(t.blockedReason || '').replace(/"/g, '""')}"`,
-    `"${t.photoEvidence?.status || 'N/A'}"`,
+    escapeCsvCell(t.id),
+    escapeCsvCell(t.title),
+    escapeCsvCell(t.roomAreaName),
+    escapeCsvCell(t.priority),
+    escapeCsvCell(t.status),
+    escapeCsvCell(t.assignedToName),
+    escapeCsvCell(t.createdByName),
+    escapeCsvCell(formatISTScheduleLabel(t.scheduledFor)),
+    escapeCsvCell(t.dueTime),
+    escapeCsvCell(t.startedAt || ''),
+    escapeCsvCell(t.submittedAt || ''),
+    escapeCsvCell(t.completedAt || ''),
+    escapeCsvCell(t.blockedReason || ''),
+    escapeCsvCell(t.photoEvidence?.status || 'N/A'),
   ]);
 
   const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="white_collar_realty_pantry_report_${Date.now()}.csv"`);
   res.send(csvContent);
 });
+
+function canUserReceiveNotification(actor: UserAccount, n: AppNotification): boolean {
+  // CRITICAL RBAC ENFORCEMENT:
+  // If notification is marked targetOnlyPantryBoy, ONLY active PANTRY_BOY can receive or mutate it.
+  if (n.targetOnlyPantryBoy) {
+    if (actor.role !== 'PANTRY_BOY' || actor.status !== 'active') {
+      return false;
+    }
+    if (n.recipientEmail && actor.email.toLowerCase() !== n.recipientEmail.toLowerCase()) {
+      return false;
+    }
+    return true;
+  }
+
+  if (actor.role === 'ADMIN' || actor.isSuperAdmin) return true;
+  if (!n.recipientRole && !n.recipientEmail) return true;
+  if (n.recipientRole === actor.role) return true;
+  if (n.recipientEmail && n.recipientEmail.toLowerCase() === actor.email.toLowerCase()) return true;
+  if (
+    isManagerOrAdmin(actor.role) &&
+    (n.recipientRole === 'HR' || n.recipientRole === 'KIMMY_MAM' || n.recipientRole === 'ADMIN')
+  ) {
+    return true;
+  }
+  return false;
+}
 
 app.get('/api/notifications', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthenticated', notifications: [] });
 
-  const relevant = db.notifications.filter((n) => {
-    // CRITICAL RBAC ENFORCEMENT:
-    // If notification is marked targetOnlyPantryBoy, ONLY active PANTRY_BOY can receive it.
-    // Admin, HR, Co-Founder, and all other non-pantry roles are strictly blocked from seeing it.
-    if (n.targetOnlyPantryBoy) {
-      if (actor.role !== 'PANTRY_BOY' || actor.status !== 'active') {
-        return false;
-      }
-      if (n.recipientEmail && actor.email.toLowerCase() !== n.recipientEmail.toLowerCase()) {
-        return false;
-      }
-      return true;
-    }
-
-    if (actor.role === 'ADMIN' || actor.isSuperAdmin) return true;
-    if (!n.recipientRole && !n.recipientEmail) return true;
-    if (n.recipientRole === actor.role) return true;
-    if (n.recipientEmail === actor.email) return true;
-    if (
-      isManagerOrAdmin(actor.role) &&
-      (n.recipientRole === 'HR' || n.recipientRole === 'KIMMY_MAM' || n.recipientRole === 'ADMIN')
-    )
-      return true;
-    return false;
-  });
-
+  const relevant = db.notifications.filter((n) => canUserReceiveNotification(actor, n));
   res.json({ notifications: relevant });
 });
 
@@ -5739,7 +6624,11 @@ app.patch('/api/notifications/:id/read', (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
   const notif = db.notifications.find((n) => n.id === req.params.id);
-  if (notif) notif.read = true;
+  if (!notif) return res.status(404).json({ error: 'Notification not found' });
+  if (!canUserReceiveNotification(actor, notif)) {
+    return res.status(403).json({ error: 'Permission denied: Cannot modify notifications belonging to another role or user.' });
+  }
+  notif.read = true;
   saveDb();
   res.json({ success: true });
 });
@@ -5764,7 +6653,7 @@ app.post('/api/ai/parse-task', (req, res) => {
     return res.status(403).json({ error: 'Unauthorized to generate tasks.' });
   }
 
-  const { naturalInstruction } = req.body;
+  const { naturalInstruction } = req.body || {};
   if (!naturalInstruction || typeof naturalInstruction !== 'string') {
     return res.status(400).json({ error: 'naturalInstruction is required' });
   }
@@ -5901,16 +6790,32 @@ app.get('/api/ai/operational-insights', (req, res) => {
   });
 });
 
+const VALID_SCHEDULER_MILESTONES = [
+  '9AM_START',
+  '10AM_WATER',
+  '12PM_PLANTS',
+  '4PM_WATER',
+  '3PM_WATER',
+  'CLOSING_AUDIT',
+  '8PM_CLOSING',
+] as const;
+
 // 10. Scheduler Trigger (Daily IST task milestones)
 app.post(['/api/scheduler/trigger', '/api/scheduler/trigger-milestone'], (req, res) => {
   const actor = getCurrentUser(req);
-  if (!actor || !checkUserPermission(actor, 'tasks', 'create')) {
+  if (!actor) return res.status(401).json({ error: 'Unauthenticated' });
+  if (!checkUserPermission(actor, 'tasks', 'create')) {
     return res.status(403).json({
       error: 'Only authorized users with task creation permission can trigger scheduled milestone routines.',
     });
   }
 
-  const { milestone } = req.body; // '9AM_START' | '10AM_WATER' | '12PM_PLANTS' | '4PM_WATER' | 'CLOSING_AUDIT'
+  const { milestone } = req.body || {}; // '9AM_START' | '10AM_WATER' | '12PM_PLANTS' | '4PM_WATER' | 'CLOSING_AUDIT'
+  if (!milestone || !VALID_SCHEDULER_MILESTONES.includes(milestone)) {
+    return res.status(400).json({
+      error: `Invalid scheduler milestone "${String(milestone || '')}". Expected one of: ${VALID_SCHEDULER_MILESTONES.join(', ')}`,
+    });
+  }
   const today = getISTDateFormatted();
 
   if (milestone === '9AM_START') {
@@ -6009,7 +6914,7 @@ app.post(['/api/scheduler/trigger', '/api/scheduler/trigger-milestone'], (req, r
     `Manually triggered ${milestone} scheduler milestone`
   );
   saveDb();
-  broadcastRealtime('task:updated', { tasks: db.tasks, serverTime: new Date().toISOString() });
+  broadcastRealtime('task:updated', { tasks: db.tasks.map((t) => normalizeTaskRecord(t)), serverTime: new Date().toISOString() });
   res.json({ success: true, message: `Triggered ${milestone}` });
 });
 

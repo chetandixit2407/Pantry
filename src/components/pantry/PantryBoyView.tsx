@@ -9,11 +9,15 @@ import type {
   TaskPriority,
   AttendanceRecord,
   ScheduleAlertPayload,
+  PhotoEvidence,
 } from '../../types/index.ts';
 import { api, getServerNowMs } from '../../services/api.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { CameraCaptureModal } from '../common/CameraCaptureModal.tsx';
+import { AuthenticatedEvidenceImage } from '../common/AuthenticatedEvidenceImage.tsx';
+import { EvidenceLightboxModal } from '../common/EvidenceLightboxModal.tsx';
 import { Card3D } from '../common/Card3D.tsx';
+import { getTaskPhotoEvidences } from '../../utils/textNormalizer.ts';
 import {
   LayoutDashboard,
   ListTodo,
@@ -231,7 +235,13 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
   // Modals & details
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [cameraModalTask, setCameraModalTask] = useState<Task | null>(null);
-  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const [evidenceViewerState, setEvidenceViewerState] = useState<{
+    photos: PhotoEvidence[];
+    initialIndex: number;
+    title?: string;
+    task?: Task | null;
+    roomName?: string;
+  } | null>(null);
 
   // Blocker modal state
   const [showBlockerModal, setShowBlockerModal] = useState<boolean>(false);
@@ -641,9 +651,32 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
     }
   };
 
+  const openTaskEvidence = useCallback((task: Task, initialIndex = 0) => {
+    const photos = getTaskPhotoEvidences(task);
+    setEvidenceViewerState({
+      photos,
+      initialIndex,
+      title: task.title,
+      task,
+      roomName: task.roomAreaName,
+    });
+  }, []);
+
   const handlePhotoUploaded = (updatedTask: Task) => {
     setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
-    setSelectedTask(updatedTask);
+    setSelectedTask((prev) => (prev?.id === updatedTask.id ? updatedTask : prev));
+    setEvidenceViewerState((prev) => {
+      if (!prev || prev.task?.id !== updatedTask.id) return prev;
+      return {
+        ...prev,
+        task: updatedTask,
+        photos: getTaskPhotoEvidences(updatedTask),
+      };
+    });
+    api
+      .getRooms()
+      .then((freshRooms) => setRooms(freshRooms))
+      .catch(() => {});
   };
 
   const handleUpdatePantryRequest = async (requestId: string, status: 'IN_PREPARATION' | 'SERVED') => {
@@ -684,6 +717,66 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
     [tasks]
   );
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === 'COMPLETED'), [tasks]);
+
+  // Persisted evidence mapped per room across assigned tasks (newest first)
+  const roomEvidenceMap = useMemo(() => {
+    const map = new Map<string, PhotoEvidence[]>();
+    const seenByRoom = new Map<string, Set<string>>();
+    for (const task of tasks) {
+      const photos = getTaskPhotoEvidences(task);
+      if (photos.length === 0) continue;
+      const roomId = task.roomAreaId;
+      if (!roomId) continue;
+      if (!map.has(roomId)) {
+        map.set(roomId, []);
+        seenByRoom.set(roomId, new Set());
+      }
+      const list = map.get(roomId)!;
+      const seen = seenByRoom.get(roomId)!;
+      for (const pe of photos) {
+        const key = pe.id || pe.photoUrl;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push(pe);
+        }
+      }
+    }
+    for (const [roomId, list] of map.entries()) {
+      list.sort(
+        (a, b) =>
+          (new Date(b.serverTimestamp || b.capturedAt || 0).getTime() || 0) -
+          (new Date(a.serverTimestamp || a.capturedAt || 0).getTime() || 0)
+      );
+      map.set(roomId, list);
+    }
+    return map;
+  }, [tasks]);
+
+  // Task History & Submitted Evidence records (includes COMPLETED + tasks with uploaded evidence)
+  const historyWithEvidenceTasks = useMemo(() => {
+    const relevant = tasks.filter(
+      (t) => t.status === 'COMPLETED' || getTaskPhotoEvidences(t).length > 0
+    );
+    return [...relevant].sort((a, b) => {
+      const aPhotos = getTaskPhotoEvidences(a);
+      const bPhotos = getTaskPhotoEvidences(b);
+      const aTs =
+        new Date(
+          a.completedAt ||
+            a.submittedAt ||
+            aPhotos[aPhotos.length - 1]?.serverTimestamp ||
+            a.createdAt
+        ).getTime() || 0;
+      const bTs =
+        new Date(
+          b.completedAt ||
+            b.submittedAt ||
+            bPhotos[bPhotos.length - 1]?.serverTimestamp ||
+            b.createdAt
+        ).getTime() || 0;
+      return bTs - aTs;
+    });
+  }, [tasks]);
 
   // 1. TODAY'S TASKS ONLY (IST date === todayIST, excluding OVERDUE & CANCELLED)
   const todayTasks = useMemo(
@@ -1591,19 +1684,33 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between gap-3 pt-3 border-t border-amber-200/70">
+                      <div className="flex items-center justify-between gap-3 pt-3 border-t border-amber-200/70 flex-wrap">
                         <div className="text-xs text-slate-600">
                           {nextEligibleTask.checklist.filter((c) => c.completed).length} of {nextEligibleTask.checklist.length} checklist items done
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTask(nextEligibleTask)}
-                          className="px-4 py-2 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
-                        >
-                          {nextEligibleTask.status === 'IN_PROGRESS' ? 'Continue Checklist' : 'Open / Start Task'}
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {getTaskPhotoEvidences(nextEligibleTask).length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openTaskEvidence(nextEligibleTask, 0)}
+                              className="px-3.5 py-2 text-xs font-bold text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Camera className="w-3.5 h-3.5 text-sky-700" />
+                              <span>
+                                View Evidence ({getTaskPhotoEvidences(nextEligibleTask).length})
+                              </span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTask(nextEligibleTask)}
+                            className="px-4 py-2 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            {nextEligibleTask.status === 'IN_PROGRESS' ? 'Continue Checklist' : 'Open / Start Task'}
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </Card3D>
                   ) : (
@@ -1778,7 +1885,19 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            {getTaskPhotoEvidences(task).length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => openTaskEvidence(task, 0)}
+                                className="px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Camera className="w-3.5 h-3.5 text-sky-700" />
+                                <span>
+                                  View Evidence ({getTaskPhotoEvidences(task).length})
+                                </span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => setSelectedTask(task)}
@@ -1857,13 +1976,25 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                             <div className="text-xs font-bold text-slate-900 truncate">{task.title}</div>
                             <div className="text-[11px] text-slate-600 truncate">{task.roomAreaName}</div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedTask(task)}
-                            className="px-2.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shrink-0 cursor-pointer"
-                          >
-                            Resolve
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {getTaskPhotoEvidences(task).length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => openTaskEvidence(task, 0)}
+                                className="px-2.5 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Camera className="w-3.5 h-3.5 text-sky-700" />
+                                <span>View Evidence</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTask(task)}
+                              className="px-2.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shrink-0 cursor-pointer"
+                            >
+                              Resolve
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2028,6 +2159,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                   const totalItems = task.checklist.length;
                   const schedMs = new Date(task.scheduledFor).getTime();
                   const msUntil = schedMs - serverNowMs;
+                  const taskPhotos = getTaskPhotoEvidences(task);
                   return (
                     <Card3D
                       key={task.id}
@@ -2080,21 +2212,63 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                             {task.description}
                           </p>
                         )}
+
+                        {taskPhotos.length > 0 && (
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openTaskEvidence(task, 0)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                openTaskEvidence(task, 0);
+                              }
+                            }}
+                            className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 h-28 mb-3 cursor-pointer group"
+                          >
+                            <AuthenticatedEvidenceImage
+                              photoUrl={taskPhotos[0].photoUrl}
+                              alt={`Evidence for ${task.title}`}
+                              compact
+                              className="w-full h-full"
+                              imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute top-2 left-2 bg-slate-950/80 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded backdrop-blur-xs">
+                              {taskPhotos.length} Photo{taskPhotos.length === 1 ? '' : 's'}
+                            </div>
+                            <div className="absolute inset-0 bg-slate-950/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                              <Camera className="w-3.5 h-3.5 text-amber-400" />
+                              <span>View Evidence</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs flex-wrap">
                         <span className="text-slate-500 font-mono text-[11px]">
                           {completedItems}/{totalItems} Done
                         </span>
 
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTask(task)}
-                          className="px-3.5 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Open Task</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {taskPhotos.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openTaskEvidence(task, 0)}
+                              className="px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <Camera className="w-3.5 h-3.5 text-sky-700" />
+                              <span>View Evidence ({taskPhotos.length})</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTask(task)}
+                            className="px-3.5 py-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Open Task</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </Card3D>
                   );
@@ -2271,21 +2445,45 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        {room.status !== 'AVAILABLE' && room.status !== 'READY_FOR_VISITOR' ? (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkRoomReady(room.id)}
-                            className="w-full py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Mark Ready</span>
-                          </button>
-                        ) : (
-                          <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Room Verified & Ready
-                          </div>
-                        )}
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                        {(() => {
+                          const roomPhotos = roomEvidenceMap.get(room.id) || [];
+                          return (
+                            <>
+                              {room.status !== 'AVAILABLE' && room.status !== 'READY_FOR_VISITOR' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkRoomReady(room.id)}
+                                  className="flex-1 py-1.5 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Mark Ready</span>
+                                </button>
+                              ) : (
+                                <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Room Verified &amp; Ready
+                                </div>
+                              )}
+                              {roomPhotos.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEvidenceViewerState({
+                                      photos: roomPhotos,
+                                      initialIndex: 0,
+                                      title: `${room.name} — Room Evidence`,
+                                      roomName: room.name,
+                                    })
+                                  }
+                                  className="py-1.5 px-2.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Camera className="w-3.5 h-3.5 text-sky-700" />
+                                  <span>View Evidence ({roomPhotos.length})</span>
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </Card3D>
                   );
@@ -2433,56 +2631,106 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
           {/* ------------------------------------------------------------------- */}
           {activeTab === 'taskHistory' && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Task Completion History</h2>
-                  <p className="text-xs text-slate-500">Audit logs and verified photographs of completed maintenance tasks.</p>
+                  <h2 className="text-base font-bold text-slate-900">Task Completion &amp; Evidence History</h2>
+                  <p className="text-xs text-slate-500">
+                    Audit logs and persisted camera evidence of submitted and completed maintenance tasks.
+                  </p>
                 </div>
-                <span className="text-xs text-slate-400 font-mono">{completedTasks.length} Completed</span>
+                <span className="text-xs text-slate-500 font-mono">
+                  {completedTasks.length} Verified · {historyWithEvidenceTasks.length} Total Records
+                </span>
               </div>
 
-              {completedTasks.length === 0 ? (
+              {historyWithEvidenceTasks.length === 0 ? (
                 <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
                   <History className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <div className="text-xs font-bold text-slate-900">No completed tasks yet today</div>
+                  <div className="text-xs font-bold text-slate-900">No submitted or completed task records yet</div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Submitted live camera evidence and verified task completions will appear here automatically.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {completedTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900">{task.roomAreaName}</span>
-                          <span className="text-xs text-slate-400">• Priority {task.priority}</span>
-                          <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-                          </span>
+                  {historyWithEvidenceTasks.map((task) => {
+                    const taskPhotos = getTaskPhotoEvidences(task);
+                    const latestTimestamp =
+                      task.completedAt ||
+                      task.submittedAt ||
+                      taskPhotos[taskPhotos.length - 1]?.serverTimestamp;
+                    return (
+                      <div
+                        key={task.id}
+                        className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-900">{task.roomAreaName}</span>
+                            <span className="text-xs text-slate-400">· Priority {task.priority}</span>
+                            {task.status === 'COMPLETED' ? (
+                              <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+                              </span>
+                            ) : (
+                              getStatusBadge(task.status)
+                            )}
+                          </div>
+                          <h4 className="text-xs font-semibold text-slate-700">{task.title}</h4>
+                          <div className="text-[11px] text-slate-500 font-mono flex items-center gap-2 flex-wrap">
+                            <span>
+                              {task.status === 'COMPLETED' ? 'Completed:' : 'Submitted:'}{' '}
+                              {latestTimestamp ? formatISTFullDateTime(latestTimestamp) : 'Today'}
+                            </span>
+                            {taskPhotos.length > 0 && (
+                              <>
+                                <span>·</span>
+                                <span>
+                                  {taskPhotos.length} Photo{taskPhotos.length === 1 ? '' : 's'} Saved
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <h4 className="text-xs font-semibold text-slate-700">{task.title}</h4>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          Completed: {task.completedAt ? new Date(task.completedAt).toLocaleString() : 'Today'}
+
+                        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                          {taskPhotos.length > 0 && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openTaskEvidence(task, 0)}
+                                className="w-14 h-12 rounded-xl overflow-hidden border border-slate-200 hover:border-amber-400 bg-slate-900 shrink-0 cursor-pointer transition-colors"
+                                title={`Preview photo evidence for ${task.title}`}
+                              >
+                                <AuthenticatedEvidenceImage
+                                  photoUrl={taskPhotos[0].photoUrl}
+                                  alt={`Evidence thumbnail for ${task.title}`}
+                                  compact
+                                  className="w-full h-full"
+                                  imgClassName="w-full h-full object-cover"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openTaskEvidence(task, 0)}
+                                className="px-3.5 py-2 text-xs font-bold text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Camera className="w-3.5 h-3.5 text-sky-700" />
+                                <span>View Evidence ({taskPhotos.length})</span>
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTask(task)}
+                            className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                          >
+                            Task Details
+                          </button>
                         </div>
                       </div>
-
-                      {task.photoEvidence && (
-                        <button
-                          type="button"
-                          onClick={() => setPreviewPhotoUrl(task.photoEvidence!.photoUrl)}
-                          className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 shrink-0"
-                        >
-                          <img
-                            src={task.photoEvidence.photoUrl}
-                            alt="Photo Evidence"
-                            className="w-12 h-12 object-cover rounded-lg"
-                          />
-                          <span className="text-xs font-semibold text-slate-700 pr-2">View Photo</span>
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2817,129 +3065,138 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                 </div>
               </div>
 
-              {/* Live Photo Evidence */}
               {/* Live Photo Evidence Section */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Live Photo Evidence {selectedTask.photoEvidences && selectedTask.photoEvidences.length > 0 ? `(${selectedTask.photoEvidences.length})` : ''}
-                  </h4>
-                  <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    Strict Live Camera Only
-                  </span>
-                </div>
-
-                {selectedTask.photoEvidences && selectedTask.photoEvidences.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {selectedTask.photoEvidences.map((pe, idx) => (
-                        <div
-                          key={pe.id || `pe-${idx}`}
-                          className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex flex-col group shadow-2xs"
-                        >
-                          <div className="relative h-36 bg-slate-900 overflow-hidden cursor-pointer" onClick={() => setPreviewPhotoUrl(pe.photoUrl)}>
-                            <img
-                              src={pe.photoUrl}
-                              alt={`Evidence photo #${idx + 1}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <span className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded backdrop-blur-xs">
-                              Photo #{idx + 1}
-                            </span>
-                            <span className="absolute bottom-2 right-2 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[9px] font-mono px-2 py-0.5 rounded backdrop-blur-xs flex items-center gap-1">
-                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
-                              VERIFIED LIVE
-                            </span>
-                          </div>
-                          <div className="p-2.5 text-[11px] space-y-1 bg-white flex-1 flex flex-col justify-between">
-                            <div className="font-semibold text-slate-800 flex items-center justify-between gap-1">
-                              <span className="truncate">Captured IST:</span>
-                              <span className="font-mono text-slate-600 text-[10px]">
-                                {new Date(pe.capturedAt || pe.serverTimestamp).toLocaleTimeString('en-IN', {
-                                  timeZone: 'Asia/Kolkata',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  second: '2-digit',
-                                })}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-slate-500 flex items-center justify-between font-mono pt-1 border-t border-slate-100">
-                              <span>Server Upload:</span>
-                              <span>
-                                {new Date(pe.serverTimestamp).toLocaleTimeString('en-IN', {
-                                  timeZone: 'Asia/Kolkata',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {selectedTask.status !== 'COMPLETED' && canEditTasks && (
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setCameraModalTask(selectedTask)}
-                          className="px-3.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          <span>Retake or Add Photos</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : selectedTask.photoEvidence ? (
-                  <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
-                    <img
-                      src={selectedTask.photoEvidence.photoUrl}
-                      alt="Captured Evidence"
-                      className="w-full h-48 object-cover cursor-pointer"
-                      onClick={() => setPreviewPhotoUrl(selectedTask.photoEvidence!.photoUrl)}
-                    />
-                    <div className="p-3 text-xs flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Photo Captured & Server Timestamped
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                          {new Date(selectedTask.photoEvidence.serverTimestamp).toLocaleString('en-IN', {
-                            timeZone: 'Asia/Kolkata',
-                          })}
+                {(() => {
+                  const selectedTaskPhotos = getTaskPhotoEvidences(selectedTask);
+                  return (
+                    <>
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Live Photo Evidence {selectedTaskPhotos.length > 0 ? `(${selectedTaskPhotos.length})` : ''}
+                        </h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {selectedTaskPhotos.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openTaskEvidence(selectedTask, 0)}
+                              className="px-2.5 py-1 text-xs font-bold text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Camera className="w-3.5 h-3.5 text-sky-700" />
+                              <span>View Evidence ({selectedTaskPhotos.length})</span>
+                            </button>
+                          )}
+                          <span className="text-[11px] text-amber-700 font-semibold">
+                            Strict Live Camera Only
+                          </span>
                         </div>
                       </div>
-                      {selectedTask.status !== 'COMPLETED' && canEditTasks && (
-                        <button
-                          type="button"
-                          onClick={() => setCameraModalTask(selectedTask)}
-                          className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-100 cursor-pointer"
-                        >
-                          Retake
-                        </button>
+
+                      {selectedTaskPhotos.length > 0 ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {selectedTaskPhotos.map((pe, idx) => (
+                              <div
+                                key={pe.id || `pe-${idx}`}
+                                className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex flex-col group shadow-2xs"
+                              >
+                                <div
+                                  role="button"
+                                  tabIndex={0}
+                                  className="relative h-36 bg-slate-900 overflow-hidden cursor-pointer"
+                                  onClick={() => openTaskEvidence(selectedTask, idx)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      openTaskEvidence(selectedTask, idx);
+                                    }
+                                  }}
+                                >
+                                  <AuthenticatedEvidenceImage
+                                    photoUrl={pe.photoUrl}
+                                    alt={`Evidence photo #${idx + 1}`}
+                                    compact
+                                    className="w-full h-full"
+                                    imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                  <span className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded backdrop-blur-xs">
+                                    Photo #{idx + 1}
+                                  </span>
+                                  <span className="absolute bottom-2 right-2 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[9px] font-mono px-2 py-0.5 rounded backdrop-blur-xs flex items-center gap-1">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                                    {pe.status === 'VERIFIED' ? 'VERIFIED' : 'PERSISTED'}
+                                  </span>
+                                </div>
+                                <div className="p-2.5 text-[11px] space-y-1 bg-white flex-1 flex flex-col justify-between">
+                                  <div className="font-semibold text-slate-800 flex items-center justify-between gap-1">
+                                    <span className="truncate">Captured IST:</span>
+                                    <span className="font-mono text-slate-600 text-[10px]">
+                                      {new Date(pe.capturedAt || pe.serverTimestamp).toLocaleTimeString('en-IN', {
+                                        timeZone: 'Asia/Kolkata',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                      })}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 flex items-center justify-between font-mono pt-1 border-t border-slate-100">
+                                    <span>Server Upload:</span>
+                                    <span>
+                                      {new Date(pe.serverTimestamp).toLocaleTimeString('en-IN', {
+                                        timeZone: 'Asia/Kolkata',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => openTaskEvidence(selectedTask, 0)}
+                              className="px-3.5 py-1.5 text-xs font-bold text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Camera className="w-3.5 h-3.5 text-sky-700" />
+                              <span>Open Full-Size Gallery ({selectedTaskPhotos.length})</span>
+                            </button>
+
+                            {selectedTask.status !== 'COMPLETED' && canEditTasks && (
+                              <button
+                                type="button"
+                                onClick={() => setCameraModalTask(selectedTask)}
+                                className="px-3.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>Retake or Add Photos</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center bg-slate-50">
+                          <Camera className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                          <p className="text-xs text-slate-600 mb-3 font-medium">
+                            Capture clean room arrangement, chair alignment, and water bottles using live camera.
+                          </p>
+                          {canEditTasks && (
+                            <button
+                              type="button"
+                              onClick={() => setCameraModalTask(selectedTask)}
+                              className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                            >
+                              <Camera className="w-4 h-4" />
+                              <span>Capture Live Photos</span>
+                            </button>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center bg-slate-50">
-                    <Camera className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                    <p className="text-xs text-slate-600 mb-3 font-medium">
-                      Capture clean room arrangement, chair alignment, and water bottles using live camera.
-                    </p>
-                    {canEditTasks && (
-                      <button
-                        type="button"
-                        onClick={() => setCameraModalTask(selectedTask)}
-                        className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>Capture Live Photos</span>
-                      </button>
-                    )}
-                  </div>
-                )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -3106,25 +3363,38 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
       )}
 
       {/* ----------------------------------------------------------------------- */}
-      {/* Photo Preview Modal                                                     */}
+      {/* Full-Size Persisted Photo Evidence Gallery / Lightbox Modal             */}
       {/* ----------------------------------------------------------------------- */}
-      {previewPhotoUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
-          onClick={() => setPreviewPhotoUrl(null)}
-        >
-          <div className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setPreviewPhotoUrl(null)}
-              className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-900/70 text-white hover:bg-slate-900"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <img src={previewPhotoUrl} alt="Preview" className="w-full max-h-[80vh] object-contain" />
-          </div>
-        </div>
-      )}
+      <EvidenceLightboxModal
+        isOpen={Boolean(evidenceViewerState)}
+        onClose={() => setEvidenceViewerState(null)}
+        photos={evidenceViewerState?.photos || []}
+        initialIndex={evidenceViewerState?.initialIndex || 0}
+        title={evidenceViewerState?.title}
+        task={evidenceViewerState?.task || null}
+        roomName={evidenceViewerState?.roomName}
+        uploaderName={currentUser?.name}
+        onRefreshEvidence={async () => {
+          const targetTask = evidenceViewerState?.task;
+          if (targetTask?.id) {
+            try {
+              const fresh = await api.getTaskEvidence(targetTask.id);
+              setEvidenceViewerState((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      photos: fresh.photoEvidences || [],
+                    }
+                  : null
+              );
+            } catch {
+              await loadData();
+            }
+          } else {
+            await loadData();
+          }
+        }}
+      />
 
       {/* ----------------------------------------------------------------------- */}
       {/* PANTRY-BOY-ONLY ALERT 1: 5-Minute Pre-Task Warning Popup                */}

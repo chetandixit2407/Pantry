@@ -2,7 +2,12 @@ import http from 'http';
 import crypto from 'crypto';
 import fs from 'fs';
 
-const BASE_URL = 'http://127.0.0.1:3000';
+import path from 'path';
+
+const TEST_PORT = parseInt(process.env.WCR_TEST_PORT || '3000', 10);
+const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
+const DATA_DIR = process.env.WCR_DATA_DIR || './data';
+const AUDIT_OUTPUT_FILE = process.env.WCR_AUDIT_OUTPUT || './audit_results.json';
 
 interface TestResult {
   suite: string;
@@ -38,7 +43,7 @@ async function httpRequest(options: {
     const req = http.request(
       {
         hostname: '127.0.0.1',
-        port: 3000,
+        port: TEST_PORT,
         path: options.path,
         method: options.method,
         headers: reqHeaders,
@@ -513,7 +518,7 @@ async function runAudit() {
       const req = http.request(
         {
           hostname: '127.0.0.1',
-          port: 3000,
+          port: TEST_PORT,
           path: '/api/realtime',
           method: 'GET',
           headers: { Authorization: `Bearer ${adminToken}` },
@@ -663,7 +668,7 @@ async function runAudit() {
   console.log('\n--- 9. Testing Production Reliability & Persistence ---');
   try {
     // 9.1 Database File Integrity
-    const dbRaw = fs.readFileSync('./data/smart_pantry_db.json', 'utf8');
+    const dbRaw = fs.readFileSync(path.join(DATA_DIR, 'smart_pantry_db.json'), 'utf8');
     const dbParsed = JSON.parse(dbRaw);
     const dbValid = Array.isArray(dbParsed.users) &&
       Array.isArray(dbParsed.rooms) &&
@@ -707,8 +712,8 @@ async function runAudit() {
   console.log(`FAILED: ${failed}`);
   console.log(`PASS RATE: ${Math.round((passed / total) * 100)}%\n`);
 
-  fs.writeFileSync('./audit_results.json', JSON.stringify({ total, passed, failed, results }, null, 2), 'utf8');
-  console.log('Results written to ./audit_results.json');
+  fs.writeFileSync(AUDIT_OUTPUT_FILE, JSON.stringify({ total, passed, failed, results }, null, 2), 'utf8');
+  console.log(`Results written to ${AUDIT_OUTPUT_FILE}`);
 }
 
 runAudit().catch((e) => console.error('Fatal audit failure:', e));

@@ -3,9 +3,9 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 
-const LOCAL_BASE = 'http://127.0.0.1:3000';
-const DEPLOYED_DEV_BASE = 'https://ais-dev-bq5ie3o4ejdrsyujppu5bb-189744997702.asia-southeast1.run.app';
-const DEPLOYED_PRE_BASE = 'https://ais-pre-bq5ie3o4ejdrsyujppu5bb-189744997702.asia-southeast1.run.app';
+const LOCAL_BASE = `http://127.0.0.1:${process.env.WCR_TEST_PORT || '3000'}`;
+const DEPLOYED_DEV_BASE = 'https://ais-dev-c56ohv4eonqgwlqdnp3fri-11269115526.asia-northeast1.run.app';
+const DEPLOYED_PRE_BASE = 'https://ais-pre-c56ohv4eonqgwlqdnp3fri-11269115526.asia-northeast1.run.app';
 
 interface AuditRecord {
   id: string;
@@ -489,7 +489,10 @@ async function runAuditSuite() {
 
     // 9. Persistence & Cold Disk Verification
     console.log('\n--- PHASE 9: Database Persistence Verification ---');
-    const dbPath = path.join(process.cwd(), 'data', 'smart_pantry_db.json');
+    const phase9DataDir = process.env.WCR_DATA_DIR
+      ? path.resolve(process.env.WCR_DATA_DIR)
+      : path.join(process.cwd(), 'data');
+    const dbPath = path.join(phase9DataDir, 'smart_pantry_db.json');
     const rawDb = fs.readFileSync(dbPath, 'utf8');
     const diskDb = JSON.parse(rawDb);
     const diskRoom = diskDb.rooms?.find((r: any) => r.id === testRoomId);
@@ -609,7 +612,10 @@ async function runAuditSuite() {
   } finally {
     // 12. Guaranteed Safe Cleanup of Isolated Test Records
     console.log('\n--- PHASE 12: Safe Cleanup of Isolated Test Records ---');
-    const dbPath = path.join(process.cwd(), 'data', 'smart_pantry_db.json');
+    const dataDir = process.env.WCR_DATA_DIR
+      ? path.resolve(process.env.WCR_DATA_DIR)
+      : path.join(process.cwd(), 'data');
+    const dbPath = path.join(dataDir, 'smart_pantry_db.json');
     if (fs.existsSync(dbPath)) {
       const current = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
       const initialRoomCount = current.rooms?.length || 0;
@@ -660,7 +666,9 @@ async function runAuditSuite() {
     records: auditRecords,
   };
 
-  const reportPath = path.join(process.cwd(), 'production_audit_report.json');
+  const reportPath = process.env.WCR_AUDIT_OUTPUT
+    ? path.resolve(process.env.WCR_AUDIT_OUTPUT)
+    : path.join(process.cwd(), 'production_audit_report.json');
   fs.writeFileSync(reportPath, JSON.stringify(reportPayload, null, 2), 'utf8');
   console.log(`\n📄 Successfully updated ${reportPath}`);
   console.log(`Summary: ${passedCount} PASSED, ${failedCount} FAILED, ${notVerifiedCount} NOT VERIFIED of ${auditRecords.length} total tests.\n`);

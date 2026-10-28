@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
-import { Navbar } from './components/common/Navbar.tsx';
 import { PantryBoyView } from './components/pantry/PantryBoyView.tsx';
 import { ManagementView } from './components/management/ManagementView.tsx';
 import { BubbleLoginPage } from './components/auth/BubbleLoginPage.tsx';
@@ -16,7 +15,6 @@ const MainLayout: React.FC = () => {
     transitionUser,
     transitionMode,
     isDeactivated,
-    switchUser,
     allUsers,
     login,
     logout,
@@ -24,29 +22,10 @@ const MainLayout: React.FC = () => {
     isAuthTransitioning,
     hasDashboardAccess,
   } = useAuth();
-  const [activeView, setActiveView] = useState<'PANTRY' | 'MANAGEMENT'>('PANTRY');
-
-  // Sync default view on account change or permission update
-  useEffect(() => {
-    if (currentUser) {
-      const canPantry = hasDashboardAccess('pantry');
-      const canMgmt = hasDashboardAccess('management');
-      if (canPantry && !canMgmt) {
-        setActiveView('PANTRY');
-      } else if (canMgmt && !canPantry) {
-        setActiveView('MANAGEMENT');
-      } else if (currentUser.role === 'PANTRY_BOY') {
-        setActiveView('PANTRY');
-      } else {
-        setActiveView('MANAGEMENT');
-      }
-    }
-  }, [currentUser?.id, currentUser?.role, currentUser?.permissions]);
-
   const canPantry = hasDashboardAccess('pantry');
   const canMgmt = hasDashboardAccess('management');
-  const effectiveView =
-    activeView === 'PANTRY' && canPantry ? 'PANTRY' : canMgmt ? 'MANAGEMENT' : 'PANTRY';
+  const showPantryDashboard =
+    (canPantry && !canMgmt) || (currentUser?.role === 'PANTRY_BOY' && canPantry);
 
   return (
     <div className="relative min-h-screen bg-slate-950 flex flex-col overflow-x-clip">
@@ -108,7 +87,10 @@ const MainLayout: React.FC = () => {
                           <button
                             key={u.id}
                             type="button"
-                            onClick={() => switchUser(u.id)}
+                            onClick={async () => {
+                              await logout();
+                              await login(u.email);
+                            }}
                             className="p-2 text-xs font-semibold bg-slate-700 hover:bg-slate-600 rounded-lg text-white truncate cursor-pointer"
                           >
                             {u.name} (
@@ -153,35 +135,12 @@ const MainLayout: React.FC = () => {
             </div>
           ) : (
             <div className="min-h-screen bg-slate-50 flex flex-col flex-1">
-              {effectiveView === 'PANTRY' ? (
-                currentUser.role === 'PANTRY_BOY' ? (
-                  <main className="flex-1">
-                    <PantryBoyView key={`pantry-${currentUser.id}`} />
-                  </main>
-                ) : (
-                  <>
-                    <Navbar activeView={effectiveView} setActiveView={setActiveView} />
-                    <main className="flex-1 flex flex-col">
-                      <div className="sticky top-16 z-30 h-8 bg-amber-100 border-b border-amber-200 px-4 text-center text-xs text-amber-900 font-semibold flex items-center justify-center gap-2 shrink-0">
-                        <span className="truncate">{currentUser.name}: Previewing Attendant Dashboard ·</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveView('MANAGEMENT')}
-                          className="underline hover:text-black font-bold cursor-pointer whitespace-nowrap shrink-0"
-                        >
-                          Return to Operations Command
-                        </button>
-                      </div>
-                      <PantryBoyView key={`pantry-preview-${currentUser.id}`} isPreviewMode />
-                    </main>
-                  </>
-                )
+              {showPantryDashboard ? (
+                <main className="flex-1">
+                  <PantryBoyView key={`pantry-${currentUser.id}`} />
+                </main>
               ) : (
-                <ManagementView
-                  key={`management-${currentUser.id}`}
-                  activeView={effectiveView}
-                  setActiveView={setActiveView}
-                />
+                <ManagementView key={`management-${currentUser.id}`} />
               )}
             </div>
           )}

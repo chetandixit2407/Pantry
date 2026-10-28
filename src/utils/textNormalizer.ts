@@ -1,4 +1,4 @@
-import type { RoomArea, Task } from '../types/index.ts';
+import type { PhotoEvidence, RoomArea, Task } from '../types/index.ts';
 
 const OFFICIAL_WCR_ADDRESS =
   '6th Floor, Tower A, M3M Urbana Business Park, Golf Course Extension Road, Sector 67, Gurugram, Haryana 122101, India';
@@ -75,6 +75,24 @@ export function deduplicateRepeatedPhrases(raw?: string): string {
   return normalizedLines.join('\n').trim();
 }
 
+const MAX_SAFE_TEXT_LENGTH = 4000;
+
+/**
+ * Strips raw HTML/script/iframe tags, dangerous URI schemes, and ASCII control characters
+ * while preserving normal punctuation, Unicode symbols, and newlines.
+ */
+export function sanitizeUnsafeHtml(raw: string): string {
+  return raw
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, ' ')
+    .replace(/<\/?[a-zA-Z!][^>]*>/g, ' ')
+    .replace(/\b(?:javascript|vbscript)\s*:/gi, '')
+    .replace(/\bdata\s*:\s*text\/html/gi, '')
+    .slice(0, MAX_SAFE_TEXT_LENGTH);
+}
+
 /**
  * Full WCR string normalizer combining legacy name/address cleanup with phrase deduplication.
  * Safe and idempotent: normalizeDisplayText(normalizeDisplayText(x)) === normalizeDisplayText(x).
@@ -82,7 +100,7 @@ export function deduplicateRepeatedPhrases(raw?: string): string {
 export function normalizeDisplayText(val?: string): string {
   if (!val || typeof val !== 'string') return val || '';
 
-  const legacyCleaned = val
+  const legacyCleaned = sanitizeUnsafeHtml(val)
     .replace(/kimmy\.mam@whitecollarrealty\.com/gi, 'kimmi.mam@whitecollarrealty.com')
     .replace(/Kimmy/g, 'Kimmi')
     .replace(/kimmy/g, 'kimmi')
@@ -130,14 +148,63 @@ export function normalizeRoomName(name?: string): string {
   return cleaned;
 }
 
+export function getTaskPhotoEvidences(task?: Partial<Task> | null): PhotoEvidence[] {
+  if (!task || typeof task !== 'object') return [];
+  if (Array.isArray(task.photoEvidences) && task.photoEvidences.length > 0) {
+    return task.photoEvidences.filter((pe): pe is PhotoEvidence => Boolean(pe && pe.photoUrl));
+  }
+  if (task.photoEvidence && task.photoEvidence.photoUrl) {
+    return [task.photoEvidence];
+  }
+  return [];
+}
+
 export function normalizeTaskRecord<T extends Task>(task: T): T {
   if (!task || typeof task !== 'object') return task;
+  const cleanedTitle = normalizeDisplayText(task.title);
+  const cleanedRoomName = normalizeRoomName(task.roomAreaName);
+  const cleanedAssigneeName = normalizeDisplayText(task.assignedToName);
+
+  const rawEvidences: PhotoEvidence[] =
+    Array.isArray(task.photoEvidences) && task.photoEvidences.length > 0
+      ? task.photoEvidences.filter((pe): pe is PhotoEvidence => Boolean(pe && pe.photoUrl))
+      : task.photoEvidence && task.photoEvidence.photoUrl
+      ? [task.photoEvidence]
+      : [];
+
+  const normalizedEvidences: PhotoEvidence[] = rawEvidences.map((pe, index) => {
+    const { filePath: _fp, ...rest } = pe;
+    const inferredUserName =
+      rest.userName
+        ? normalizeDisplayText(rest.userName)
+        : rest.userEmail &&
+          task.assignedToEmail &&
+          rest.userEmail.toLowerCase() === task.assignedToEmail.toLowerCase()
+        ? cleanedAssigneeName
+        : undefined;
+    return {
+      ...rest,
+      taskId: rest.taskId || task.id,
+      taskTitle: rest.taskTitle ? normalizeDisplayText(rest.taskTitle) : cleanedTitle,
+      roomId: rest.roomId || task.roomAreaId,
+      roomName: normalizeRoomName(rest.roomName || cleanedRoomName),
+      userName: inferredUserName,
+      metadata: rest.metadata
+        ? {
+            ...rest.metadata,
+            photoIndex: rest.metadata.photoIndex ?? index + 1,
+            totalInBatch: rest.metadata.totalInBatch ?? rawEvidences.length,
+          }
+        : undefined,
+    };
+  });
+
   return {
     ...task,
-    title: normalizeDisplayText(task.title),
+    title: cleanedTitle,
     description: task.description !== undefined ? normalizeDisplayText(task.description) : task.description,
-    roomAreaName: normalizeRoomName(task.roomAreaName),
-    assignedToName: normalizeDisplayText(task.assignedToName),
+    roomAreaName: cleanedRoomName,
+    assignedToName: cleanedAssigneeName,
     createdByName: normalizeDisplayText(task.createdByName),
     dueTime: normalizeDisplayText(task.dueTime),
     blockedReason: task.blockedReason !== undefined ? normalizeDisplayText(task.blockedReason) : task.blockedReason,
@@ -150,28 +217,9 @@ export function normalizeTaskRecord<T extends Task>(task: T): T {
           note: item.note !== undefined ? normalizeDisplayText(item.note) : item.note,
         }))
       : [],
-    photoEvidence: task.photoEvidence
-      ? {
-          ...task.photoEvidence,
-          roomName: normalizeRoomName(task.photoEvidence.roomName),
-        }
-      : task.photoEvidence,
-    photoEvidences: Array.isArray(task.photoEvidences)
-      ? task.photoEvidences.map((pe) => ({
-          ...pe,
-          roomName: normalizeRoomName(pe.roomName),
-        }))
-      : task.photoEvidence
-      ? [{ ...task.photoEvidence, roomName: normalizeRoomName(task.photoEvidence.roomName) }]
-      : [],
-    photoCount:
-      typeof task.photoCount === 'number'
-        ? task.photoCount
-        : Array.isArray(task.photoEvidences)
-        ? task.photoEvidences.length
-        : task.photoEvidence
-        ? 1
-        : 0,
+    photoEvidence: normalizedEvidences.length > 0 ? normalizedEvidences[0] : undefined,
+    photoEvidences: normalizedEvidences,
+    photoCount: normalizedEvidences.length,
   };
 }
 

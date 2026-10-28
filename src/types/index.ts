@@ -118,6 +118,7 @@ export interface RoomStatusHistoryEntry {
   note?: string;
   taskId?: string;
   photoUrl?: string;
+  photoCount?: number;
   assignmentId?: string;
 }
 
@@ -184,12 +185,16 @@ export interface ChecklistItem {
 export interface PhotoEvidence {
   id: string;
   taskId: string;
+  taskTitle?: string;
+  roomId?: string;
   roomName: string;
   userEmail: string;
+  userName?: string;
   capturedAt: string;
   serverTimestamp: string;
   photoUrl: string;
   filePath?: string;
+  fileAvailable?: boolean;
   metadata?: {
     device?: string;
     resolution?: string;
@@ -214,6 +219,7 @@ export interface CaptureSessionResponse {
   task: {
     id: string;
     title: string;
+    roomAreaId?: string;
     roomAreaName: string;
   };
 }

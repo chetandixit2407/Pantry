@@ -21,8 +21,14 @@ import type {
 import { api, getServerNowMs } from '../../services/api.ts';
 import { useAuth, getDefaultPermissions } from '../../context/AuthContext.tsx';
 import { Card3D } from '../common/Card3D.tsx';
+import { AuthenticatedEvidenceImage } from '../common/AuthenticatedEvidenceImage.tsx';
+import { EvidenceLightboxModal } from '../common/EvidenceLightboxModal.tsx';
 import { RealtimeRoomDashboard } from './RealtimeRoomDashboard.tsx';
-import { normalizeDisplayText, normalizeRoomName } from '../../utils/textNormalizer.ts';
+import {
+  normalizeDisplayText,
+  normalizeRoomName,
+  getTaskPhotoEvidences,
+} from '../../utils/textNormalizer.ts';
 import {
   Sparkles,
   Plus,
@@ -75,11 +81,6 @@ import {
   ArrowDownRight,
 } from 'lucide-react';
 
-export interface ManagementViewProps {
-  activeView?: 'PANTRY' | 'MANAGEMENT';
-  setActiveView?: (view: 'PANTRY' | 'MANAGEMENT') => void;
-}
-
 export type ManagementTab =
   | 'DASHBOARD'
   | 'PANTRY_TASKS'
@@ -93,8 +94,8 @@ export type ManagementTab =
   | 'USERS'
   | 'AUDIT';
 
-export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setActiveView }) => {
-  const { currentUser, allUsers, refreshUsers, logout, hasPermission, hasSidebarAccess, hasDashboardAccess } = useAuth();
+export const ManagementView: React.FC = () => {
+  const { currentUser, allUsers, refreshUsers, logout, hasPermission, hasSidebarAccess } = useAuth();
 
   const getUserRoleLabel = (user: UserAccount | null) => {
     if (!user) return 'Authorized Staff';
@@ -234,7 +235,24 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [showRoomModal, setShowRoomModal] = useState<boolean>(false);
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const [inspectPhotoTask, setInspectPhotoTask] = useState<Task | null>(null);
+  const [inspectPhotoIndex, setInspectPhotoIndex] = useState<number>(0);
+  const [verifyingPhotoModal, setVerifyingPhotoModal] = useState<boolean>(false);
+  const [roomLightboxState, setRoomLightboxState] = useState<{
+    roomId?: string;
+    roomName: string;
+    photos: PhotoEvidence[];
+    initialIndex: number;
+  } | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const openInspectTaskEvidence = useCallback((task: Task, initialIndex = 0) => {
+    setInspectPhotoIndex(initialIndex);
+    setInspectPhotoTask(task);
+  }, []);
+
+  useEffect(() => {
+    setInspectPhotoIndex(0);
+  }, [inspectPhotoTask?.id]);
   const [taskDetailActionLoading, setTaskDetailActionLoading] = useState<boolean>(false);
   const [taskDetailError, setTaskDetailError] = useState<string | null>(null);
   const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
@@ -474,6 +492,30 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   const [modalStatusFilter, setModalStatusFilter] = useState<string>('ALL');
 
   const selectedDetailTask = selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) || null : null;
+
+  const roomPhotosMap = useMemo(() => {
+    const map = new Map<string, PhotoEvidence[]>();
+    const seenMap = new Map<string, Set<string>>();
+    for (const task of tasks) {
+      if (!task.roomAreaId) continue;
+      const photos = getTaskPhotoEvidences(task);
+      if (photos.length === 0) continue;
+      if (!map.has(task.roomAreaId)) {
+        map.set(task.roomAreaId, []);
+        seenMap.set(task.roomAreaId, new Set());
+      }
+      const list = map.get(task.roomAreaId)!;
+      const seen = seenMap.get(task.roomAreaId)!;
+      for (const pe of photos) {
+        const key = pe.id || pe.photoUrl;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push(pe);
+        }
+      }
+    }
+    return map;
+  }, [tasks]);
 
   const handleOpenTaskDetail = useCallback((taskId: string) => {
     if (!taskId) return;
@@ -788,12 +830,15 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
   };
 
   const handleVerifyPhoto = async (taskId: string, decision: 'APPROVE' | 'REJECT', reason?: string) => {
+    setVerifyingPhotoModal(true);
     try {
       await api.verifyPhotoEvidence(taskId, decision, reason);
       setInspectPhotoTask(null);
       await loadData();
     } catch (err: any) {
       setActionErrorBanner(err.message || 'Failed to verify photo');
+    } finally {
+      setVerifyingPhotoModal(false);
     }
   };
 
@@ -1855,21 +1900,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               </div>
             )}
 
-            {/* Switch to Pantry Mode Simulator button for authorized accounts */}
-            {setActiveView && hasDashboardAccess('pantry') && (
-              <motion.button
-                whileHover={{ y: -1.5, scale: 1.03 }}
-                whileTap={{ scale: 0.96 }}
-                type="button"
-                onClick={() => setActiveView("PANTRY")}
-                className="px-3 py-1.5 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/90 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                title="Preview Pantry Attendant dashboard"
-              >
-                <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Pantry Boy View</span>
-              </motion.button>
-            )}
-
             {/* Fast Task Creation */}
             {hasPermission('tasks', 'create') && (
               <motion.button
@@ -2069,6 +2099,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
               <div className="mb-6">
                 <RealtimeRoomDashboard
                   rooms={rooms}
+                  tasks={tasks}
                   allUsers={allUsers}
                   currentUser={currentUser}
                   onRefresh={loadData}
@@ -2165,19 +2196,22 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
-                              {task.photoEvidence && (
+                              {getTaskPhotoEvidences(task).length > 0 && (
                                 <button
                                   type="button"
                                   onPointerDown={(e) => e.stopPropagation()}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setInspectPhotoTask(task);
+                                    openInspectTaskEvidence(task, 0);
                                   }}
-                                  className="p-1.5 text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
-                                  title="Inspect Photo Evidence"
-                                  aria-label={`Inspect photo evidence for ${task.title}`}
+                                  className="px-2 py-1 text-[11px] font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
+                                  title="View Photo Evidence"
+                                  aria-label={`View photo evidence for ${task.title}`}
                                 >
-                                  <Camera className="w-3.5 h-3.5" />
+                                  <Camera className="w-3.5 h-3.5 text-sky-700" />
+                                  <span>
+                                    View Evidence ({getTaskPhotoEvidences(task).length})
+                                  </span>
                                 </button>
                               )}
                               {canDeleteTask && !isPantryBoyTask(task) && (
@@ -2539,55 +2573,77 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                     </div>
 
                     {/* Photo evidence preview if uploaded */}
-                    {task.photoEvidence && (
-                      <div
-                        onClick={() => setInspectPhotoTask(task)}
-                        className="relative rounded-lg overflow-hidden border border-slate-200 cursor-pointer group mb-3"
-                      >
-                        <img
-                          src={task.photoEvidence.photoUrl}
-                          alt="Evidence"
-                          className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
-                          Inspect Live Evidence Photo
+                    {(() => {
+                      const cardPhotos = getTaskPhotoEvidences(task);
+                      if (cardPhotos.length === 0) return null;
+                      return (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openInspectTaskEvidence(task, 0)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openInspectTaskEvidence(task, 0);
+                            }
+                          }}
+                          className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 h-32 cursor-pointer group mb-3"
+                        >
+                          <AuthenticatedEvidenceImage
+                            photoUrl={cardPhotos[0].photoUrl}
+                            alt={`Evidence for ${task.title}`}
+                            compact
+                            className="w-full h-full"
+                            imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                          <span className="absolute top-2 left-2 bg-slate-950/80 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded backdrop-blur-xs">
+                            {cardPhotos.length} Photo{cardPhotos.length === 1 ? '' : 's'}
+                          </span>
+                          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold">
+                            <Camera className="w-3.5 h-3.5 text-amber-400" />
+                            <span>View Evidence</span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
 
                   {/* Card Actions */}
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                     <div className="text-[11px] text-slate-400 font-mono">Due {task.dueTime}</div>
 
-                    <div className="flex items-center gap-1.5">
-                      {isPendingReview && hasPermission('tasks', 'edit') ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {getTaskPhotoEvidences(task).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => openInspectTaskEvidence(task, 0)}
+                          className="px-2.5 py-1 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-sky-700" />
+                          <span>
+                            View Evidence ({getTaskPhotoEvidences(task).length})
+                          </span>
+                        </button>
+                      )}
+
+                      {isPendingReview && hasPermission('tasks', 'edit') && (
                         <>
                           <button
                             type="button"
                             onClick={() => handleVerifyPhoto(task.id, 'APPROVE')}
-                            className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors"
+                            className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors cursor-pointer"
                           >
                             Approve
                           </button>
                           <button
                             type="button"
                             onClick={() => handleVerifyPhoto(task.id, 'REJECT', 'Chairs misaligned or debris visible')}
-                            className="px-2 py-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md"
+                            className="px-2 py-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md cursor-pointer"
                           >
                             Reject
                           </button>
                         </>
-                      ) : task.photoEvidence ? (
-                        <button
-                          type="button"
-                          onClick={() => setInspectPhotoTask(task)}
-                          className="text-xs text-slate-700 font-medium hover:underline flex items-center gap-1"
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          View Photo
-                        </button>
-                      ) : null}
+                      )}
 
                       {hasPermission('tasks', 'edit') && task.status !== 'COMPLETED' && (
                         <button
@@ -2816,6 +2872,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
           {/* Real-time Room Status & Employee Assignments Dashboard */}
           <RealtimeRoomDashboard
             rooms={rooms}
+            tasks={tasks}
             allUsers={allUsers}
             currentUser={currentUser}
             onRefresh={loadData}
@@ -4316,108 +4373,67 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
         </div>
       )}
 
-      {/* MODAL 5: Inspect Submitted Photo & AI Analysis */}
-      {inspectPhotoTask && inspectPhotoTask.photoEvidence && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">{inspectPhotoTask.title}</h3>
-                <div className="text-xs text-slate-500">
-                  {inspectPhotoTask.roomAreaName} · Captured by {inspectPhotoTask.assignedToName}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setInspectPhotoTask(null)}
-                className="p-1 rounded text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* MODAL 5: Inspect Submitted Photo Evidence Batch (Full-Size Lightbox) */}
+      <EvidenceLightboxModal
+        isOpen={Boolean(inspectPhotoTask)}
+        onClose={() => setInspectPhotoTask(null)}
+        photos={inspectPhotoTask ? getTaskPhotoEvidences(inspectPhotoTask) : []}
+        initialIndex={inspectPhotoIndex}
+        title={inspectPhotoTask?.title}
+        task={inspectPhotoTask}
+        roomName={inspectPhotoTask?.roomAreaName}
+        uploaderName={inspectPhotoTask?.assignedToName}
+        canVerify={hasPermission('tasks', 'edit')}
+        isVerifying={verifyingPhotoModal}
+        onVerifyDecision={handleVerifyPhoto}
+        onRefreshEvidence={async () => {
+          if (!inspectPhotoTask?.id) return;
+          try {
+            const fresh = await api.getTaskEvidence(inspectPhotoTask.id);
+            setInspectPhotoTask((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    photoEvidences: fresh.photoEvidences || [],
+                    photoEvidence:
+                      fresh.photoEvidences && fresh.photoEvidences.length > 0
+                        ? fresh.photoEvidences[fresh.photoEvidences.length - 1]
+                        : undefined,
+                    photoCount: fresh.photoCount,
+                  }
+                : null
+            );
+            await loadData();
+          } catch {
+            await loadData();
+          }
+        }}
+      />
 
-            <div className="p-5 overflow-y-auto space-y-4">
-              <div className="relative rounded-xl overflow-hidden bg-black">
-                <img
-                  src={inspectPhotoTask.photoEvidence.photoUrl}
-                  alt="High Resolution Room Evidence"
-                  className="w-full max-h-[380px] object-contain"
-                />
-              </div>
-
-              {/* Timestamp & Integrity Telemetry */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div>
-                  <div className="text-slate-400 font-mono text-[10px] uppercase">Server Verified Time</div>
-                  <div className="font-semibold text-slate-800 font-mono mt-0.5">
-                    {new Date(inspectPhotoTask.photoEvidence.serverTimestamp).toLocaleTimeString('en-IN', {
-                      timeZone: 'Asia/Kolkata',
-                    })}{' '}
-                    IST
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-400 font-mono text-[10px] uppercase">Capture Mode</div>
-                  <div className="font-semibold text-slate-800 font-mono mt-0.5">
-                    {inspectPhotoTask.photoEvidence.metadata?.mode || 'LIVE_CAMERA'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-400 font-mono text-[10px] uppercase">Evidence Status</div>
-                  <div className="font-semibold text-emerald-600 font-mono mt-0.5">
-                    {inspectPhotoTask.photoEvidence.status}
-                  </div>
-                </div>
-              </div>
-
-              {/* Live Camera Evidence Details */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-2">
-                <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <Camera className="w-4 h-4 text-slate-600" />
-                  Live Camera Verification Protocol
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
-                  <div>
-                    Capture Device: <strong className="text-slate-800 font-mono">{inspectPhotoTask.photoEvidence.metadata?.device || 'Live Web Camera'}</strong>
-                  </div>
-                  <div>
-                    Resolution: <strong className="text-slate-800 font-mono">{inspectPhotoTask.photoEvidence.metadata?.resolution || '1280x720'}</strong>
-                  </div>
-                  <div>
-                    Server Upload: <strong className="text-slate-800 font-mono">{new Date(inspectPhotoTask.photoEvidence.serverTimestamp).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}</strong>
-                  </div>
-                  <div>
-                    Upload Source: <strong className="text-emerald-700">Live Device Stream (Anti-Tamper)</strong>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200">
-                  Management Inspection: Inspect photograph for chair alignment against table edges, surface sanitization, and room readiness.
-                </p>
-              </div>
-            </div>
-
-            {/* Verification Actions */}
-            {hasPermission('tasks', 'edit') && (
-              <div className="p-4 border-t border-slate-200 bg-white flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleVerifyPhoto(inspectPhotoTask.id, 'REJECT', 'Chairs need tighter alignment')}
-                  className="px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
-                >
-                  Reject & Request Retake
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleVerifyPhoto(inspectPhotoTask.id, 'APPROVE')}
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"
-                >
-                  Approve Evidence & Mark Completed
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Room History Photo Lightbox Modal */}
+      <EvidenceLightboxModal
+        isOpen={Boolean(roomLightboxState)}
+        onClose={() => setRoomLightboxState(null)}
+        photos={roomLightboxState?.photos || []}
+        initialIndex={roomLightboxState?.initialIndex || 0}
+        title={roomLightboxState ? `${roomLightboxState.roomName} — Room Photo Evidence` : undefined}
+        roomName={roomLightboxState?.roomName}
+        onRefreshEvidence={async () => {
+          const targetRoom = roomLightboxState?.roomId
+            ? rooms.find((r) => r.id === roomLightboxState.roomId) || historyRoom
+            : historyRoom;
+          if (!targetRoom) return;
+          try {
+            const fresh = await api.getRoomHistory(targetRoom.id);
+            setRoomHistoryData(fresh);
+            setRoomLightboxState((prev) =>
+              prev ? { ...prev, photos: fresh.photos || [] } : null
+            );
+          } catch {
+            await loadData();
+          }
+        }}
+      />
 
       {/* MODAL 6: Assign Room Modal with Collision Prevention */}
       {showAssignModal && (
@@ -4772,17 +4788,85 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
 
                 {/* Verified Photo Evidence Gallery */}
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">Verified Live Camera Photo Evidence</h4>
+                  <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Verified Live Camera Photo Evidence{' '}
+                      {roomHistoryData?.photos && roomHistoryData.photos.length > 0
+                        ? `(${roomHistoryData.photos.length})`
+                        : ''}
+                    </h4>
+                    {roomHistoryData?.photos && roomHistoryData.photos.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRoomLightboxState({
+                            roomId: historyRoom.id,
+                            roomName: historyRoom.name,
+                            photos: roomHistoryData.photos || [],
+                            initialIndex: 0,
+                          })
+                        }
+                        className="px-3 py-1.5 text-xs font-bold text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-sky-700" />
+                        <span>View Evidence ({roomHistoryData.photos.length})</span>
+                      </button>
+                    )}
+                  </div>
                   {roomHistoryData?.photos && roomHistoryData.photos.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {roomHistoryData.photos.map((ph) => (
-                        <div key={ph.id} className="bg-slate-900 rounded-xl overflow-hidden border border-slate-800 text-white">
-                          <img src={ph.photoUrl} alt="Evidence" className="w-full h-32 object-cover" />
-                          <div className="p-2 text-[10px] space-y-0.5 font-mono">
-                            <div className="text-amber-400 truncate">{ph.userEmail}</div>
-                            <div className="text-slate-400">{new Date(ph.serverTimestamp).toLocaleTimeString()}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {roomHistoryData.photos.map((ph, idx) => (
+                        <button
+                          key={ph.id || `room-ph-${idx}`}
+                          type="button"
+                          onClick={() =>
+                            setRoomLightboxState({
+                              roomId: historyRoom.id,
+                              roomName: historyRoom.name,
+                              photos: roomHistoryData.photos || [],
+                              initialIndex: idx,
+                            })
+                          }
+                          className="text-left bg-slate-900 rounded-xl overflow-hidden border border-slate-800 hover:border-amber-400 transition-colors text-white group cursor-pointer"
+                        >
+                          <div className="relative h-32 w-full bg-slate-950 overflow-hidden">
+                            <AuthenticatedEvidenceImage
+                              photoUrl={ph.photoUrl}
+                              alt={`Room evidence #${idx + 1} for ${historyRoom.name}`}
+                              compact
+                              className="w-full h-full"
+                              imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <span className="absolute top-2 left-2 bg-slate-950/80 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
+                              #{idx + 1}
+                            </span>
+                            <div className="absolute inset-0 bg-slate-950/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-xs font-bold text-white">
+                              <Camera className="w-3.5 h-3.5 text-amber-400" />
+                              <span>View Evidence</span>
+                            </div>
                           </div>
-                        </div>
+                          <div className="p-2.5 text-[10px] space-y-0.5 font-mono">
+                            {ph.taskTitle && (
+                              <div className="text-white font-sans font-semibold truncate text-[11px]">
+                                {ph.taskTitle}
+                              </div>
+                            )}
+                            <div className="text-amber-400 truncate">
+                              {ph.userName || ph.userEmail}
+                            </div>
+                            <div className="text-slate-400">
+                              {new Date(ph.capturedAt || ph.serverTimestamp).toLocaleString('en-IN', {
+                                timeZone: 'Asia/Kolkata',
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true,
+                              })}{' '}
+                              IST
+                            </div>
+                          </div>
+                        </button>
                       ))}
                     </div>
                   ) : (
@@ -5019,17 +5103,17 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                            {task.photoEvidence && (
+                            {getTaskPhotoEvidences(task).length > 0 && (
                               <button
                                 type="button"
                                 onClick={() => {
                                   setActiveDashboardModal(null);
-                                  setInspectPhotoTask(task);
+                                  openInspectTaskEvidence(task, 0);
                                 }}
-                                className="px-2.5 py-1 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                               >
-                                <Camera className="w-3 h-3" />
-                                <span>Evidence</span>
+                                <Camera className="w-3 h-3 text-sky-700" />
+                                <span>View Evidence ({getTaskPhotoEvidences(task).length})</span>
                               </button>
                             )}
                             <button
@@ -5185,17 +5269,17 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                               {task.checklist?.filter((c) => c.completed).length || 0}/{task.checklist?.length || 0} items)
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              {task.photoEvidence && (
+                              {getTaskPhotoEvidences(task).length > 0 && (
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setActiveDashboardModal(null);
-                                    setInspectPhotoTask(task);
+                                    openInspectTaskEvidence(task, 0);
                                   }}
-                                  className="px-2.5 py-1 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                  className="px-2.5 py-1 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                                 >
-                                  <Camera className="w-3 h-3" />
-                                  <span>Evidence</span>
+                                  <Camera className="w-3 h-3 text-sky-700" />
+                                  <span>View Evidence ({getTaskPhotoEvidences(task).length})</span>
                                 </button>
                               )}
                               <button
@@ -5314,17 +5398,17 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                               </div>
 
                               <div className="flex justify-end gap-2 flex-wrap">
-                                {task.photoEvidence && (
+                                {getTaskPhotoEvidences(task).length > 0 && (
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setActiveDashboardModal(null);
-                                      setInspectPhotoTask(task);
+                                      openInspectTaskEvidence(task, 0);
                                     }}
-                                    className="px-3 py-1.5 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                    className="px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                                   >
-                                    <Camera className="w-3.5 h-3.5" />
-                                    <span>Photo Evidence</span>
+                                    <Camera className="w-3.5 h-3.5 text-sky-700" />
+                                    <span>View Evidence ({getTaskPhotoEvidences(task).length})</span>
                                   </button>
                                 )}
                                 <button
@@ -5567,17 +5651,17 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                            {task.photoEvidence && (
+                            {getTaskPhotoEvidences(task).length > 0 && (
                               <button
                                 type="button"
                                 onClick={() => {
                                   setActiveDashboardModal(null);
-                                  setInspectPhotoTask(task);
+                                  openInspectTaskEvidence(task, 0);
                                 }}
-                                className="px-3 py-1.5 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                                className="px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                               >
-                                <Camera className="w-3.5 h-3.5" />
-                                <span>Inspect Photo</span>
+                                <Camera className="w-3.5 h-3.5 text-sky-700" />
+                                <span>View Evidence ({getTaskPhotoEvidences(task).length})</span>
                               </button>
                             )}
                             <button
@@ -5654,18 +5738,33 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                             </div>
                           )}
 
-                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px] flex-wrap">
                             <span className="text-slate-500 font-mono">Priority: {room.defaultPriority}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveDashboardModal(null);
-                                setSubTab('ROOMS');
-                              }}
-                              className="text-slate-700 hover:text-slate-900 font-semibold"
-                            >
-                              Manage Area →
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {(roomPhotosMap.get(room.id)?.length || 0) > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDashboardModal(null);
+                                    handleViewHistory(room);
+                                  }}
+                                  className="px-2 py-0.5 rounded bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 font-bold flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Camera className="w-3 h-3 text-sky-700" />
+                                  <span>View Evidence ({roomPhotosMap.get(room.id)?.length || 0})</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDashboardModal(null);
+                                  setSubTab('ROOMS');
+                                }}
+                                className="text-slate-700 hover:text-slate-900 font-semibold cursor-pointer"
+                              >
+                                Manage Area →
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -6017,63 +6116,107 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ activeView, setA
                 )}
 
                 {/* Photo Evidence Section */}
-                {selectedDetailTask.photoEvidence && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <Camera className="w-4 h-4 text-sky-600" />
-                        <span>Submitted Camera Evidence</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">
-                          {selectedDetailTask.photoEvidence.status}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setInspectPhotoTask(selectedDetailTask)}
-                        className="text-xs font-semibold text-sky-700 hover:text-sky-900 flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Open Full Photo Audit</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className="rounded-lg overflow-hidden bg-slate-900 max-h-52 flex items-center justify-center">
-                      <img
-                        src={selectedDetailTask.photoEvidence.photoUrl}
-                        alt={`Evidence for ${selectedDetailTask.title}`}
-                        className="max-h-52 w-full object-contain"
-                      />
-                    </div>
-                    {canEditTasks &&
-                      (selectedDetailTask.status === 'PENDING_VERIFICATION' ||
-                        selectedDetailTask.status === 'SUBMITTED' ||
-                        selectedDetailTask.photoEvidence.status === 'UPLOADED') && (
-                        <div className="flex items-center justify-end gap-2 pt-1">
+                {getTaskPhotoEvidences(selectedDetailTask).length > 0 &&
+                  (() => {
+                    const detailPhotos = getTaskPhotoEvidences(selectedDetailTask);
+                    const primaryEvidence = detailPhotos[0];
+
+                    return (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                            <Camera className="w-4 h-4 text-sky-600" />
+                            <span>
+                              Submitted Camera Evidence ({detailPhotos.length} Photo
+                              {detailPhotos.length === 1 ? '' : 's'})
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-500">
+                              · {primaryEvidence.status}
+                            </span>
+                          </div>
                           <button
                             type="button"
-                            disabled={taskDetailActionLoading}
-                            onClick={() =>
-                              handleDetailVerifyPhoto(
-                                selectedDetailTask.id,
-                                'REJECT',
-                                'Requires closer alignment & surface check'
-                              )
-                            }
-                            className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                            onClick={() => openInspectTaskEvidence(selectedDetailTask, 0)}
+                            className="px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                           >
-                            Reject & Request Retake
-                          </button>
-                          <button
-                            type="button"
-                            disabled={taskDetailActionLoading}
-                            onClick={() => handleDetailVerifyPhoto(selectedDetailTask.id, 'APPROVE')}
-                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                          >
-                            Approve & Complete
+                            <Camera className="w-3.5 h-3.5 text-sky-700" />
+                            <span>View Evidence ({detailPhotos.length})</span>
                           </button>
                         </div>
-                      )}
-                  </div>
-                )}
+
+                        {detailPhotos.length === 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => openInspectTaskEvidence(selectedDetailTask, 0)}
+                            className="w-full rounded-lg overflow-hidden bg-slate-900 h-52 flex items-center justify-center border border-slate-200 hover:border-sky-500 transition-colors cursor-pointer group relative"
+                          >
+                            <AuthenticatedEvidenceImage
+                              photoUrl={primaryEvidence.photoUrl}
+                              alt={`Evidence for ${selectedDetailTask.title}`}
+                              className="w-full h-full"
+                              imgClassName="max-h-52 w-full object-contain group-hover:scale-[1.02] transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-xs font-bold text-white">
+                              <Camera className="w-4 h-4 text-amber-400" />
+                              <span>Click to Open Full-Size View</span>
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {detailPhotos.map((ev, idx) => (
+                              <button
+                                key={ev.id || `detail-ev-${idx}`}
+                                type="button"
+                                onClick={() => openInspectTaskEvidence(selectedDetailTask, idx)}
+                                className="relative rounded-lg overflow-hidden bg-slate-900 h-28 border border-slate-200 hover:border-sky-500 transition-colors cursor-pointer group"
+                              >
+                                <AuthenticatedEvidenceImage
+                                  photoUrl={ev.photoUrl}
+                                  alt={`Evidence #${idx + 1} for ${selectedDetailTask.title}`}
+                                  compact
+                                  className="w-full h-full"
+                                  imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                                <span className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
+                                  #{idx + 1}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {canEditTasks &&
+                          (selectedDetailTask.status === 'PENDING_VERIFICATION' ||
+                            selectedDetailTask.status === 'SUBMITTED' ||
+                            primaryEvidence.status === 'UPLOADED') && (
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={taskDetailActionLoading}
+                                onClick={() =>
+                                  handleDetailVerifyPhoto(
+                                    selectedDetailTask.id,
+                                    'REJECT',
+                                    'Requires closer alignment & surface check'
+                                  )
+                                }
+                                className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                              >
+                                Reject & Request Retake
+                              </button>
+                              <button
+                                type="button"
+                                disabled={taskDetailActionLoading}
+                                onClick={() => handleDetailVerifyPhoto(selectedDetailTask.id, 'APPROVE')}
+                                className="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                              >
+                                Approve & Complete
+                              </button>
+                            </div>
+                          )}
+                      </div>
+                    );
+                  })()}
 
                 {/* Change History Audit Log */}
                 {selectedDetailTask.changeHistory && selectedDetailTask.changeHistory.length > 0 && (

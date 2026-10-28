@@ -2,8 +2,9 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-const PORT = 3000;
+const PORT = parseInt(process.env.WCR_TEST_PORT || '3000', 10);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+const UPLOADS_DIR = process.env.WCR_UPLOADS_DIR || path.join(process.cwd(), 'uploads', 'photos');
 
 function requestHttp(urlStr: string, options: { method?: string; headers?: Record<string, string>; body?: any } = {}): Promise<{ status: number; body: any }> {
   return new Promise((resolve, reject) => {
@@ -133,7 +134,7 @@ async function runTests() {
 
     // 6. Verify Files Persisted to Disk
     const file1Name = path.basename(uploadedEvidences[0].photoUrl);
-    const diskPath1 = path.join(process.cwd(), 'uploads', 'photos', file1Name);
+    const diskPath1 = path.join(UPLOADS_DIR, file1Name);
     assert(fs.existsSync(diskPath1), 'File System Persistence', `Disk file verified at: ${diskPath1}`);
 
     // 7. Verify Task Status Transitioned to PENDING_VERIFICATION

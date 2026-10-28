@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import type { RoomArea, UserAccount } from '../../types/index.ts';
+import type { RoomArea, Task, UserAccount } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
 import { Card3D } from '../common/Card3D.tsx';
+import { getTaskPhotoEvidences } from '../../utils/textNormalizer.ts';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -13,10 +14,13 @@ import {
   ArrowRight,
   LayoutGrid,
   List,
+  Camera,
+  History,
 } from 'lucide-react';
 
 export interface RealtimeRoomDashboardProps {
   rooms: RoomArea[];
+  tasks?: Task[];
   allUsers: UserAccount[];
   currentUser: UserAccount | null;
   onRefresh: () => Promise<void>;
@@ -30,11 +34,12 @@ export interface RealtimeRoomDashboardProps {
 
 export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
   rooms,
+  tasks = [],
   allUsers,
   currentUser: _currentUser,
   onRefresh,
   onOpenVisitorModal: _onOpenVisitorModal,
-  onViewHistory: _onViewHistory,
+  onViewHistory,
   canManageAssignments,
   canManageRooms: _canManageRooms,
   isCompactView = false,
@@ -98,6 +103,40 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
     if (room.currentAssignment && room.currentAssignment.status === 'ACTIVE') return true;
     return false;
   }, []);
+
+  // Persisted photo evidence count per room
+  const roomPhotoCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    const seenPerRoom = new Map<string, Set<string>>();
+
+    for (const task of tasks) {
+      if (!task.roomAreaId) continue;
+      const photos = getTaskPhotoEvidences(task);
+      if (photos.length === 0) continue;
+      if (!seenPerRoom.has(task.roomAreaId)) {
+        seenPerRoom.set(task.roomAreaId, new Set());
+      }
+      const seen = seenPerRoom.get(task.roomAreaId)!;
+      for (const p of photos) {
+        seen.add(p.id || p.photoUrl);
+      }
+      counts.set(task.roomAreaId, seen.size);
+    }
+
+    for (const room of rooms) {
+      if (!counts.has(room.id) && Array.isArray(room.statusHistory)) {
+        const histCount = room.statusHistory.reduce(
+          (acc, entry) => acc + (entry.photoUrl ? entry.photoCount || 1 : 0),
+          0
+        );
+        if (histCount > 0) {
+          counts.set(room.id, histCount);
+        }
+      }
+    }
+
+    return counts;
+  }, [tasks, rooms]);
 
   // Summary Metrics: Total, Vacant, Occupied
   const totalRooms = rooms.length;
@@ -477,6 +516,8 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
               const isUnassigning = unassigningRoomId === room.id;
               const isTogglingOccupancy = togglingOccupancyRoomId === room.id;
 
+              const photoCount = roomPhotoCounts.get(room.id) || 0;
+
               return (
                 <Card3D
                   key={room.id}
@@ -485,16 +526,29 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
                   variant="light"
                   onPointerMove={(e) => e.stopPropagation()}
                   onPointerDown={(e) => e.stopPropagation()}
-                  className="rounded-2xl border border-slate-200/90 p-3 sm:p-3.5 flex flex-col justify-between min-h-[96px]"
+                  className="rounded-2xl border border-slate-200/90 p-3 sm:p-3.5 flex flex-col justify-between min-h-[104px]"
                 >
                   <div>
-                    {/* Room Name */}
-                    <h4
-                      className="text-xs sm:text-sm font-bold text-slate-900 truncate leading-snug"
-                      title={room.name}
-                    >
-                      {room.name}
-                    </h4>
+                    <div className="flex items-start justify-between gap-1.5">
+                      {/* Room Name */}
+                      <h4
+                        className="text-xs sm:text-sm font-bold text-slate-900 truncate leading-snug"
+                        title={room.name}
+                      >
+                        {room.name}
+                      </h4>
+                      {onViewHistory && (
+                        <button
+                          type="button"
+                          onClick={() => onViewHistory(room)}
+                          className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer shrink-0"
+                          title={`Room history & audit log for ${room.name}`}
+                          aria-label={`Room history for ${room.name}`}
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
 
                     {/* Live Status indicator matching reference screenshot */}
                     <div className="text-[10px] font-bold tracking-wider uppercase mt-1 flex items-center gap-1">
@@ -518,6 +572,19 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
                       <div className="text-[11px] font-medium text-amber-800 mt-1 truncate">
                         {room.setupConfig.summary}
                       </div>
+                    )}
+
+                    {/* Persisted Room Evidence Quick Trigger */}
+                    {onViewHistory && photoCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onViewHistory(room)}
+                        className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 border border-sky-200 text-[10px] font-bold text-sky-800 transition-colors cursor-pointer"
+                        title={`View ${photoCount} uploaded evidence photo(s) for ${room.name}`}
+                      >
+                        <Camera className="w-3 h-3 text-sky-700 shrink-0" />
+                        <span>View Evidence ({photoCount})</span>
+                      </button>
                     )}
                   </div>
 
@@ -599,6 +666,8 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
                   const isAssigned = Boolean(room.assignedEmployeeId);
                   const isUnassigning = unassigningRoomId === room.id;
 
+                  const photoCount = roomPhotoCounts.get(room.id) || 0;
+
                   return (
                     <tr key={room.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-2 px-3 font-bold text-slate-900">
@@ -620,7 +689,26 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
                         {room.setupConfig?.summary || '—'}
                       </td>
                       <td className="py-2 px-3 text-right">
-                        <div className="inline-flex items-center gap-1.5 justify-end">
+                        <div className="inline-flex items-center gap-1.5 justify-end flex-wrap">
+                          {onViewHistory && photoCount > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => onViewHistory(room)}
+                              className="py-1 px-2 text-[10px] font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Camera className="w-3 h-3 text-sky-700" />
+                              <span>View Evidence ({photoCount})</span>
+                            </button>
+                          ) : onViewHistory ? (
+                            <button
+                              type="button"
+                              onClick={() => onViewHistory(room)}
+                              className="py-1 px-1.5 text-[10px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                              title={`Room history for ${room.name}`}
+                            >
+                              <History className="w-3 h-3" />
+                            </button>
+                          ) : null}
                           {isAssigned ? (
                             <button
                               type="button"

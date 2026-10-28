@@ -6045,7 +6045,8 @@
       ],
       "photoEvidences": [],
       "photoCount": 0,
-      "dueAlertSentFor": "2026-10-28T08:30:00.000Z"
+      "dueAlertSentFor": "2026-10-28T08:30:00.000Z",
+      "fiveMinAlertSentFor": "2026-10-28T08:30:00.000Z"
     },
     {
       "id": "task-water-room-6-1793176292104-ay6q",
@@ -6101,7 +6102,10 @@
           "note": "Auto-generated upon room transition to OCCUPIED by Operations Administrator (ADMIN)"
         }
       ],
-      "dueAlertSentFor": "2026-10-28T08:31:32.103Z"
+      "dueAlertSentFor": "2026-10-28T08:31:32.103Z",
+      "photoEvidences": [],
+      "photoCount": 0,
+      "fiveMinAlertSentFor": "2026-10-28T08:31:32.103Z"
     },
     {
       "id": "task-rearrange-room-6-1793176292165-v2cg",
@@ -6157,7 +6161,10 @@
           "note": "Auto-generated upon room transition to VACANT by Kimmi (KIMMY_MAM)"
         }
       ],
-      "dueAlertSentFor": "2026-10-28T08:31:32.165Z"
+      "dueAlertSentFor": "2026-10-28T08:31:32.165Z",
+      "photoEvidences": [],
+      "photoCount": 0,
+      "fiveMinAlertSentFor": "2026-10-28T08:31:32.165Z"
     },
     {
       "id": "task-2026-10-28-water-4pm",
@@ -6205,7 +6212,9 @@
       ],
       "changeHistory": [],
       "photoEvidences": [],
-      "photoCount": 0
+      "photoCount": 0,
+      "fiveMinAlertSentFor": "2026-10-28T10:30:00.000Z",
+      "dueAlertSentFor": "2026-10-28T10:30:00.000Z"
     },
     {
       "id": "task-2026-10-28-closing",
@@ -6295,6 +6304,17 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793184641655-mry4",
+      "timestamp": "2026-10-28T10:50:41.655Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
     {
       "id": "audit-1793176319719-9sbx",
       "timestamp": "2026-10-28T08:31:59.720Z",
@@ -11783,17 +11803,6 @@
       "entityType": "TASK",
       "entityId": "task-1793096609420-sua1",
       "details": "Assigned \"E2E Audit Task - Executive Boardroom Sanitization\" for Prestige Loft (27 Oct 2026, 03:53 PM IST) with priority P2 to Priya Sen"
-    },
-    {
-      "id": "audit-1793096609412-bbay",
-      "timestamp": "2026-10-27T10:23:29.412Z",
-      "actorEmail": "priya.sen@whitecollarrealty.com",
-      "actorName": "Priya Sen",
-      "actorRole": "HR",
-      "action": "USER_LOGOUT",
-      "entityType": "USER",
-      "entityId": "user-hr-1",
-      "details": "Logged out and revoked session token wcr_sess_user-..."
     }
   ],
   "notifications": [
