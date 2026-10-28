@@ -14,6 +14,7 @@ const MainLayout: React.FC = () => {
   const {
     currentUser,
     transitionUser,
+    transitionMode,
     isDeactivated,
     switchUser,
     allUsers,
@@ -213,13 +214,14 @@ const MainLayout: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Post-Login & Session Hydration Transition (Direct child of AnimatePresence so exit dissolve always executes) */}
+      {/* Post-Login & Logout Auth Transition (Direct child of AnimatePresence so exit dissolve always executes) */}
       <AnimatePresence>
         {isAuthTransitioning && (
           <AuthTransitionScreen
             key="wcr-auth-transition"
             user={transitionUser || currentUser}
-            interactive={!currentUser}
+            mode={transitionMode}
+            interactive={true}
           />
         )}
       </AnimatePresence>

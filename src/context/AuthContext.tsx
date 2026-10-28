@@ -94,9 +94,11 @@ export function getDefaultPermissions(role: Role): UserPermissions {
 interface AuthContextType {
   currentUser: UserAccount | null;
   transitionUser: UserAccount | null;
+  transitionMode: 'login' | 'logout';
   allUsers: UserAccount[];
   isLoading: boolean;
   isAuthTransitioning: boolean;
+  isLoggingOut: boolean;
   isDeactivated: boolean;
   notifications: AppNotification[];
   unreadNotifCount: number;
@@ -138,9 +140,11 @@ const waitMs = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [transitionUser, setTransitionUser] = useState<UserAccount | null>(null);
+  const [transitionMode, setTransitionMode] = useState<'login' | 'logout'>('login');
   const [allUsers, setAllUsers] = useState<UserAccount[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthTransitioning, setIsAuthTransitioning] = useState<boolean>(() => Boolean(getSessionToken()));
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const [isDeactivated, setIsDeactivated] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
@@ -218,6 +222,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (user) {
           setTransitionUser(user);
+          setTransitionMode('login');
           setCurrentUser(user);
           setIsDeactivated(user.status === 'inactive');
           const [attRes, notifs] = await Promise.all([
@@ -351,6 +356,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ) => {
     const seq = ++authSeqRef.current;
     setIsLoading(true);
+    setTransitionMode('login');
     try {
       const { user, attendance } = await api.login(email, password);
       if (authSeqRef.current !== seq) return;
@@ -393,22 +399,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    if (isLoggingOut || isAuthTransitioning) return;
+    setIsLoggingOut(true);
     const seq = ++authSeqRef.current;
     setIsLoading(true);
+    setTransitionUser(currentUser);
+    setTransitionMode('logout');
+    setIsAuthTransitioning(true);
+
     try {
-      await api.logout();
-    } catch (e) {
-      console.warn('Logout error:', e);
+      await nextPaint();
+      if (authSeqRef.current !== seq) return;
+
+      // Execute authoritative server logout
+      try {
+        await api.logout();
+      } catch (e) {
+        console.warn('Logout API notice:', e);
+        clearSessionToken();
+      }
+
+      // Keep transition visible long enough to be smoothly perceived
+      await waitMs(680);
+      if (authSeqRef.current !== seq) return;
+
+      // Clear authenticated session state
+      setCurrentUser(null);
+      setTransitionUser(null);
+      setIsDeactivated(false);
+      setNotifications([]);
+      setTodayAttendance(null);
+    } catch (err: any) {
+      console.error('Logout error:', err);
       clearSessionToken();
+      setCurrentUser(null);
+      setTransitionUser(null);
     } finally {
       if (authSeqRef.current === seq) {
-        setCurrentUser(null);
-        setTransitionUser(null);
-        setIsDeactivated(false);
-        setNotifications([]);
-        setTodayAttendance(null);
         setIsAuthTransitioning(false);
+        setTransitionUser(null);
+        setTransitionMode('login');
         setIsLoading(false);
+        setIsLoggingOut(false);
       }
     }
   };
@@ -506,9 +538,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         currentUser,
         transitionUser,
+        transitionMode,
         allUsers,
         isLoading,
         isAuthTransitioning,
+        isLoggingOut,
         isDeactivated,
         notifications,
         unreadNotifCount,

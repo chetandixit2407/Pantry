@@ -9,11 +9,13 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => {
-  const { currentUser, allUsers, switchUser, logout, notifications, unreadNotifCount, markNotificationRead, hasDashboardAccess, todayAttendance } = useAuth();
+  const { currentUser, allUsers, switchUser, logout, isLoggingOut: isGlobalLoggingOut, isAuthTransitioning, notifications, unreadNotifCount, markNotificationRead, hasDashboardAccess, todayAttendance } = useAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [localLoggingOut, setLocalLoggingOut] = useState(false);
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+
+  const isLoggingOut = localLoggingOut || isGlobalLoggingOut || isAuthTransitioning;
 
   const isManagement =
     currentUser?.role === 'HR' ||
@@ -21,13 +23,14 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => 
     currentUser?.role === 'ADMIN';
 
   const handleLogout = async () => {
-    setIsLoggingOut(true);
+    if (isLoggingOut) return;
+    setLocalLoggingOut(true);
     setShowRoleMenu(false);
     setShowNotifMenu(false);
     try {
       await logout();
     } finally {
-      setIsLoggingOut(false);
+      setLocalLoggingOut(false);
     }
   };
 

@@ -5,6 +5,8 @@ import type { UserAccount } from '../../types/index.ts';
 interface AuthTransitionScreenProps {
   user?: UserAccount | null;
   interactive?: boolean;
+  mode?: 'login' | 'logout';
+  message?: string;
 }
 
 const SMOOTH_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -34,6 +36,8 @@ function getRoleDisplayLabel(user?: UserAccount | null): string {
 export const AuthTransitionScreen: React.FC<AuthTransitionScreenProps> = ({
   user,
   interactive = false,
+  mode = 'login',
+  message,
 }) => {
   const prefersReducedMotion = useReducedMotion();
 
@@ -228,7 +232,13 @@ export const AuthTransitionScreen: React.FC<AuthTransitionScreenProps> = ({
           transition={{ duration: 0.34, delay: 0.05, ease: SMOOTH_EASE }}
         >
           <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-            {user ? `Welcome, ${user.name}` : 'White Collar Realty'}
+            {mode === 'logout'
+              ? user
+                ? `See you again, ${user.name.split(' ')[0]}`
+                : 'Signing Out…'
+              : user
+              ? `Welcome, ${user.name}`
+              : 'White Collar Realty'}
           </h2>
 
           <div className="mt-1 flex items-center justify-center gap-2 text-xs text-amber-300/95 font-medium">
@@ -238,7 +248,9 @@ export const AuthTransitionScreen: React.FC<AuthTransitionScreenProps> = ({
                 <span aria-hidden="true" className="text-slate-500">
                   ·
                 </span>
-                <span className="text-slate-300">White Collar Realty</span>
+                <span className="text-slate-300">
+                  {mode === 'logout' ? 'Session Ending' : 'White Collar Realty'}
+                </span>
               </>
             )}
           </div>
@@ -247,14 +259,18 @@ export const AuthTransitionScreen: React.FC<AuthTransitionScreenProps> = ({
         {/* Continuous Silky Golden Progress Sweep */}
         <div className="mt-6 mx-auto w-44 h-[2.5px] rounded-full bg-white/10 overflow-hidden relative">
           <motion.div
-            initial={{ scaleX: 0.12 }}
+            initial={{ scaleX: mode === 'logout' ? 0.15 : 0.12 }}
             animate={{ scaleX: 1 }}
             transition={{
-              duration: prefersReducedMotion ? 0.25 : 0.62,
+              duration: prefersReducedMotion ? 0.25 : 0.68,
               ease: SMOOTH_EASE,
             }}
             style={{ willChange: 'transform', transformOrigin: 'left center' }}
-            className="w-full h-full rounded-full bg-gradient-to-r from-amber-500/80 via-amber-300 to-amber-400"
+            className={`w-full h-full rounded-full ${
+              mode === 'logout'
+                ? 'bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500'
+                : 'bg-gradient-to-r from-amber-500/80 via-amber-300 to-amber-400'
+            }`}
           />
           {!prefersReducedMotion && (
             <motion.div
@@ -277,7 +293,12 @@ export const AuthTransitionScreen: React.FC<AuthTransitionScreenProps> = ({
           transition={{ duration: 0.3, delay: 0.08, ease: SMOOTH_EASE }}
           className="mt-3 text-[11px] text-slate-400 font-medium tracking-wide"
         >
-          {user ? 'Opening your workspace…' : 'Verifying corporate session…'}
+          {message ||
+            (mode === 'logout'
+              ? 'Securing workspace & returning to sign in…'
+              : user
+              ? 'Opening your workspace…'
+              : 'Verifying corporate session…')}
         </motion.p>
       </motion.div>
     </motion.div>

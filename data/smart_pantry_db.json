@@ -4976,6 +4976,138 @@
   ],
   "auditLogs": [
     {
+      "id": "audit-1793170725304-mf2t",
+      "timestamp": "2026-10-28T06:58:45.304Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170724976-26do",
+      "timestamp": "2026-10-28T06:58:44.976Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170724928-wsnm",
+      "timestamp": "2026-10-28T06:58:44.928Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170723595-l74e",
+      "timestamp": "2026-10-28T06:58:43.595Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_DELETED",
+      "entityType": "TASK",
+      "entityId": "task-1793170723479-jbdv",
+      "details": "Deleted task \"Audit Durability Verification Task\" in Prestige Loft"
+    },
+    {
+      "id": "audit-1793170723547-ul2k",
+      "timestamp": "2026-10-28T06:58:43.547Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "PHOTO_SUBMITTED",
+      "entityType": "PHOTO",
+      "entityId": "photo-1793170723546-184db8e6-1",
+      "details": "Uploaded 1 live camera photo(s) for task \"Audit Durability Verification Task\". Server timestamp: 2026-10-28T06:58:43.546Z. Session: live."
+    },
+    {
+      "id": "audit-1793170723482-qnwo",
+      "timestamp": "2026-10-28T06:58:43.482Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_ASSIGNED",
+      "entityType": "TASK",
+      "entityId": "task-1793170723479-jbdv",
+      "details": "Assigned \"Audit Durability Verification Task\" for Prestige Loft (28 Oct 2026, 12:28 PM IST) with priority P3 to Priya Sen"
+    },
+    {
+      "id": "audit-1793170723466-rbyr",
+      "timestamp": "2026-10-28T06:58:43.466Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793170723459-3sel",
+      "timestamp": "2026-10-28T06:58:43.459Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170723443-rtus",
+      "timestamp": "2026-10-28T06:58:43.443Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170723436-egjb",
+      "timestamp": "2026-10-28T06:58:43.436Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170723419-2kvh",
+      "timestamp": "2026-10-28T06:58:43.419Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170723407-9bcc",
+      "timestamp": "2026-10-28T06:58:43.407Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
       "id": "audit-1793170396035-ggc7",
       "timestamp": "2026-10-28T06:53:16.035Z",
       "actorEmail": "admin.director@whitecollarrealty.com",
@@ -9851,6 +9983,36 @@
   ],
   "notifications": [
     {
+      "id": "notif-1793170725299-8dra",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:58:45.299Z"
+    },
+    {
+      "id": "notif-1793170724971-1dl1",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:58:44.971Z"
+    },
+    {
+      "id": "notif-1793170724923-rpyh",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:58:44.923Z"
+    },
+    {
       "id": "notif-1793170396031-pxpp",
       "title": "9:00 AM IST Daily Schedule Verified",
       "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
@@ -10799,7 +10961,7 @@
       "loginTimeIST": "12:11:31 pm",
       "status": "PRESENT",
       "createdAt": "2026-10-28T06:41:31.412Z",
-      "updatedAt": "2026-10-28T06:53:14.229Z"
+      "updatedAt": "2026-10-28T06:58:43.426Z"
     },
     {
       "id": "att-2026-10-28-user-pantry-1",
@@ -11075,6 +11237,7 @@
     "task-1793169384627-qckk",
     "task-1793169449733-jx2u",
     "task-1793170004327-3jcp",
-    "task-1793170394273-u2md"
+    "task-1793170394273-u2md",
+    "task-1793170723479-jbdv"
   ]
 }
