@@ -4693,7 +4693,7 @@
       "createdAt": "2026-10-28T03:30:00.000Z",
       "scheduledFor": "2026-10-28T06:30:00.000Z",
       "dueTime": "12:30 PM",
-      "status": "AVAILABLE",
+      "status": "OVERDUE",
       "isUrgent": false,
       "checklist": [
         {
@@ -4725,12 +4725,21 @@
           "fromStatus": "SCHEDULED",
           "toStatus": "AVAILABLE",
           "note": "Task automatically activated at scheduled time (28 Oct 2026, 12:00 PM IST)"
+        },
+        {
+          "timestamp": "2026-10-28T07:00:22.508Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (12:30 PM)"
         }
       ],
       "fiveMinAlertSentFor": "2026-10-28T06:30:00.000Z",
       "photoEvidences": [],
       "photoCount": 0,
-      "dueAlertSentFor": "2026-10-28T06:30:00.000Z"
+      "dueAlertSentFor": "2026-10-28T06:30:00.000Z",
+      "overdueMarkedFor": "2026-10-28T06:30:00.000Z"
     },
     {
       "id": "task-2026-10-28-outer-area",
@@ -4975,6 +4984,138 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793170980455-rk6b",
+      "timestamp": "2026-10-28T07:03:00.455Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170980111-f8cw",
+      "timestamp": "2026-10-28T07:03:00.111Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170980078-9bpi",
+      "timestamp": "2026-10-28T07:03:00.078Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170978709-roin",
+      "timestamp": "2026-10-28T07:02:58.709Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_DELETED",
+      "entityType": "TASK",
+      "entityId": "task-1793170978600-6mvo",
+      "details": "Deleted task \"Audit Durability Verification Task\" in Prestige Loft"
+    },
+    {
+      "id": "audit-1793170978670-tyce",
+      "timestamp": "2026-10-28T07:02:58.670Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "PHOTO_SUBMITTED",
+      "entityType": "PHOTO",
+      "entityId": "photo-1793170978670-91b20ecd-1",
+      "details": "Uploaded 1 live camera photo(s) for task \"Audit Durability Verification Task\". Server timestamp: 2026-10-28T07:02:58.670Z. Session: live."
+    },
+    {
+      "id": "audit-1793170978602-wny3",
+      "timestamp": "2026-10-28T07:02:58.602Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_ASSIGNED",
+      "entityType": "TASK",
+      "entityId": "task-1793170978600-6mvo",
+      "details": "Assigned \"Audit Durability Verification Task\" for Prestige Loft (28 Oct 2026, 12:32 PM IST) with priority P3 to Priya Sen"
+    },
+    {
+      "id": "audit-1793170978592-67rn",
+      "timestamp": "2026-10-28T07:02:58.592Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793170978587-44nm",
+      "timestamp": "2026-10-28T07:02:58.587Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170978576-p41r",
+      "timestamp": "2026-10-28T07:02:58.576Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170978568-5t72",
+      "timestamp": "2026-10-28T07:02:58.568Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170978552-5kln",
+      "timestamp": "2026-10-28T07:02:58.552Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170978541-y1vu",
+      "timestamp": "2026-10-28T07:02:58.541Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
     {
       "id": "audit-1793170725304-mf2t",
       "timestamp": "2026-10-28T06:58:45.304Z",
@@ -9983,6 +10124,36 @@
   ],
   "notifications": [
     {
+      "id": "notif-1793170980451-xn3f",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T07:03:00.451Z"
+    },
+    {
+      "id": "notif-1793170980106-lzrz",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T07:03:00.106Z"
+    },
+    {
+      "id": "notif-1793170980074-bxno",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T07:03:00.074Z"
+    },
+    {
       "id": "notif-1793170725299-8dra",
       "title": "9:00 AM IST Daily Schedule Verified",
       "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
@@ -10961,7 +11132,7 @@
       "loginTimeIST": "12:11:31 pm",
       "status": "PRESENT",
       "createdAt": "2026-10-28T06:41:31.412Z",
-      "updatedAt": "2026-10-28T06:58:43.426Z"
+      "updatedAt": "2026-10-28T07:02:58.558Z"
     },
     {
       "id": "att-2026-10-28-user-pantry-1",
@@ -11238,6 +11409,7 @@
     "task-1793169449733-jx2u",
     "task-1793170004327-3jcp",
     "task-1793170394273-u2md",
-    "task-1793170723479-jbdv"
+    "task-1793170723479-jbdv",
+    "task-1793170978600-6mvo"
   ]
 }

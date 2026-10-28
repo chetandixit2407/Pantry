@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-28T06:58:45.203Z",
+  "timestamp": "2026-10-28T07:03:00.356Z",
   "summary": {
     "local": {
       "total": 21,
@@ -99,7 +99,7 @@
       "testName": "Atomic Disk Persistence on Creation",
       "status": "PASS",
       "httpStatus": 201,
-      "evidence": "Task task-1793170723479-jbdv written via atomic rename and verified in smart_pantry_db.json"
+      "evidence": "Task task-1793170978600-6mvo written via atomic rename and verified in smart_pantry_db.json"
     },
     {
       "id": "audit-10",
@@ -108,7 +108,7 @@
       "testName": "Photo Upload File System Storage & Task Linking",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Photo written to /app/applet/uploads/photos/task-1793170723479-jbdv_photo-1793170723546-184db8e6-1.png (70 bytes), URL: /uploads/photos/task-1793170723479-jbdv_photo-1793170723546-184db8e6-1.png"
+      "evidence": "Photo written to /app/applet/uploads/photos/task-1793170978600-6mvo_photo-1793170978670-91b20ecd-1.png (70 bytes), URL: /uploads/photos/task-1793170978600-6mvo_photo-1793170978670-91b20ecd-1.png"
     },
     {
       "id": "audit-11",
@@ -117,7 +117,7 @@
       "testName": "Atomic Deletion Durability & Purge",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Isolated task task-1793170723479-jbdv purged from memory and disk database"
+      "evidence": "Isolated task task-1793170978600-6mvo purged from memory and disk database"
     },
     {
       "id": "audit-12",
@@ -171,7 +171,7 @@
       "testName": "Admin Audit Log Access Authorization",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Admin authorized, returned 454 audit records"
+      "evidence": "Admin authorized, returned 466 audit records"
     },
     {
       "id": "audit-18",
@@ -215,7 +215,7 @@
       "domain": "Persistence",
       "testName": "Cold Disk State Integrity (JSON Database)",
       "status": "PASS",
-      "evidence": "Verified disk records: 14 rooms, 58 tasks, 4 users, 454 audit logs"
+      "evidence": "Verified disk records: 14 rooms, 58 tasks, 4 users, 466 audit logs"
     },
     {
       "id": "audit-23",

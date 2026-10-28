@@ -58,6 +58,20 @@ function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<strin
   return headers;
 }
 
+async function safeJson<T = any>(res: Response, fallback?: T): Promise<T> {
+  try {
+    const contentType = res.headers.get('content-type');
+    if (contentType && !contentType.includes('application/json')) {
+      return (fallback ?? {}) as T;
+    }
+    const data = await res.json().catch(() => fallback);
+    return (data !== undefined && data !== null ? data : fallback) as T;
+  } catch {
+    return (fallback ?? {}) as T;
+  }
+}
+
+
 // Authoritative Backend Server Clock Offset (serverNowMs - clientNowMs)
 let serverTimeOffsetMs = 0;
 
@@ -144,12 +158,16 @@ export const api = {
 
   // Users
   async getUsers(): Promise<UserAccount[]> {
-    const res = await fetch(`${BASE_URL}/users`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch users');
-    const data = await res.json();
-    return data.users;
+    try {
+      const res = await fetch(`${BASE_URL}/users`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await safeJson(res, { users: [] });
+      return Array.isArray(data?.users) ? data.users : [];
+    } catch {
+      return [];
+    }
   },
 
   async toggleUserStatus(userId: string): Promise<UserAccount> {
@@ -161,7 +179,7 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to update user status');
     }
-    const data = await res.json();
+    const data = await safeJson<{ user: UserAccount }>(res, {} as any);
     return data.user;
   },
 
@@ -443,21 +461,25 @@ export const api = {
     roomAreaId?: string;
     assignedTo?: string;
   }): Promise<Task[]> {
-    const query = new URLSearchParams();
-    if (params?.status) query.set('status', params.status);
-    if (params?.priority) query.set('priority', params.priority);
-    if (params?.roomAreaId) query.set('roomAreaId', params.roomAreaId);
-    if (params?.assignedTo) query.set('assignedTo', params.assignedTo);
+    try {
+      const query = new URLSearchParams();
+      if (params?.status) query.set('status', params.status);
+      if (params?.priority) query.set('priority', params.priority);
+      if (params?.roomAreaId) query.set('roomAreaId', params.roomAreaId);
+      if (params?.assignedTo) query.set('assignedTo', params.assignedTo);
 
-    const res = await fetch(`${BASE_URL}/tasks?${query.toString()}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch tasks');
-    const data = await res.json();
-    if (data.serverTime) {
-      syncServerTime(data.serverTime);
+      const res = await fetch(`${BASE_URL}/tasks?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await safeJson<{ tasks: Task[]; serverTime?: string }>(res, { tasks: [] });
+      if (data?.serverTime) {
+        syncServerTime(data.serverTime);
+      }
+      return Array.isArray(data?.tasks) ? data.tasks.map((t: Task) => normalizeTaskRecord(t)) : [];
+    } catch {
+      return [];
     }
-    return Array.isArray(data.tasks) ? data.tasks.map((t: Task) => normalizeTaskRecord(t)) : [];
   },
 
   async createTask(payload: {
@@ -673,18 +695,22 @@ export const api = {
 
   // Pantry Requests
   async getPantryRequests(): Promise<PantryRequest[]> {
-    const res = await fetch(`${BASE_URL}/pantry-requests`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data.requests)
-      ? data.requests.map((r: PantryRequest) => ({
-          ...r,
-          roomAreaName: normalizeRoomName(r.roomAreaName),
-          instructions: normalizeDisplayText(r.instructions),
-        }))
-      : [];
+    try {
+      const res = await fetch(`${BASE_URL}/pantry-requests`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await safeJson(res, { requests: [] });
+      return Array.isArray(data?.requests)
+        ? data.requests.map((r: PantryRequest) => ({
+            ...r,
+            roomAreaName: normalizeRoomName(r.roomAreaName),
+            instructions: normalizeDisplayText(r.instructions),
+          }))
+        : [];
+    } catch {
+      return [];
+    }
   },
 
   async createPantryRequest(payload: {
@@ -735,17 +761,21 @@ export const api = {
 
   // Visitors
   async getVisitors(): Promise<VisitorEvent[]> {
-    const res = await fetch(`${BASE_URL}/visitors`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch visitors');
-    const data = await res.json();
-    return Array.isArray(data.visitors)
-      ? data.visitors.map((v: VisitorEvent) => ({
-          ...v,
-          roomAreaName: normalizeRoomName(v.roomAreaName),
-        }))
-      : [];
+    try {
+      const res = await fetch(`${BASE_URL}/visitors`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await safeJson(res, { visitors: [] });
+      return Array.isArray(data?.visitors)
+        ? data.visitors.map((v: VisitorEvent) => ({
+            ...v,
+            roomAreaName: normalizeRoomName(v.roomAreaName),
+          }))
+        : [];
+    } catch {
+      return [];
+    }
   },
 
   async registerVisitorArrival(payload: {
@@ -810,12 +840,16 @@ export const api = {
 
   // Notifications & Audit
   async getNotifications(): Promise<AppNotification[]> {
-    const res = await fetch(`${BASE_URL}/notifications`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.notifications;
+    try {
+      const res = await fetch(`${BASE_URL}/notifications`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await safeJson(res, { notifications: [] });
+      return Array.isArray(data?.notifications) ? data.notifications : [];
+    } catch {
+      return [];
+    }
   },
 
   async markNotificationRead(id: string): Promise<void> {
@@ -879,21 +913,36 @@ export const api = {
     todayRecord: AttendanceRecord | null;
     allTodayRecords: AttendanceRecord[];
   }> {
-    const res = await fetch(`${BASE_URL}/attendance/today`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch today attendance');
-    return res.json();
+    try {
+      const res = await fetch(`${BASE_URL}/attendance/today`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return { todayRecord: null, allTodayRecords: [] };
+      const data = await safeJson(res, { todayRecord: null, allTodayRecords: [] });
+      return {
+        todayRecord: data?.todayRecord || null,
+        allTodayRecords: Array.isArray(data?.allTodayRecords) ? data.allTodayRecords : [],
+      };
+    } catch {
+      return { todayRecord: null, allTodayRecords: [] };
+    }
   },
 
   async getAttendanceHistory(): Promise<{
     history: AttendanceRecord[];
   }> {
-    const res = await fetch(`${BASE_URL}/attendance/history`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch attendance history');
-    return res.json();
+    try {
+      const res = await fetch(`${BASE_URL}/attendance/history`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return { history: [] };
+      const data = await safeJson(res, { history: [] });
+      return {
+        history: Array.isArray(data?.history) ? data.history : [],
+      };
+    } catch {
+      return { history: [] };
+    }
   },
 
   async recordAttendanceLogin(): Promise<AttendanceRecord> {
