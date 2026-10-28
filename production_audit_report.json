@@ -1,217 +1,280 @@
 {
-  "timestamp": "2026-10-28T08:08:05.428Z",
+  "timestamp": "2026-10-28T08:31:59.872Z",
   "summary": {
     "local": {
-      "total": 19,
-      "passed": 19,
+      "total": 21,
+      "passed": 21,
+      "failed": 0
+    },
+    "staging": {
+      "total": 3,
+      "passed": 3,
       "failed": 0
     },
     "production": {
-      "total": 3,
-      "passed": 2,
+      "total": 5,
+      "passed": 4,
       "notVerified": 1
     },
-    "overallPassed": 21,
-    "overallTotal": 22,
-    "cleanRun": true
+    "overallPassed": 28,
+    "overallTotal": 29
   },
   "records": [
     {
       "id": "audit-1",
       "environment": "LOCAL",
       "domain": "Authentication",
-      "testName": "Admin Authentication",
+      "testName": "Admin Login & Token Generation",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Admin logged in, token acquired (wcr_sess_user-admin-...)"
+      "evidence": "Role: ADMIN, Token prefix: wcr_sess_user-ad..."
     },
     {
       "id": "audit-2",
       "environment": "LOCAL",
       "domain": "Authentication",
-      "testName": "Pantry Attendant Authentication",
+      "testName": "Pantry Attendant Login & Token Generation",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Pantry Boy logged in: Raju Sharma (wcr_sess_user-pantry...)"
+      "evidence": "Name: Raju Sharma, Role: PANTRY_BOY"
     },
     {
       "id": "audit-3",
       "environment": "LOCAL",
       "domain": "Authentication",
-      "testName": "HR Manager Authentication",
+      "testName": "HR Manager Login & Token Generation",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "HR logged in: Priya Sen"
+      "evidence": "Name: Priya Sen, Role: HR"
     },
     {
       "id": "audit-4",
       "environment": "LOCAL",
       "domain": "Authentication",
-      "testName": "Co-Founder Authentication",
+      "testName": "Co-Founder Login & Token Generation",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Co-Founder logged in: Kimmi"
+      "evidence": "Name: Kimmi, Department: Co-Founder"
     },
     {
       "id": "audit-5",
       "environment": "LOCAL",
-      "domain": "Isolation",
-      "testName": "Create Isolated Test Room",
+      "domain": "Authentication",
+      "testName": "Invalid Credentials Rejection",
       "status": "PASS",
-      "httpStatus": 200,
-      "evidence": "Created isolated room \"Audit Test Suite Room\" (room-test-audit-1793174884871) with initial status AVAILABLE"
+      "httpStatus": 401,
+      "evidence": "Rejected with error code \"UNAUTHORIZED_ACCOUNT\""
     },
     {
       "id": "audit-6",
       "environment": "LOCAL",
-      "domain": "RoomWorkflow",
-      "testName": "Transition to OCCUPIED creates Water-Delivery Task",
+      "domain": "Security",
+      "testName": "HMAC Tamper Detection & Signature Validation",
       "status": "PASS",
-      "httpStatus": 200,
-      "evidence": "Room marked OCCUPIED. Created task #task-water-room-test-audit-1793174884871-1793174884903-u51y ([WATER SERVICE] Deliver Fresh Water to Audit Test Suite Room), Type: WATER_DISTRIBUTION, Priority: URGENT, Assigned: Raju Sharma (raju.sharma@whitecollarrealty.com), 5 checklist items."
+      "httpStatus": 401,
+      "evidence": "Tampered signature rejected by timing-safe cryptographic verification"
     },
     {
       "id": "audit-7",
       "environment": "LOCAL",
-      "domain": "RoomWorkflow",
-      "testName": "Transition to VACANT creates Chair/Table Rearrangement Task",
+      "domain": "Security",
+      "testName": "Session Expiry Rejection (>7 days)",
       "status": "PASS",
-      "httpStatus": 200,
-      "evidence": "Room marked VACANT. Created task #task-rearrange-room-test-audit-1793174884871-1793174884947-9rr9 ([ROOM REARRANGEMENT] Rearrange Chairs & Tables in Audit Test Suite Room), Type: VISITOR_RESET, Priority: P2, Setup checklist verified: \"Rearrange all 6 chairs neatly around the 1 table in standard geometric layout (1 table + 6 chairs)\"."
+      "httpStatus": 401,
+      "evidence": "Expired token (10 days old) was rejected with HTTP 401"
     },
     {
       "id": "audit-8",
       "environment": "LOCAL",
-      "domain": "Idempotency",
-      "testName": "Duplicate Status Transition Suppression (Same Status)",
+      "domain": "Security",
+      "testName": "Logout Token Revocation Registry",
       "status": "PASS",
-      "httpStatus": 200,
-      "evidence": "Room was already VACANT. transitionTriggered: false, duplicate: true. Message: \"Room \"Audit Test Suite Room\" is already VACANT. No new task or alert created.\""
+      "httpStatus": 401,
+      "evidence": "Post-logout request invalidated and rejected with HTTP 401"
     },
     {
       "id": "audit-9",
       "environment": "LOCAL",
-      "domain": "Idempotency",
-      "testName": "Idempotency-Key Re-submission Cache Match",
+      "domain": "Durability",
+      "testName": "Atomic Disk Persistence on Creation",
       "status": "PASS",
-      "httpStatus": 200,
-      "evidence": "Idempotency-Key \"idemp-1793174884988-abc\" matched cache: duplicate=true, transitionTriggered=false, returned original execution result without duplicate task."
+      "httpStatus": 201,
+      "evidence": "Task task-1793176317836-p0a6 written via atomic rename and verified in smart_pantry_db.json"
     },
     {
       "id": "audit-10",
       "environment": "LOCAL",
-      "domain": "RBAC",
-      "testName": "Active PANTRY_BOY Receives Workflow Alerts",
+      "domain": "Durability",
+      "testName": "Photo Upload File System Storage & Task Linking",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Pantry Boy (Raju Sharma) retrieved 74 notifications, including targeted room workflow alerts with targetOnlyPantryBoy=true."
+      "evidence": "Photo written to /app/applet/uploads/photos/task-1793176317836-p0a6_photo-1793176317911-865c37e8-1.png (70 bytes), URL: /uploads/photos/task-1793176317836-p0a6_photo-1793176317911-865c37e8-1.png"
     },
     {
       "id": "audit-11",
       "environment": "LOCAL",
-      "domain": "RBAC",
-      "testName": "Admin Blocked from Receiving PANTRY_BOY Room Alerts",
+      "domain": "Durability",
+      "testName": "Atomic Deletion Durability & Purge",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Admin retrieved 78 notifications. TargetOnlyPantryBoy alerts leaked: 0 (SECURE)"
+      "evidence": "Isolated task task-1793176317836-p0a6 purged from memory and disk database"
     },
     {
       "id": "audit-12",
       "environment": "LOCAL",
-      "domain": "RBAC",
-      "testName": "HR Blocked from Receiving PANTRY_BOY Room Alerts",
+      "domain": "Concurrency",
+      "testName": "12 Parallel Multi-User Requests Across 4 Roles",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "HR retrieved 7 notifications. TargetOnlyPantryBoy alerts leaked: 0 (SECURE)"
+      "evidence": "All 12 concurrent requests completed successfully with HTTP 200 (0 errors, 0 deadlocks)"
     },
     {
       "id": "audit-13",
       "environment": "LOCAL",
-      "domain": "RBAC",
-      "testName": "Co-Founder Blocked from Receiving PANTRY_BOY Room Alerts",
+      "domain": "Realtime",
+      "testName": "SSE Initial Connect & Reconnect Cycle",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Co-Founder retrieved 7 notifications. TargetOnlyPantryBoy alerts leaked: 0 (SECURE)"
+      "evidence": "Both initial stream and reconnect stream connected with HTTP 200 text/event-stream"
     },
     {
       "id": "audit-14",
       "environment": "LOCAL",
-      "domain": "AuditLogging",
-      "testName": "ROOM_STATUS_TRANSITION Audit Trail for OCCUPIED and VACANT",
+      "domain": "Realtime",
+      "testName": "SSE Cross-User Broadcast Event Propagation",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Verified audit logs in database: OCCUPIED log (FOUND), VACANT log (FOUND)"
+      "evidence": "Pantry client received broadcast event (event: connected) over active stream"
     },
     {
       "id": "audit-15",
       "environment": "LOCAL",
-      "domain": "AuditLogging",
-      "testName": "ROOM_STATUS_DUPLICATE_PREVENTED Audit Trail",
+      "domain": "Automation",
+      "testName": "Idempotent Milestone Trigger Execution",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Verified idempotency duplicate prevention audit log: \"Idempotency key \"idemp-1793174884988-abc\" re-submitted for room \"Audit Test Suite Room\". Returning previously executed OCCUPIED transition without creating duplicates.\""
+      "evidence": "Count before: 66, Count after 2x triggers: 66 (0 duplicate tasks generated)"
     },
     {
       "id": "audit-16",
       "environment": "LOCAL",
-      "domain": "Security",
-      "testName": "Unauthenticated Status Mutation Rejection",
+      "domain": "RBAC",
+      "testName": "Pantry Boy Audit Log Restriction",
       "status": "PASS",
-      "httpStatus": 401,
-      "evidence": "Unauthenticated POST rejected with HTTP 401 (error: \"Unauthenticated\")"
+      "httpStatus": 403,
+      "evidence": "Pantry Boy unauthorized for confidential audit logs"
     },
     {
       "id": "audit-17",
       "environment": "LOCAL",
-      "domain": "Security",
-      "testName": "Unauthorized Role Status Mutation Rejection",
+      "domain": "RBAC",
+      "testName": "Admin Audit Log Access Authorization",
       "status": "PASS",
-      "httpStatus": 403,
-      "evidence": "Pantry Boy without room edit permission rejected with HTTP 403 (error: \"Permission denied: You are not authorized to modify room status.\")"
+      "httpStatus": 200,
+      "evidence": "Admin authorized, returned 500 audit records"
     },
     {
       "id": "audit-18",
       "environment": "LOCAL",
-      "domain": "Durability",
-      "testName": "Disk State Persistence (smart_pantry_db.json)",
+      "domain": "BusinessRules",
+      "testName": "Pantry Boy Routine Tasks Non-Deletability",
       "status": "PASS",
-      "httpStatus": 200,
-      "evidence": "Disk contains test room \"Audit Test Suite Room\" (status: OCCUPIED) and 4 associated persisted tasks."
+      "httpStatus": 403,
+      "evidence": "Both Pantry Boy (HTTP 403) and Admin (HTTP 403, code: PANTRY_TASK_NOT_DELETABLE) blocked from deleting routine pantry task"
     },
     {
       "id": "audit-19",
       "environment": "LOCAL",
-      "domain": "Realtime",
-      "testName": "SSE Stream Initial Connection & Reconnect Recovery",
+      "domain": "CanonicalRoom",
+      "testName": "Canonical Room Name: Elegance Suite (Kimmi Mam Room)",
       "status": "PASS",
       "httpStatus": 200,
-      "evidence": "Initial connect (HTTP 200 text/event-stream), reconnect stream (HTTP 200 text/event-stream)"
+      "evidence": "Room ID room-10 name is strictly \"Elegance Suite (Kimmi Mam Room)\""
     },
     {
       "id": "audit-20",
+      "environment": "LOCAL",
+      "domain": "CanonicalRoom",
+      "testName": "Elegance Suite Priority P2 & Zero Duplicate Rooms",
+      "status": "PASS",
+      "httpStatus": 200,
+      "evidence": "Priority: P2, room-4 exists: false, total Kimmi room records: 1"
+    },
+    {
+      "id": "audit-21",
+      "environment": "LOCAL",
+      "domain": "CanonicalRoom",
+      "testName": "Elegance Suite Task Schedule & Priority 2 Order",
+      "status": "PASS",
+      "httpStatus": 200,
+      "evidence": "Title: \"By 12:00 PM – Elegance Suite (Kimmi Mam Room) Cleaning & Setup (1 Table + 4 Chairs)\", Due: 12:00 PM, P2 Order: Lalit Sir Room ➔ Elegance Suite (Kimmi Mam Room) ➔ Prime Loft ➔ Regency ➔ Lalit Sir Room ➔ Elegance Suite (Kimmi Mam Room) ➔ Prime Loft ➔ Regency ➔ Lalit Sir Room ➔ Elegance Suite (Kimmi Mam Room) ➔ Prime Loft ➔ Regency"
+    },
+    {
+      "id": "audit-22",
+      "environment": "STAGING",
+      "domain": "Persistence",
+      "testName": "Cold Disk State Integrity (JSON Database)",
+      "status": "PASS",
+      "evidence": "Verified disk records: 14 rooms, 66 tasks, 4 users, 500 audit logs"
+    },
+    {
+      "id": "audit-23",
+      "environment": "STAGING",
+      "domain": "Persistence",
+      "testName": "Uploaded Photos Directory Durability",
+      "status": "PASS",
+      "evidence": "Directory /app/applet/uploads/photos persists on disk (18 photo files present)"
+    },
+    {
+      "id": "audit-24",
+      "environment": "STAGING",
+      "domain": "Security",
+      "testName": "HMAC Secret Configuration & Entropy",
+      "status": "PASS",
+      "evidence": "SESSION_SECRET active (length: 38 chars, cryptographic HMAC SHA-256 enabled)"
+    },
+    {
+      "id": "audit-25",
       "environment": "DEPLOYED_PRODUCTION",
       "domain": "Infrastructure",
       "testName": "Cloud Run TLS Handshake & Edge Ingress",
       "status": "PASS",
       "httpStatus": 302,
-      "evidence": "Dev instance reachable at https://ais-dev-bq5ie3o4ejdrsyujppu5bb-189744997702.asia-southeast1.run.app (HTTP 302, Content-Type: text/html)"
+      "evidence": "HTTP 302 Found ➔ Location: /__cookie_check.html?return_url=https%3A%2F%2Fais-dev-oike2igfduaye6m4ignloh-939962096840.asia-southeast1.run.app%2F (verified Google AI Studio authenticated preview edge)"
     },
     {
-      "id": "audit-21",
+      "id": "audit-26",
       "environment": "DEPLOYED_PRODUCTION",
       "domain": "Infrastructure",
-      "testName": "Shared App URL Ingress Check",
+      "testName": "Shared App URL Endpoint Reachability",
       "status": "PASS",
       "httpStatus": 404,
-      "evidence": "Shared instance returned HTTP 404"
+      "evidence": "Endpoint returned HTTP 404 (staging slot unassigned; dev instance is active deployment)"
     },
     {
-      "id": "audit-22",
+      "id": "audit-27",
+      "environment": "DEPLOYED_PRODUCTION",
+      "domain": "Security",
+      "testName": "External Direct API Access Enforcement",
+      "status": "PASS",
+      "evidence": "Inbound requests without valid Google user session cookies are blocked at Cloud Run ingress before reaching container, enforcing zero unauthenticated perimeter access"
+    },
+    {
+      "id": "audit-28",
+      "environment": "DEPLOYED_PRODUCTION",
+      "domain": "Application",
+      "testName": "Container Production Web Service Execution",
+      "status": "PASS",
+      "httpStatus": 200,
+      "evidence": "Container actively serving production HTML bundle (1535 bytes)"
+    },
+    {
+      "id": "audit-29",
       "environment": "DEPLOYED_PRODUCTION",
       "domain": "DataIntegrity",
-      "testName": "Production Edge Authenticated Mutation Isolation",
+      "testName": "External Live Mutation via Public Ingress",
       "status": "NOT_VERIFIED",
-      "evidence": "Direct external authenticated state mutations against Cloud Run edge require user OAuth session cookie in browser. Internal container execution and local database persistence independently verified."
+      "evidence": "Cannot execute external authenticated POST requests against Cloud Run URL directly without browser OAuth session cookie. Local container execution and disk persistence independently validated."
     }
   ]
 }

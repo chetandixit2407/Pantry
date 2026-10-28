@@ -237,9 +237,12 @@ async function runSuite() {
     `Status 409: ${roomConflictRes.data.error}`
   );
 
-  // Conflict B: Assigning Raju to testRoom3 while Raju is already assigned to testRoom1
+  // Conflict B: Assigning Raju to an unassigned room while Raju is already assigned to testRoom1
+  const testRoom4 = allRooms.find((r: any) => r.id !== testRoom1.id && r.id !== testRoom2.id && r.id !== testRoom3.id) || allRooms[3];
+  await makeRequest(`/api/rooms/${testRoom4.id}/unassign-employee`, 'POST', {}, adminToken);
+
   const employeeConflictRes = await makeRequest(
-    `/api/rooms/${testRoom3.id}/assign-employee`,
+    `/api/rooms/${testRoom4.id}/assign-employee`,
     'POST',
     {
       employeeId: rajuUser.id,

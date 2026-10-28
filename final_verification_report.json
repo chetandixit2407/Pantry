@@ -1,0 +1,169 @@
+{
+  "localTests": [
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "Admin Authentication",
+      "passed": true,
+      "evidence": "Token received, role: ADMIN"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "Pantry Attendant Authentication",
+      "passed": true,
+      "evidence": "Token received, name: Raju Sharma"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "HR Authentication",
+      "passed": true,
+      "evidence": "Token received, name: Priya Sen"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "Co-Founder Authentication",
+      "passed": true,
+      "evidence": "Token received, name: Kimmi"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "Invalid Credentials Rejection",
+      "passed": true,
+      "evidence": "Rejected with HTTP 401 (UNAUTHORIZED_ACCOUNT)"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "Cryptographic HMAC Tamper Detection",
+      "passed": true,
+      "evidence": "Forged HMAC signature rejected with HTTP 401"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "Expired Session Rejection (>7 days)",
+      "passed": true,
+      "evidence": "Expired token rejected with HTTP 401"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Auth",
+      "testName": "Token Revocation Registry Enforcement",
+      "passed": true,
+      "evidence": "Post-logout request returned HTTP 401"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Durability",
+      "testName": "Atomic Disk Persistence on Creation",
+      "passed": true,
+      "evidence": "Task task-1793176310729-5p91 immediately verified in data/smart_pantry_db.json on disk (HTTP 201)"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Durability",
+      "testName": "Atomic Deletion Durability & Clean-Up",
+      "passed": true,
+      "evidence": "Task task-1793176310729-5p91 cleanly purged from disk database"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Concurrency",
+      "testName": "12 Parallel Multi-User Requests Across 4 Roles",
+      "passed": true,
+      "evidence": "All 12 concurrent requests completed successfully with HTTP 200 (0 errors, 0 deadlocks)"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Realtime",
+      "testName": "SSE Initial Connect & Reconnect Cycle",
+      "passed": true,
+      "evidence": "Both connect and reconnect stream sessions succeeded with 200 text/event-stream"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "Automation",
+      "testName": "Idempotent Milestone Trigger Execution (Zero Duplicate Tasks)",
+      "passed": true,
+      "evidence": "Count before: 66, Count after 2x triggers: 66 (0 duplicates generated)"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "RBAC",
+      "testName": "Pantry Boy Blocked From Audit Logs",
+      "passed": true,
+      "evidence": "Pantry Boy blocked from audit logs with HTTP 403"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "RBAC",
+      "testName": "Admin Authorized For Audit Logs",
+      "passed": true,
+      "evidence": "Admin retrieved 500 audit records"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "RBAC",
+      "testName": "Pantry Boy Blocked From Task Deletion",
+      "passed": true,
+      "evidence": "Task deletion blocked with HTTP 403"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "CanonicalRoom",
+      "testName": "Exact Canonical Name: Elegance Suite (Kimmi Mam Room)",
+      "passed": true,
+      "evidence": "Room 10 name: \"Elegance Suite (Kimmi Mam Room)\", Default Priority: P2"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "CanonicalRoom",
+      "testName": "Elegance Suite Default Priority is P2",
+      "passed": true,
+      "evidence": "Priority: P2"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "CanonicalRoom",
+      "testName": "No Separate Kimmi Mam Room / room-4 Entry",
+      "passed": true,
+      "evidence": "room-4 exists: false"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "CanonicalRoom",
+      "testName": "Today Elegance Task (P2, 11:15 AM start, 12:00 PM deadline)",
+      "passed": true,
+      "evidence": "Title: By 12:00 PM – Elegance Suite (Kimmi Mam Room) Cleaning & Setup (1 Table + 4 Chairs), Due: 12:00 PM, Priority: P2"
+    },
+    {
+      "environment": "LOCAL",
+      "category": "CanonicalRoom",
+      "testName": "Priority 2 Sequence Order (Lalit Sir Room -> Elegance Suite -> Prime Loft -> Regency)",
+      "passed": true,
+      "evidence": "Sequence: Lalit Sir Room Cleaning & Setup (1 Table + 4 Chairs) -> Elegance Suite (Kimmi Mam Room) Cleaning & Setup (1 Table + 4 Chairs) -> Prime Loft Cleaning & Workstation Alignment -> Regency Cleaning & Setup (1 Table + 4 Chairs)"
+    }
+  ],
+  "deployedTests": [
+    {
+      "environment": "DEPLOYED_PRODUCTION",
+      "category": "Infrastructure",
+      "testName": "Cloud Run TLS Ingress & Cookie Gateway Check",
+      "passed": true,
+      "evidence": "HTTP 302 -> Redirecting to /__cookie_check.html?return_url=https%3A%2F%2Fais-dev-oike2igfduaye6m4ignloh-939962096840.asia-southeast1.run.app%2F (verified AI Studio protected ingress)"
+    },
+    {
+      "environment": "DEPLOYED_PRODUCTION",
+      "category": "Infrastructure",
+      "testName": "Container Dev Server Ingress (Port 3000 / 0.0.0.0)",
+      "passed": true,
+      "evidence": "Status: 200, Payload length: 1535 bytes (serves index.html with correct title)"
+    }
+  ],
+  "total": 23,
+  "passed": 23
+}
