@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import type { RoomArea, UserAccount } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
+import { Card3D } from '../common/Card3D.tsx';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -254,8 +255,13 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
         </div>
       )}
 
-      {/* Main Container Card — Matches exact dimensions, rounded corners and padding from reference image */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-4">
+      {/* Main Container Card with 3D Effect */}
+      <Card3D
+        maxTilt={2}
+        liftPx={2.5}
+        variant="light"
+        className="rounded-3xl border border-slate-200/90 p-4 sm:p-5 space-y-4"
+      >
         {/* Header Lockup matching reference image */}
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -317,19 +323,32 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
           </div>
         </div>
 
-        {/* Compact Summary Cards for Total, Vacant, and Occupied Rooms */}
+        {/* Compact Summary Cards for Total, Vacant, and Occupied Rooms with 3D Effect */}
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-          <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 text-center">
+          <Card3D
+            maxTilt={2.5}
+            liftPx={2}
+            variant="light"
+            onPointerMove={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 text-center"
+          >
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               Total Rooms
             </div>
             <div className="text-lg sm:text-xl font-extrabold font-mono text-slate-900 mt-0.5 tabular-nums">
               {totalRooms}
             </div>
-          </div>
+          </Card3D>
 
-          <button
+          <Card3D
+            as="button"
             type="button"
+            maxTilt={2.5}
+            liftPx={2}
+            variant="light"
+            onPointerMove={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setStatusFilter(statusFilter === 'VACANT' ? 'ALL' : 'VACANT')}
             className={`border rounded-2xl p-2.5 sm:p-3 text-center transition-all cursor-pointer ${
               statusFilter === 'VACANT'
@@ -344,10 +363,16 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
             <div className="text-lg sm:text-xl font-extrabold font-mono text-emerald-950 mt-0.5 tabular-nums">
               {vacantRooms}
             </div>
-          </button>
+          </Card3D>
 
-          <button
+          <Card3D
+            as="button"
             type="button"
+            maxTilt={2.5}
+            liftPx={2}
+            variant="light"
+            onPointerMove={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setStatusFilter(statusFilter === 'OCCUPIED' ? 'ALL' : 'OCCUPIED')}
             className={`border rounded-2xl p-2.5 sm:p-3 text-center transition-all cursor-pointer ${
               statusFilter === 'OCCUPIED'
@@ -362,7 +387,7 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
             <div className="text-lg sm:text-xl font-extrabold font-mono text-rose-950 mt-0.5 tabular-nums">
               {occupiedRooms}
             </div>
-          </button>
+          </Card3D>
         </div>
 
         {/* Compact Search and Status Filters Toolbar */}
@@ -426,7 +451,7 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
           </div>
         </div>
 
-        {/* Content: Cards View (Exact match to reference image) or Compact Table View */}
+        {/* Content: Cards View with 3D Effect or Compact Table View */}
         {filteredRooms.length === 0 ? (
           <div className="p-6 rounded-2xl border border-dashed border-slate-200 text-center">
             <p className="text-xs font-semibold text-slate-500">No rooms match your filter</p>
@@ -444,7 +469,7 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
             )}
           </div>
         ) : viewMode === 'CARDS' ? (
-          /* Exact 2-Column Clean Card Layout matching the Reference Image */
+          /* Exact 2-Column Clean Card Layout with 3D effect on every individual room card */
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {filteredRooms.map((room) => {
               const isOccupied = isRoomOccupied(room);
@@ -453,9 +478,14 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
               const isTogglingOccupancy = togglingOccupancyRoomId === room.id;
 
               return (
-                <div
+                <Card3D
                   key={room.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all p-3 sm:p-3.5 flex flex-col justify-between min-h-[96px]"
+                  maxTilt={3.2}
+                  liftPx={3.5}
+                  variant="light"
+                  onPointerMove={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="rounded-2xl border border-slate-200/90 p-3 sm:p-3.5 flex flex-col justify-between min-h-[96px]"
                 >
                   <div>
                     {/* Room Name */}
@@ -547,7 +577,7 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
                       )}
                     </button>
                   </div>
-                </div>
+                </Card3D>
               );
             })}
           </div>
@@ -626,7 +656,7 @@ export const RealtimeRoomDashboard: React.FC<RealtimeRoomDashboardProps> = ({
             </table>
           </div>
         )}
-      </div>
+      </Card3D>
 
       {/* Functional Assign Employee Modal */}
       {assigningRoom && !conflictData && (
