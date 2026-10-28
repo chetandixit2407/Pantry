@@ -15,6 +15,7 @@ import type {
   TaskStatus,
   PantryRequest,
   AttendanceRecord,
+  CaptureSessionResponse,
 } from '../types/index.ts';
 import {
   normalizeDisplayText,
@@ -578,19 +579,54 @@ export const api = {
     return normalizeTaskRecord(data.task);
   },
 
+  async initCaptureSession(taskId: string): Promise<CaptureSessionResponse> {
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/capture-session`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to initialize live camera capture session');
+    }
+    return await res.json();
+  },
+
   async uploadPhotoEvidence(
     taskId: string,
     photoData: string,
-    metadata?: { device?: string; resolution?: string; mode?: string }
-  ): Promise<{ task: Task; photoEvidence: any }> {
+    metadata?: { device?: string; resolution?: string; mode?: string },
+    sessionId?: string
+  ): Promise<{ task: Task; photoEvidence: PhotoEvidence; photoEvidences?: PhotoEvidence[] }> {
     const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/photo`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ photoData, metadata }),
+      body: JSON.stringify({ photoData, metadata, sessionId }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to upload photo evidence');
+    }
+    const data = await res.json();
+    return {
+      ...data,
+      task: data.task ? normalizeTaskRecord(data.task) : data.task,
+    };
+  },
+
+  async uploadMultiPhotoEvidence(
+    taskId: string,
+    photos: Array<{ photoData: string; metadata?: any; capturedAt?: string }>,
+    sessionId?: string
+  ): Promise<{ task: Task; photoEvidence: PhotoEvidence; photoEvidences: PhotoEvidence[]; count: number }> {
+    const res = await fetch(`${BASE_URL}/tasks/${encodeURIComponent(taskId)}/photos`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ photos, sessionId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload multi-photo evidence batch');
     }
     const data = await res.json();
     return {

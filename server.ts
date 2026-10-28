@@ -4815,17 +4815,135 @@ app.delete('/api/tasks/:id', (req, res) => {
   });
 });
 
-// 5. Live Camera Photo Upload (Server-side storage, zero external cloud)
-app.post('/api/tasks/:id/photo', async (req, res) => {
+// 5. Live Camera Photo Capture Sessions & Multi-Photo Upload (Strictly Camera-Only, Zero Gallery)
+interface ActiveCaptureSession {
+  sessionId: string;
+  taskId: string;
+  userId: string;
+  userEmail: string;
+  captureSessionTimestamp: string;
+  createdAtMs: number;
+  expiresAtMs: number;
+  maxPhotos: number;
+}
+
+const activeCaptureSessions = new Map<string, ActiveCaptureSession>();
+
+// Cleanup expired capture sessions periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, session] of activeCaptureSessions.entries()) {
+    if (now > session.expiresAtMs) {
+      activeCaptureSessions.delete(key);
+    }
+  }
+}, 60000);
+
+// Helper to validate and decode live camera image payloads with magic bytes inspection
+function validateAndDecodeCameraImage(photoData: string): { buffer: Buffer; mimeType: string; ext: string } {
+  if (!photoData || typeof photoData !== 'string') {
+    throw new Error('Missing photoData payload string.');
+  }
+
+  const match = photoData.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+  const rawType = match ? match[1].toLowerCase() : 'jpeg';
+  let mimeType = `image/${rawType}`;
+  let ext = rawType === 'jpeg' ? 'jpg' : rawType;
+  const base64Clean = match ? match[2] : photoData;
+  const buffer = Buffer.from(base64Clean, 'base64');
+
+  if (buffer.length < 20) {
+    throw new Error('Image data is too small or corrupted (must be at least 20 bytes).');
+  }
+  if (buffer.length > 15 * 1024 * 1024) {
+    throw new Error('Image exceeds maximum allowable size of 15MB.');
+  }
+
+  // Validate magic bytes to strictly verify authentic camera frames (JPEG, PNG, WebP)
+  const isJpeg = buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  const isPng =
+    buffer.length > 4 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47;
+  const isWebp =
+    buffer.length > 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP';
+
+  if (!isJpeg && !isPng && !isWebp) {
+    throw new Error('Security rejection: Image file signature does not match supported camera frames (JPEG/PNG/WebP).');
+  }
+
+  if (isPng) {
+    ext = 'png';
+    mimeType = 'image/png';
+  } else if (isWebp) {
+    ext = 'webp';
+    mimeType = 'image/webp';
+  } else {
+    ext = 'jpg';
+    mimeType = 'image/jpeg';
+  }
+
+  return { buffer, mimeType, ext };
+}
+
+// 5a. Initialize Authoritative Live Camera Capture Session
+app.post('/api/tasks/:id/capture-session', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) return res.status(401).json({ error: 'Unauthorized' });
+  if (!checkUserPermission(actor, 'tasks', 'edit')) {
+    return res.status(403).json({ error: 'Permission denied: You do not have permission to capture task photos.' });
+  }
+
+  const task = db.tasks.find((t) => t.id === req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  if (actor.role === 'PANTRY_BOY' && task.assignedToEmail.toLowerCase() !== actor.email.toLowerCase()) {
+    return res.status(403).json({ error: 'Permission denied: You can only capture photos for tasks assigned to you.' });
+  }
+
+  if (task.status === 'COMPLETED' || task.status === 'CANCELLED') {
+    return res.status(400).json({ error: `Cannot start capture session for ${task.status} task.` });
+  }
+
+  const nowMs = Date.now();
+  const captureSessionTimestamp = new Date(nowMs).toISOString();
+  const sessionId = `csess_${nowMs}_${crypto.randomBytes(6).toString('hex')}`;
+  const maxPhotos = 10;
+
+  activeCaptureSessions.set(sessionId, {
+    sessionId,
+    taskId: task.id,
+    userId: actor.id,
+    userEmail: actor.email,
+    captureSessionTimestamp,
+    createdAtMs: nowMs,
+    expiresAtMs: nowMs + 60 * 60 * 1000,
+    maxPhotos,
+  });
+
+  res.json({
+    success: true,
+    sessionId,
+    captureSessionTimestamp,
+    maxPhotos,
+    task: {
+      id: task.id,
+      title: task.title,
+      roomAreaName: task.roomAreaName,
+    },
+  });
+});
+
+// 5b. Live Camera Photo Upload (Single or Multi-Photo Batch)
+app.post(['/api/tasks/:id/photo', '/api/tasks/:id/photos'], async (req, res) => {
   const actor = getCurrentUser(req);
   if (!actor) return res.status(401).json({ error: 'Unauthorized' });
   if (!checkUserPermission(actor, 'tasks', 'edit')) {
     return res.status(403).json({ error: 'Permission denied: You do not have permission to submit task photos.' });
-  }
-
-  const { photoData, metadata } = req.body;
-  if (!photoData || typeof photoData !== 'string') {
-    return res.status(400).json({ error: 'photoData base64 string is required from camera capture' });
   }
 
   const task = db.tasks.find((t) => t.id === req.params.id);
@@ -4835,72 +4953,115 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
     return res.status(403).json({ error: 'Permission denied: You can only upload photos for tasks assigned to you.' });
   }
 
+  if (task.status === 'COMPLETED' || task.status === 'CANCELLED') {
+    return res.status(400).json({ error: `Cannot submit photos for task with status ${task.status}.` });
+  }
+
+  const { photoData, photos, metadata, sessionId } = req.body;
+
+  // Build input photos list
+  let incomingPhotos: Array<{ photoData: string; metadata?: any; capturedAt?: string }> = [];
+  if (Array.isArray(photos) && photos.length > 0) {
+    incomingPhotos = photos;
+  } else if (photoData && typeof photoData === 'string') {
+    incomingPhotos = [{ photoData, metadata, capturedAt: metadata?.capturedAt }];
+  } else {
+    return res.status(400).json({ error: 'Either photoData string or photos array is required.' });
+  }
+
+  const MAX_PHOTOS_PER_TASK = 10;
+  if (incomingPhotos.length > MAX_PHOTOS_PER_TASK) {
+    return res.status(400).json({ error: `Exceeded maximum allowable photos (${MAX_PHOTOS_PER_TASK} photos per task).` });
+  }
+
+  // Session verification
+  const session = sessionId ? activeCaptureSessions.get(sessionId) : null;
+  const captureSessionTimestamp = session?.captureSessionTimestamp || new Date().toISOString();
   const serverTimestamp = new Date().toISOString();
-  const photoId = `photo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const createdEvidences: PhotoEvidence[] = [];
 
-  // Save the real photo to company server disk
-  let savedPhotoUrl = photoData;
-  let diskFilePath: string | undefined;
+  for (let i = 0; i < incomingPhotos.length; i++) {
+    const item = incomingPhotos[i];
+    let decoded;
+    try {
+      decoded = validateAndDecodeCameraImage(item.photoData);
+    } catch (valErr: any) {
+      return res.status(400).json({ error: `Photo #${i + 1} validation failed: ${valErr.message}` });
+    }
 
-  try {
-    const match = photoData.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-    const ext = match ? match[1] : 'jpg';
-    const base64Clean = match ? match[2] : photoData;
-    const buffer = Buffer.from(base64Clean, 'base64');
-    const fileName = `${photoId}.${ext}`;
-    diskFilePath = path.join(UPLOADS_DIR, fileName);
+    const photoId = `photo-${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${i + 1}`;
+    const sanitizedTaskId = task.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `${sanitizedTaskId}_${photoId}.${decoded.ext}`;
+    const diskFilePath = path.join(UPLOADS_DIR, fileName);
 
-    fs.writeFileSync(diskFilePath, buffer);
-    savedPhotoUrl = `/uploads/photos/${fileName}`;
-  } catch (fileErr) {
-    console.warn('Failed to write photo to disk file, falling back to base64 payload:', fileErr);
-    savedPhotoUrl = photoData;
+    try {
+      fs.writeFileSync(diskFilePath, decoded.buffer);
+    } catch (writeErr) {
+      console.error('Failed writing photo to disk file:', writeErr);
+      return res.status(500).json({ error: `Failed to save photo #${i + 1} to storage disk.` });
+    }
+
+    const savedPhotoUrl = `/uploads/photos/${fileName}`;
+    const itemMeta = item.metadata || metadata || {};
+
+    const evidence: PhotoEvidence = {
+      id: photoId,
+      taskId: task.id,
+      roomName: task.roomAreaName,
+      userEmail: actor.email,
+      capturedAt: item.capturedAt || itemMeta.capturedAt || serverTimestamp,
+      serverTimestamp,
+      photoUrl: savedPhotoUrl,
+      filePath: diskFilePath,
+      metadata: {
+        device: itemMeta.device || 'Browser Live Camera (getUserMedia)',
+        resolution: itemMeta.resolution || '1280x720',
+        mode: 'LIVE_CAMERA',
+        sessionId: session?.sessionId || sessionId || undefined,
+        captureSessionTimestamp,
+        uploadTimestamp: serverTimestamp,
+        photoIndex: i + 1,
+        totalInBatch: incomingPhotos.length,
+        fileSizeBytes: decoded.buffer.length,
+        mimeType: decoded.mimeType,
+      },
+      status: 'UPLOADED',
+    };
+
+    createdEvidences.push(evidence);
   }
 
-  // Store photo evidence
-  const photoEvidence: PhotoEvidence = {
-    id: photoId,
-    taskId: task.id,
-    roomName: task.roomAreaName,
-    userEmail: actor.email,
-    capturedAt: metadata?.capturedAt || serverTimestamp,
-    serverTimestamp,
-    photoUrl: savedPhotoUrl,
-    filePath: diskFilePath,
-    metadata: {
-      device: metadata?.device || 'Browser Live Camera (getUserMedia)',
-      resolution: metadata?.resolution || '1280x720',
-      mode: 'LIVE_CAMERA',
-    },
-    status: 'UPLOADED',
-  };
-
-  // Preserve previous photo in change history if any
-  if (task.photoEvidence) {
-    task.changeHistory.push({
-      timestamp: serverTimestamp,
-      actorEmail: actor.email,
-      actorName: actor.name,
-      fromStatus: task.status,
-      toStatus: task.status,
-      note: `Replaced previous photo evidence ${task.photoEvidence.id} with new capture ${photoEvidence.id}`,
-    });
-  }
-
-  task.photoEvidence = photoEvidence;
+  // Update task evidence records
+  task.photoEvidences = createdEvidences;
+  task.photoEvidence = createdEvidences[0]; // Primary photo for backwards compatibility
+  task.photoCount = createdEvidences.length;
   task.submittedAt = serverTimestamp;
   task.status = 'PENDING_VERIFICATION';
 
-  // Mark all photo checklist items as completed
+  // Mark photo checklist items completed
   task.checklist.forEach((item) => {
     if (item.text.toLowerCase().includes('photo') || item.text.toLowerCase().includes('capture')) {
       item.completed = true;
     }
   });
 
+  task.changeHistory.push({
+    timestamp: serverTimestamp,
+    actorEmail: actor.email,
+    actorName: actor.name,
+    fromStatus: task.status,
+    toStatus: 'PENDING_VERIFICATION',
+    note: `Uploaded ${createdEvidences.length} live camera photo(s) in session ${session?.sessionId || sessionId || 'live'}`,
+  });
+
   // Room transitions to PENDING_VERIFICATION
   const room = db.rooms.find((r) => r.id === task.roomAreaId);
-  if (room && (room.status === 'CLEANING_IN_PROGRESS' || room.status === 'PREPARATION_REQUIRED' || room.status === 'CLEANING_REQUIRED')) {
+  if (
+    room &&
+    (room.status === 'CLEANING_IN_PROGRESS' ||
+      room.status === 'PREPARATION_REQUIRED' ||
+      room.status === 'CLEANING_REQUIRED')
+  ) {
     room.status = 'PENDING_VERIFICATION';
     if (!room.statusHistory) room.statusHistory = [];
     room.statusHistory.unshift({
@@ -4909,31 +5070,56 @@ app.post('/api/tasks/:id/photo', async (req, res) => {
       timestamp: serverTimestamp,
       actorName: actor.name,
       actorEmail: actor.email,
-      note: `Photo evidence uploaded for task "${task.title}". Status transitioned to PENDING_VERIFICATION.`,
+      note: `${createdEvidences.length} live camera photo(s) uploaded for task "${task.title}". Status transitioned to PENDING_VERIFICATION.`,
       taskId: task.id,
-      photoUrl: savedPhotoUrl,
+      photoUrl: createdEvidences[0].photoUrl,
     });
-    broadcastRealtime('room:updated', { room, rooms: db.rooms });
+    broadcastRealtime('room:updated', { room, rooms: db.rooms, serverTime: serverTimestamp });
   }
 
   addAuditLog(
     actor,
     'PHOTO_SUBMITTED',
     'PHOTO',
-    photoEvidence.id,
-    `Live camera photo evidence uploaded for task "${task.title}". Server timestamp: ${serverTimestamp}. Stored at: ${savedPhotoUrl}`
+    createdEvidences[0].id,
+    `Uploaded ${createdEvidences.length} live camera photo(s) for task "${task.title}". Server timestamp: ${serverTimestamp}. Session: ${sessionId || 'live'}.`
   );
 
   notify(
     `Photo Evidence Submitted: ${task.roomAreaName}`,
-    `${actor.name} uploaded photo for "${task.title}". Under review by HR / Kimmi.`,
+    `${actor.name} uploaded ${createdEvidences.length} photo(s) for "${task.title}". Under review by HR / Kimmi.`,
     'PHOTO_SUBMITTED',
     { role: 'HR', taskId: task.id, roomName: task.roomAreaName }
   );
 
   saveDb();
-  broadcastRealtime('task:updated', { task, tasks: db.tasks });
-  res.json({ success: true, photoEvidence, task });
+  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: serverTimestamp });
+
+  res.json({
+    success: true,
+    photoEvidence: task.photoEvidence,
+    photoEvidences: task.photoEvidences,
+    count: task.photoEvidences.length,
+    task,
+    serverTime: serverTimestamp,
+  });
+});
+
+// 5c. Authorized Photo Asset Retrieval
+app.get('/api/photos/:fileName', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({ error: 'Unauthorized: Authentication required to view operational photo evidence.' });
+  }
+
+  const safeFileName = path.basename(req.params.fileName);
+  const targetPath = path.join(UPLOADS_DIR, safeFileName);
+
+  if (!fs.existsSync(targetPath)) {
+    return res.status(404).json({ error: 'Photo not found.' });
+  }
+
+  res.sendFile(targetPath);
 });
 
 // Verify / Approve / Reject photo evidence (HR & Kimmi & Admin)
@@ -4956,6 +5142,15 @@ app.post('/api/tasks/:id/verify', (req, res) => {
     task.photoEvidence.status = 'VERIFIED';
     task.photoEvidence.verifiedBy = actor.name;
     task.photoEvidence.verifiedAt = now;
+
+    if (Array.isArray(task.photoEvidences)) {
+      task.photoEvidences.forEach((pe) => {
+        pe.status = 'VERIFIED';
+        pe.verifiedBy = actor.name;
+        pe.verifiedAt = now;
+      });
+    }
+
     task.status = 'COMPLETED';
     task.completedAt = now;
 
@@ -4993,7 +5188,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
           photoUrl: task.photoEvidence.photoUrl,
         });
       }
-      broadcastRealtime('room:updated', { room, rooms: db.rooms });
+      broadcastRealtime('room:updated', { room, rooms: db.rooms, serverTime: now });
     }
 
     task.changeHistory.push({
@@ -5005,7 +5200,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
       note: `Approved by ${actor.name} (${actor.role})`,
     });
 
-    addAuditLog(actor, 'PHOTO_VERIFIED', 'TASK', task.id, `Approved photo and marked task "${task.title}" as COMPLETED.`);
+    addAuditLog(actor, 'PHOTO_VERIFIED', 'TASK', task.id, `Approved photos and marked task "${task.title}" as COMPLETED.`);
     notify(
       `Task Verified & Completed!`,
       `Great job Raju! Your work in ${task.roomAreaName} has been approved by ${actor.name}.`,
@@ -5014,6 +5209,12 @@ app.post('/api/tasks/:id/verify', (req, res) => {
     );
   } else {
     task.photoEvidence.status = 'REJECTED';
+    if (Array.isArray(task.photoEvidences)) {
+      task.photoEvidences.forEach((pe) => {
+        pe.status = 'REJECTED';
+      });
+    }
+
     task.status = 'REJECTED';
     task.rejectionReason = reason || 'Photograph does not clearly show chair alignment or cleanliness standard.';
 
@@ -5029,7 +5230,7 @@ app.post('/api/tasks/:id/verify', (req, res) => {
         note: `Photo verification rejected by ${actor.name}: ${task.rejectionReason}. Status reverted to CLEANING_REQUIRED.`,
         taskId: task.id,
       });
-      broadcastRealtime('room:updated', { room, rooms: db.rooms });
+      broadcastRealtime('room:updated', { room, rooms: db.rooms, serverTime: now });
     }
 
     task.changeHistory.push({
@@ -5051,8 +5252,8 @@ app.post('/api/tasks/:id/verify', (req, res) => {
   }
 
   saveDb();
-  broadcastRealtime('task:updated', { task, tasks: db.tasks });
-  res.json({ success: true, task });
+  broadcastRealtime('task:updated', { task, tasks: db.tasks, serverTime: now });
+  res.json({ success: true, task, serverTime: now });
 });
 
 // 6. Visitor Arrival & Departure Automation

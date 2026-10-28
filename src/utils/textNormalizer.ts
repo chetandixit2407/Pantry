@@ -156,6 +156,22 @@ export function normalizeTaskRecord<T extends Task>(task: T): T {
           roomName: normalizeRoomName(task.photoEvidence.roomName),
         }
       : task.photoEvidence,
+    photoEvidences: Array.isArray(task.photoEvidences)
+      ? task.photoEvidences.map((pe) => ({
+          ...pe,
+          roomName: normalizeRoomName(pe.roomName),
+        }))
+      : task.photoEvidence
+      ? [{ ...task.photoEvidence, roomName: normalizeRoomName(task.photoEvidence.roomName) }]
+      : [],
+    photoCount:
+      typeof task.photoCount === 'number'
+        ? task.photoCount
+        : Array.isArray(task.photoEvidences)
+        ? task.photoEvidences.length
+        : task.photoEvidence
+        ? 1
+        : 0,
   };
 }
 

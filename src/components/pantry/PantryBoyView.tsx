@@ -2802,13 +2802,80 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
               </div>
 
               {/* Live Photo Evidence */}
+              {/* Live Photo Evidence Section */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Photo Evidence</h4>
-                  <span className="text-[11px] text-amber-700 font-semibold">Live Camera Required</span>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Live Photo Evidence {selectedTask.photoEvidences && selectedTask.photoEvidences.length > 0 ? `(${selectedTask.photoEvidences.length})` : ''}
+                  </h4>
+                  <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    Strict Live Camera Only
+                  </span>
                 </div>
 
-                {selectedTask.photoEvidence ? (
+                {selectedTask.photoEvidences && selectedTask.photoEvidences.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {selectedTask.photoEvidences.map((pe, idx) => (
+                        <div
+                          key={pe.id || `pe-${idx}`}
+                          className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex flex-col group shadow-2xs"
+                        >
+                          <div className="relative h-36 bg-slate-900 overflow-hidden cursor-pointer" onClick={() => setPreviewPhotoUrl(pe.photoUrl)}>
+                            <img
+                              src={pe.photoUrl}
+                              alt={`Evidence photo #${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <span className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded backdrop-blur-xs">
+                              Photo #{idx + 1}
+                            </span>
+                            <span className="absolute bottom-2 right-2 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[9px] font-mono px-2 py-0.5 rounded backdrop-blur-xs flex items-center gap-1">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                              VERIFIED LIVE
+                            </span>
+                          </div>
+                          <div className="p-2.5 text-[11px] space-y-1 bg-white flex-1 flex flex-col justify-between">
+                            <div className="font-semibold text-slate-800 flex items-center justify-between gap-1">
+                              <span className="truncate">Captured IST:</span>
+                              <span className="font-mono text-slate-600 text-[10px]">
+                                {new Date(pe.capturedAt || pe.serverTimestamp).toLocaleTimeString('en-IN', {
+                                  timeZone: 'Asia/Kolkata',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 flex items-center justify-between font-mono pt-1 border-t border-slate-100">
+                              <span>Server Upload:</span>
+                              <span>
+                                {new Date(pe.serverTimestamp).toLocaleTimeString('en-IN', {
+                                  timeZone: 'Asia/Kolkata',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {selectedTask.status !== 'COMPLETED' && canEditTasks && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setCameraModalTask(selectedTask)}
+                          className="px-3.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Retake or Add Photos</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : selectedTask.photoEvidence ? (
                   <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
                     <img
                       src={selectedTask.photoEvidence.photoUrl}
@@ -2832,7 +2899,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                         <button
                           type="button"
                           onClick={() => setCameraModalTask(selectedTask)}
-                          className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-100"
+                          className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-100 cursor-pointer"
                         >
                           Retake
                         </button>
@@ -2841,18 +2908,18 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                   </div>
                 ) : (
                   <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center bg-slate-50">
-                    <Camera className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-xs text-slate-600 mb-3">
-                      Capture clean room arrangement, chair alignment, and water bottles using the live camera.
+                    <Camera className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                    <p className="text-xs text-slate-600 mb-3 font-medium">
+                      Capture clean room arrangement, chair alignment, and water bottles using live camera.
                     </p>
                     {canEditTasks && (
                       <button
                         type="button"
                         onClick={() => setCameraModalTask(selectedTask)}
-                        className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                        className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
                       >
                         <Camera className="w-4 h-4" />
-                        Open Live Camera
+                        <span>Capture Live Photos</span>
                       </button>
                     )}
                   </div>
@@ -2883,7 +2950,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                   <button
                     type="button"
                     onClick={() => setShowBlockerModal(true)}
-                    className="px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition-colors"
+                    className="px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition-colors cursor-pointer"
                   >
                     Report Blocked
                   </button>
@@ -2891,10 +2958,16 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                   <button
                     type="button"
                     onClick={() => setCameraModalTask(selectedTask)}
-                    className="flex-1 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                    className="flex-1 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    {selectedTask.photoEvidence ? 'Retake Photo' : 'Capture Live Photo'}
+                    <span>
+                      {selectedTask.photoEvidences && selectedTask.photoEvidences.length > 0
+                        ? `Capture More Photos (${selectedTask.photoEvidences.length})`
+                        : selectedTask.photoEvidence
+                        ? 'Retake Live Photos'
+                        : 'Capture Live Photos'}
+                    </span>
                   </button>
                 </>
               )}

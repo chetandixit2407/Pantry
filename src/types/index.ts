@@ -194,10 +194,28 @@ export interface PhotoEvidence {
     device?: string;
     resolution?: string;
     mode?: string;
+    sessionId?: string;
+    captureSessionTimestamp?: string;
+    uploadTimestamp?: string;
+    photoIndex?: number;
+    totalInBatch?: number;
+    fileSizeBytes?: number;
+    mimeType?: string;
   };
   status: 'UPLOADED' | 'VERIFIED' | 'REJECTED';
   verifiedBy?: string;
   verifiedAt?: string;
+}
+
+export interface CaptureSessionResponse {
+  sessionId: string;
+  captureSessionTimestamp: string;
+  maxPhotos: number;
+  task: {
+    id: string;
+    title: string;
+    roomAreaName: string;
+  };
 }
 
 export interface TaskHistoryEntry {
@@ -235,6 +253,8 @@ export interface Task {
   status: TaskStatus;
   checklist: ChecklistItem[];
   photoEvidence?: PhotoEvidence;
+  photoEvidences?: PhotoEvidence[];
+  photoCount?: number;
   blockedReason?: string;
   rejectionReason?: string;
   isUrgent: boolean;

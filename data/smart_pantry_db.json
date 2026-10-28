@@ -1437,7 +1437,7 @@
       "createdAt": "2026-10-26T09:00:00.000Z",
       "scheduledFor": "2026-10-26T03:30:00.000Z",
       "dueTime": "09:15 AM",
-      "status": "OVERDUE",
+      "status": "PENDING_VERIFICATION",
       "isUrgent": false,
       "checklist": [
         {
@@ -1463,7 +1463,7 @@
         {
           "id": "c-5",
           "text": "Capture and upload required verification photo",
-          "completed": false
+          "completed": true
         }
       ],
       "changeHistory": [
@@ -1474,11 +1474,108 @@
           "fromStatus": "AVAILABLE",
           "toStatus": "OVERDUE",
           "note": "Automatically marked OVERDUE past deadline (10:00 AM)"
+        },
+        {
+          "timestamp": "2026-10-28T06:37:16.587Z",
+          "actorEmail": "raju.sharma@whitecollarrealty.com",
+          "actorName": "Raju Sharma",
+          "fromStatus": "PENDING_VERIFICATION",
+          "toStatus": "PENDING_VERIFICATION",
+          "note": "Uploaded 2 live camera photo(s) in session csess_1793169436580_e5fd31d1569a"
+        },
+        {
+          "timestamp": "2026-10-28T06:41:31.454Z",
+          "actorEmail": "raju.sharma@whitecollarrealty.com",
+          "actorName": "Raju Sharma",
+          "fromStatus": "PENDING_VERIFICATION",
+          "toStatus": "PENDING_VERIFICATION",
+          "note": "Uploaded 2 live camera photo(s) in session csess_1793169691448_4fe8411e8aad"
+        },
+        {
+          "timestamp": "2026-10-28T06:46:38.307Z",
+          "actorEmail": "raju.sharma@whitecollarrealty.com",
+          "actorName": "Raju Sharma",
+          "fromStatus": "PENDING_VERIFICATION",
+          "toStatus": "PENDING_VERIFICATION",
+          "note": "Uploaded 2 live camera photo(s) in session csess_1793169998302_bc6ef3985a37"
         }
       ],
       "fiveMinAlertSentFor": "2026-10-26T03:30:00.000Z",
       "dueAlertSentFor": "2026-10-26T03:30:00.000Z",
-      "overdueMarkedFor": "2026-10-26T03:30:00.000Z"
+      "overdueMarkedFor": "2026-10-26T03:30:00.000Z",
+      "photoEvidences": [
+        {
+          "id": "photo-1793169998307-e8f53001-1",
+          "taskId": "task-2026-10-26-desks",
+          "roomName": "Employee Desks",
+          "userEmail": "raju.sharma@whitecollarrealty.com",
+          "capturedAt": "2026-10-28T06:46:38.306Z",
+          "serverTimestamp": "2026-10-28T06:46:38.307Z",
+          "photoUrl": "/uploads/photos/task-2026-10-26-desks_photo-1793169998307-e8f53001-1.png",
+          "filePath": "/app/applet/uploads/photos/task-2026-10-26-desks_photo-1793169998307-e8f53001-1.png",
+          "metadata": {
+            "device": "Browser Live Camera (getUserMedia)",
+            "resolution": "1280x720",
+            "mode": "LIVE_CAMERA",
+            "sessionId": "csess_1793169998302_bc6ef3985a37",
+            "captureSessionTimestamp": "2026-10-28T06:46:38.302Z",
+            "uploadTimestamp": "2026-10-28T06:46:38.307Z",
+            "photoIndex": 1,
+            "totalInBatch": 2,
+            "fileSizeBytes": 70,
+            "mimeType": "image/png"
+          },
+          "status": "UPLOADED"
+        },
+        {
+          "id": "photo-1793169998308-1c5bdb7b-2",
+          "taskId": "task-2026-10-26-desks",
+          "roomName": "Employee Desks",
+          "userEmail": "raju.sharma@whitecollarrealty.com",
+          "capturedAt": "2026-10-28T06:46:38.306Z",
+          "serverTimestamp": "2026-10-28T06:46:38.307Z",
+          "photoUrl": "/uploads/photos/task-2026-10-26-desks_photo-1793169998308-1c5bdb7b-2.png",
+          "filePath": "/app/applet/uploads/photos/task-2026-10-26-desks_photo-1793169998308-1c5bdb7b-2.png",
+          "metadata": {
+            "device": "Browser Live Camera (getUserMedia)",
+            "resolution": "1280x720",
+            "mode": "LIVE_CAMERA",
+            "sessionId": "csess_1793169998302_bc6ef3985a37",
+            "captureSessionTimestamp": "2026-10-28T06:46:38.302Z",
+            "uploadTimestamp": "2026-10-28T06:46:38.307Z",
+            "photoIndex": 2,
+            "totalInBatch": 2,
+            "fileSizeBytes": 70,
+            "mimeType": "image/png"
+          },
+          "status": "UPLOADED"
+        }
+      ],
+      "photoCount": 2,
+      "photoEvidence": {
+        "id": "photo-1793169998307-e8f53001-1",
+        "taskId": "task-2026-10-26-desks",
+        "roomName": "Employee Desks",
+        "userEmail": "raju.sharma@whitecollarrealty.com",
+        "capturedAt": "2026-10-28T06:46:38.306Z",
+        "serverTimestamp": "2026-10-28T06:46:38.307Z",
+        "photoUrl": "/uploads/photos/task-2026-10-26-desks_photo-1793169998307-e8f53001-1.png",
+        "filePath": "/app/applet/uploads/photos/task-2026-10-26-desks_photo-1793169998307-e8f53001-1.png",
+        "metadata": {
+          "device": "Browser Live Camera (getUserMedia)",
+          "resolution": "1280x720",
+          "mode": "LIVE_CAMERA",
+          "sessionId": "csess_1793169998302_bc6ef3985a37",
+          "captureSessionTimestamp": "2026-10-28T06:46:38.302Z",
+          "uploadTimestamp": "2026-10-28T06:46:38.307Z",
+          "photoIndex": 1,
+          "totalInBatch": 2,
+          "fileSizeBytes": 70,
+          "mimeType": "image/png"
+        },
+        "status": "UPLOADED"
+      },
+      "submittedAt": "2026-10-28T06:46:38.307Z"
     },
     {
       "id": "task-2026-10-26-prestige",
@@ -1536,7 +1633,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T04:00:00.000Z",
       "dueAlertSentFor": "2026-10-26T04:00:00.000Z",
-      "overdueMarkedFor": "2026-10-26T04:00:00.000Z"
+      "overdueMarkedFor": "2026-10-26T04:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-skyline",
@@ -1594,7 +1693,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T04:15:00.000Z",
       "dueAlertSentFor": "2026-10-26T04:15:00.000Z",
-      "overdueMarkedFor": "2026-10-26T04:15:00.000Z"
+      "overdueMarkedFor": "2026-10-26T04:15:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-water-10am",
@@ -1652,7 +1753,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T04:30:00.000Z",
       "dueAlertSentFor": "2026-10-26T04:30:00.000Z",
-      "overdueMarkedFor": "2026-10-26T04:30:00.000Z"
+      "overdueMarkedFor": "2026-10-26T04:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-community",
@@ -1710,7 +1813,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T04:40:00.000Z",
       "dueAlertSentFor": "2026-10-26T04:40:00.000Z",
-      "overdueMarkedFor": "2026-10-26T04:40:00.000Z"
+      "overdueMarkedFor": "2026-10-26T04:40:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-summit",
@@ -1768,7 +1873,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T04:55:00.000Z",
       "dueAlertSentFor": "2026-10-26T04:55:00.000Z",
-      "overdueMarkedFor": "2026-10-26T04:55:00.000Z"
+      "overdueMarkedFor": "2026-10-26T04:55:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-wcr-air",
@@ -1826,7 +1933,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T05:10:00.000Z",
       "dueAlertSentFor": "2026-10-26T05:10:00.000Z",
-      "overdueMarkedFor": "2026-10-26T05:10:00.000Z"
+      "overdueMarkedFor": "2026-10-26T05:10:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-exec-cabin",
@@ -1884,7 +1993,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T05:30:00.000Z",
       "dueAlertSentFor": "2026-10-26T05:30:00.000Z",
-      "overdueMarkedFor": "2026-10-26T05:30:00.000Z"
+      "overdueMarkedFor": "2026-10-26T05:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-elegance",
@@ -1942,7 +2053,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T05:45:00.000Z",
       "dueAlertSentFor": "2026-10-26T05:45:00.000Z",
-      "overdueMarkedFor": "2026-10-26T07:20:00.000Z"
+      "overdueMarkedFor": "2026-10-26T07:20:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-prime-loft",
@@ -1995,7 +2108,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T06:00:00.000Z",
       "dueAlertSentFor": "2026-10-26T06:00:00.000Z",
-      "overdueMarkedFor": "2026-10-26T06:00:00.000Z"
+      "overdueMarkedFor": "2026-10-26T06:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-regency",
@@ -2053,7 +2168,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T06:15:00.000Z",
       "dueAlertSentFor": "2026-10-26T06:15:00.000Z",
-      "overdueMarkedFor": "2026-10-26T06:15:00.000Z"
+      "overdueMarkedFor": "2026-10-26T06:15:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-plants",
@@ -2106,7 +2223,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T06:30:00.000Z",
       "dueAlertSentFor": "2026-10-26T06:30:00.000Z",
-      "overdueMarkedFor": "2026-10-26T06:30:00.000Z"
+      "overdueMarkedFor": "2026-10-26T06:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-outer-area",
@@ -2164,7 +2283,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T06:50:00.000Z",
       "dueAlertSentFor": "2026-10-26T06:50:00.000Z",
-      "overdueMarkedFor": "2026-10-26T06:50:00.000Z"
+      "overdueMarkedFor": "2026-10-26T06:50:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-dustbins",
@@ -2222,7 +2343,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T08:30:00.000Z",
       "dueAlertSentFor": "2026-10-26T08:30:00.000Z",
-      "overdueMarkedFor": "2026-10-26T08:30:00.000Z"
+      "overdueMarkedFor": "2026-10-26T08:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-water-3pm",
@@ -2280,7 +2403,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T09:30:00.000Z",
       "dueAlertSentFor": "2026-10-26T09:30:00.000Z",
-      "overdueMarkedFor": "2026-10-26T09:30:00.000Z"
+      "overdueMarkedFor": "2026-10-26T09:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-26-closing",
@@ -2348,7 +2473,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-26T14:00:00.000Z",
       "dueAlertSentFor": "2026-10-26T14:00:00.000Z",
-      "overdueMarkedFor": "2026-10-26T14:00:00.000Z"
+      "overdueMarkedFor": "2026-10-26T14:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-desks",
@@ -2406,7 +2533,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T03:30:00.000Z",
       "dueAlertSentFor": "2026-10-27T03:30:00.000Z",
-      "overdueMarkedFor": "2026-10-27T03:30:00.000Z"
+      "overdueMarkedFor": "2026-10-27T03:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-reception",
@@ -2472,7 +2601,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T03:45:00.000Z",
       "dueAlertSentFor": "2026-10-27T03:45:00.000Z",
-      "overdueMarkedFor": "2026-10-27T03:45:00.000Z"
+      "overdueMarkedFor": "2026-10-27T03:45:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-prestige",
@@ -2538,7 +2669,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T04:00:00.000Z",
       "dueAlertSentFor": "2026-10-27T04:00:00.000Z",
-      "overdueMarkedFor": "2026-10-27T04:00:00.000Z"
+      "overdueMarkedFor": "2026-10-27T04:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-skyline",
@@ -2604,7 +2737,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T04:15:00.000Z",
       "dueAlertSentFor": "2026-10-27T04:15:00.000Z",
-      "overdueMarkedFor": "2026-10-27T04:15:00.000Z"
+      "overdueMarkedFor": "2026-10-27T04:15:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-water-10am",
@@ -2662,7 +2797,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T04:30:00.000Z",
       "dueAlertSentFor": "2026-10-27T04:30:00.000Z",
-      "overdueMarkedFor": "2026-10-27T04:30:00.000Z"
+      "overdueMarkedFor": "2026-10-27T04:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-community",
@@ -2728,7 +2865,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T04:40:00.000Z",
       "dueAlertSentFor": "2026-10-27T04:40:00.000Z",
-      "overdueMarkedFor": "2026-10-27T04:40:00.000Z"
+      "overdueMarkedFor": "2026-10-27T04:40:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-summit",
@@ -2777,7 +2916,9 @@
       "changeHistory": [],
       "fiveMinAlertSentFor": "2026-10-27T04:55:00.000Z",
       "dueAlertSentFor": "2026-10-27T04:55:00.000Z",
-      "overdueMarkedFor": "2026-10-27T04:55:00.000Z"
+      "overdueMarkedFor": "2026-10-27T04:55:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-wcr-air",
@@ -2826,7 +2967,9 @@
       "changeHistory": [],
       "fiveMinAlertSentFor": "2026-10-27T05:10:00.000Z",
       "dueAlertSentFor": "2026-10-27T05:10:00.000Z",
-      "overdueMarkedFor": "2026-10-27T05:10:00.000Z"
+      "overdueMarkedFor": "2026-10-27T05:10:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-exec-cabin",
@@ -2884,7 +3027,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T05:30:00.000Z",
       "dueAlertSentFor": "2026-10-27T05:30:00.000Z",
-      "overdueMarkedFor": "2026-10-27T05:30:00.000Z"
+      "overdueMarkedFor": "2026-10-27T05:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-elegance",
@@ -2933,7 +3078,9 @@
       "changeHistory": [],
       "fiveMinAlertSentFor": "2026-10-27T05:45:00.000Z",
       "dueAlertSentFor": "2026-10-27T05:45:00.000Z",
-      "overdueMarkedFor": "2026-10-27T07:20:00.000Z"
+      "overdueMarkedFor": "2026-10-27T07:20:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-prime-loft",
@@ -2986,7 +3133,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T06:00:00.000Z",
       "dueAlertSentFor": "2026-10-27T06:00:00.000Z",
-      "overdueMarkedFor": "2026-10-27T06:00:00.000Z"
+      "overdueMarkedFor": "2026-10-27T06:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-regency",
@@ -3044,7 +3193,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T06:15:00.000Z",
       "dueAlertSentFor": "2026-10-27T06:15:00.000Z",
-      "overdueMarkedFor": "2026-10-27T06:15:00.000Z"
+      "overdueMarkedFor": "2026-10-27T06:15:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-plants",
@@ -3088,7 +3239,9 @@
       "changeHistory": [],
       "fiveMinAlertSentFor": "2026-10-27T06:30:00.000Z",
       "dueAlertSentFor": "2026-10-27T06:30:00.000Z",
-      "overdueMarkedFor": "2026-10-27T06:30:00.000Z"
+      "overdueMarkedFor": "2026-10-27T06:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-outer-area",
@@ -3137,7 +3290,9 @@
       "changeHistory": [],
       "fiveMinAlertSentFor": "2026-10-27T06:50:00.000Z",
       "dueAlertSentFor": "2026-10-27T06:50:00.000Z",
-      "overdueMarkedFor": "2026-10-27T06:50:00.000Z"
+      "overdueMarkedFor": "2026-10-27T06:50:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-dustbins",
@@ -3195,7 +3350,9 @@
       ],
       "fiveMinAlertSentFor": "2026-10-27T08:30:00.000Z",
       "dueAlertSentFor": "2026-10-27T08:30:00.000Z",
-      "overdueMarkedFor": "2026-10-27T08:30:00.000Z"
+      "overdueMarkedFor": "2026-10-27T08:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-water-4pm",
@@ -3243,7 +3400,9 @@
       ],
       "changeHistory": [],
       "fiveMinAlertSentFor": "2026-10-27T10:30:00.000Z",
-      "dueAlertSentFor": "2026-10-27T10:30:00.000Z"
+      "dueAlertSentFor": "2026-10-27T10:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-water-room-6-1793104317113-7sl5",
@@ -3309,7 +3468,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:31:57.113Z",
       "fiveMinAlertSentFor": "2026-10-27T12:31:57.113Z",
-      "overdueMarkedFor": "2026-10-27T12:31:57.113Z"
+      "overdueMarkedFor": "2026-10-27T12:31:57.113Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-rearrange-room-6-1793104317137-d6yp",
@@ -3375,7 +3536,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:31:57.137Z",
       "fiveMinAlertSentFor": "2026-10-27T12:31:57.137Z",
-      "overdueMarkedFor": "2026-10-27T12:31:57.137Z"
+      "overdueMarkedFor": "2026-10-27T12:31:57.137Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-water-room-6-1793104438987-smia",
@@ -3441,7 +3604,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:33:58.987Z",
       "fiveMinAlertSentFor": "2026-10-27T12:33:58.987Z",
-      "overdueMarkedFor": "2026-10-27T12:33:58.987Z"
+      "overdueMarkedFor": "2026-10-27T12:33:58.987Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-rearrange-room-6-1793104439018-l8d3",
@@ -3507,7 +3672,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:33:59.018Z",
       "fiveMinAlertSentFor": "2026-10-27T12:33:59.018Z",
-      "overdueMarkedFor": "2026-10-27T12:33:59.018Z"
+      "overdueMarkedFor": "2026-10-27T12:33:59.018Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-water-room-6-1793104466981-sw4q",
@@ -3573,7 +3740,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:34:26.981Z",
       "fiveMinAlertSentFor": "2026-10-27T12:34:26.981Z",
-      "overdueMarkedFor": "2026-10-27T12:34:26.981Z"
+      "overdueMarkedFor": "2026-10-27T12:34:26.981Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-rearrange-room-6-1793104466997-q7s1",
@@ -3639,7 +3808,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:34:26.997Z",
       "fiveMinAlertSentFor": "2026-10-27T12:34:26.997Z",
-      "overdueMarkedFor": "2026-10-27T12:34:26.997Z"
+      "overdueMarkedFor": "2026-10-27T12:34:26.997Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-water-room-6-1793104662916-hff5",
@@ -3705,7 +3876,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:37:42.916Z",
       "fiveMinAlertSentFor": "2026-10-27T12:37:42.916Z",
-      "overdueMarkedFor": "2026-10-27T12:37:42.916Z"
+      "overdueMarkedFor": "2026-10-27T12:37:42.916Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-rearrange-room-6-1793104662940-jeyv",
@@ -3771,7 +3944,9 @@
       ],
       "dueAlertSentFor": "2026-10-27T12:37:42.940Z",
       "fiveMinAlertSentFor": "2026-10-27T12:37:42.940Z",
-      "overdueMarkedFor": "2026-10-27T12:37:42.940Z"
+      "overdueMarkedFor": "2026-10-27T12:37:42.940Z",
+      "photoEvidences": [],
+      "photoCount": 0
     },
     {
       "id": "task-2026-10-27-closing",
@@ -3787,6 +3962,935 @@
       "createdByName": "Automatic Closing Scheduler",
       "createdAt": "2026-10-27T19:30:00.000Z",
       "scheduledFor": "2026-10-27T14:00:00.000Z",
+      "dueTime": "07:55 PM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Reception is tidy and front-desk display turned off",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Verify all Employee Desks are clear and chairs neatly tucked",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Check Lalit Sir Room and Elegance Suite (Kimmi Mam Room) sanitized and secured",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Ensure all active rooms (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) are reset to verified table & chair layout",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Confirm all dustbins emptied and liners replaced",
+          "completed": false
+        },
+        {
+          "id": "c-6",
+          "text": "Ensure pantry appliances turned off and water taps closed",
+          "completed": false
+        },
+        {
+          "id": "c-7",
+          "text": "Capture comprehensive closing verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-28T06:22:52.903Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "SCHEDULED",
+          "toStatus": "AVAILABLE",
+          "note": "Task automatically activated at scheduled time (27 Oct 2026, 07:30 PM IST)"
+        },
+        {
+          "timestamp": "2026-10-28T06:22:52.903Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (07:55 PM)"
+        }
+      ],
+      "fiveMinAlertSentFor": "2026-10-27T14:00:00.000Z",
+      "dueAlertSentFor": "2026-10-27T14:00:00.000Z",
+      "overdueMarkedFor": "2026-10-27T14:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-desks",
+      "title": "9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup",
+      "description": "Morning cleaning and setup of all Employee Desks (9:00–9:15 AM IST, completed first before room schedule): wipe workstation surfaces without disturbing documents, align ergonomic chairs, and prepare desk rows.",
+      "roomAreaId": "room-2",
+      "roomAreaName": "Employee Desks",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T03:30:00.000Z",
+      "dueTime": "09:15 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Wipe down designated desk surfaces and monitor edges",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Align employee chairs neatly",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Arrange desktop stationery organizers",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Inspect surrounding area and cabling",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload required verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-28T03:30:00.000Z",
+      "dueAlertSentFor": "2026-10-28T03:30:00.000Z",
+      "overdueMarkedFor": "2026-10-28T03:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-reception",
+      "title": "9:15–9:30 AM – Reception Cleaning & Front-Desk Setup",
+      "description": "Morning cleaning and setup of Reception (9:15–9:30 AM IST): sanitize marble counter and glass surfaces, align visitor seating, arrange registers/brochures, and verify readiness.",
+      "roomAreaId": "room-1",
+      "roomAreaName": "Reception",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T03:45:00.000Z",
+      "dueTime": "09:30 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clean reception counter and glass surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Arrange visitor lounge chairs properly",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Return company brochures and guest registers to designated positions",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Check overall cleanliness and floor shine",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload mandatory photo evidence",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-28T03:30:00.000Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Daily Scheduler",
+          "fromStatus": "NONE",
+          "toStatus": "AVAILABLE",
+          "note": "Generated for 9:15–9:30 AM IST Reception cleaning & setup window"
+        }
+      ],
+      "fiveMinAlertSentFor": "2026-10-28T03:45:00.000Z",
+      "dueAlertSentFor": "2026-10-28T03:45:00.000Z",
+      "overdueMarkedFor": "2026-10-28T03:45:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-prestige",
+      "title": "By 11:00 AM – Prestige Loft Cleaning & Prep (1 Table + 4 Chairs)",
+      "description": "Priority 1 room schedule (complete by 11:00 AM IST): full cleaning, table sanitization, chair alignment, and readiness verification for Prestige Loft (verified setup: 1 table + 4 chairs).",
+      "roomAreaId": "room-5",
+      "roomAreaName": "Prestige Loft",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T04:00:00.000Z",
+      "dueTime": "11:00 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Prestige Loft configuration: 1 table + 4 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 4 chairs neatly with uniform spacing",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-28T04:00:00.000Z",
+      "dueAlertSentFor": "2026-10-28T04:00:00.000Z",
+      "overdueMarkedFor": "2026-10-28T04:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-skyline",
+      "title": "By 11:00 AM – The Skyline Cleaning & Prep (1 Table + 4 Chairs)",
+      "description": "Priority 1 room schedule (complete by 11:00 AM IST): full cleaning, table sanitization, chair alignment, and readiness verification for The Skyline (verified setup: 1 table + 4 chairs).",
+      "roomAreaId": "room-6",
+      "roomAreaName": "The Skyline",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T04:15:00.000Z",
+      "dueTime": "11:00 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify The Skyline configuration: 1 table + 4 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 4 chairs neatly with uniform spacing",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-28T04:15:00.000Z",
+      "dueAlertSentFor": "2026-10-28T04:15:00.000Z",
+      "overdueMarkedFor": "2026-10-28T04:15:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-water-10am",
+      "title": "10:00 AM – Deliver Filled Water Bottles to Every Employee's Desk",
+      "description": "Morning 10:00 AM IST hydration round: deliver freshly filled drinking water bottles to every employee desk across Employee Desks, Prime Loft, and active staff desks (Priya Sen, Kimmi, Operations Administrator).",
+      "roomAreaId": "room-2",
+      "roomAreaName": "Employee Desks",
+      "priority": "P1",
+      "taskType": "WATER_DISTRIBUTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic 10:00 AM IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T04:30:00.000Z",
+      "dueTime": "10:30 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Fill and sanitize fresh drinking water bottles in pantry for morning delivery",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Deliver filled water bottles to every workstation in Employee Desks",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Deliver filled water bottles to Prime Loft workstations and executive/staff desks (Priya Sen, Kimmi, Operations Administrator)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Place bottles neatly on coasters and note any unoccupied workstation exceptions",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live verification photo of 10:00 AM desk water delivery",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-28T04:30:00.000Z",
+      "dueAlertSentFor": "2026-10-28T04:30:00.000Z",
+      "overdueMarkedFor": "2026-10-28T04:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-community",
+      "title": "By 11:00 AM – Community Cleaning & Prep (1 Large Table + 10 Chairs)",
+      "description": "Priority 1 room schedule (complete by 11:00 AM IST): full cleaning, table sanitization, chair alignment, and readiness verification for Community (verified setup: 1 large table + 10 chairs).",
+      "roomAreaId": "room-7",
+      "roomAreaName": "Community",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T04:40:00.000Z",
+      "dueTime": "11:00 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Community configuration: 1 large table + 10 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 large table and surrounding pantry/lounge counter",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 10 chairs evenly around the table",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Perform room readiness check (refreshment station, napkins, water supply, lighting)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-28T04:40:00.000Z",
+      "dueAlertSentFor": "2026-10-28T04:40:00.000Z",
+      "overdueMarkedFor": "2026-10-28T04:40:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-summit",
+      "title": "By 11:00 AM – The Summit Cleaning & Prep (1 Table + 4 Chairs)",
+      "description": "Priority 1 room schedule (complete by 11:00 AM IST): full cleaning, table sanitization, chair alignment, and readiness verification for The Summit (verified setup: 1 table + 4 chairs).",
+      "roomAreaId": "room-8",
+      "roomAreaName": "The Summit",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T04:55:00.000Z",
+      "dueTime": "11:00 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify The Summit configuration: 1 table + 4 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 4 chairs neatly with uniform spacing",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-28T04:55:00.000Z",
+      "dueAlertSentFor": "2026-10-28T04:55:00.000Z",
+      "overdueMarkedFor": "2026-10-28T04:55:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-wcr-air",
+      "title": "By 11:00 AM – WCR Air Cleaning & Prep (1 Table + 4 Chairs)",
+      "description": "Priority 1 room schedule (complete by 11:00 AM IST): full cleaning, table sanitization, chair alignment, and readiness verification for WCR Air (verified setup: 1 table + 4 chairs).",
+      "roomAreaId": "room-9",
+      "roomAreaName": "WCR Air",
+      "priority": "P1",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T05:10:00.000Z",
+      "dueTime": "11:00 AM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify WCR Air configuration: 1 table + 4 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 4 chairs neatly with uniform spacing",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "fiveMinAlertSentFor": "2026-10-28T05:10:00.000Z",
+      "dueAlertSentFor": "2026-10-28T05:10:00.000Z",
+      "overdueMarkedFor": "2026-10-28T05:10:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-exec-cabin",
+      "title": "By 12:00 PM – Lalit Sir Room Cleaning & Setup (1 Table + 4 Chairs)",
+      "description": "Priority 2 schedule (complete by 12:00 PM IST): clean, sanitize, align chairs, and verify readiness for Lalit Sir Room (verified setup: 1 table + 4 chairs).",
+      "roomAreaId": "room-3",
+      "roomAreaName": "Lalit Sir Room",
+      "priority": "P2",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T05:30:00.000Z",
+      "dueTime": "12:00 PM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Lalit Sir Room configuration: 1 table + 4 chairs present and arranged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize table/desk surfaces and coasters",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 4 chairs neatly",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Replenish fresh water supply and verify room readiness",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-28T06:33:47.853Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (12:00 PM)"
+        }
+      ],
+      "fiveMinAlertSentFor": "2026-10-28T05:30:00.000Z",
+      "dueAlertSentFor": "2026-10-28T05:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0,
+      "overdueMarkedFor": "2026-10-28T05:30:00.000Z"
+    },
+    {
+      "id": "task-2026-10-28-elegance",
+      "title": "By 12:00 PM – Elegance Suite (Kimmi Mam Room) Cleaning & Setup (1 Table + 4 Chairs)",
+      "description": "Priority 2 schedule (complete by 12:00 PM IST): clean, sanitize, align chairs, and verify readiness for Elegance Suite (Kimmi Mam Room) (verified setup: 1 table + 4 chairs).",
+      "roomAreaId": "room-10",
+      "roomAreaName": "Elegance Suite (Kimmi Mam Room)",
+      "priority": "P2",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T05:45:00.000Z",
+      "dueTime": "12:00 PM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Elegance Suite (Kimmi Mam Room) configuration: 1 table + 4 chairs present and undamaged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize the 1 meeting table and presentation surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 4 chairs neatly with uniform spacing",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Complete room readiness check (sealed water setup, screen/whiteboard, lighting, AC, empty bin)",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live room readiness verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-28T06:33:47.853Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (12:00 PM)"
+        }
+      ],
+      "fiveMinAlertSentFor": "2026-10-28T05:45:00.000Z",
+      "dueAlertSentFor": "2026-10-28T05:45:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0,
+      "overdueMarkedFor": "2026-10-28T05:45:00.000Z"
+    },
+    {
+      "id": "task-2026-10-28-prime-loft",
+      "title": "By 12:00 PM – Prime Loft Cleaning & Workstation Alignment",
+      "description": "Priority 2 schedule (complete by 12:00 PM IST): tidy Prime Loft desks, clean shared cabinet surfaces, align chairs, and inspect walkways.",
+      "roomAreaId": "room-11",
+      "roomAreaName": "Prime Loft",
+      "priority": "P2",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T06:00:00.000Z",
+      "dueTime": "12:00 PM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Tidy Prime Loft workstations and check walkways",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean shared filing cabinet tops and align chairs",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Check lighting and floor cleanliness",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Upload photo evidence",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-28T06:33:47.853Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (12:00 PM)"
+        }
+      ],
+      "fiveMinAlertSentFor": "2026-10-28T06:00:00.000Z",
+      "dueAlertSentFor": "2026-10-28T06:00:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0,
+      "overdueMarkedFor": "2026-10-28T06:00:00.000Z"
+    },
+    {
+      "id": "task-2026-10-28-regency",
+      "title": "By 12:00 PM – Regency Cleaning & Setup (1 Table + 4 Chairs)",
+      "description": "Priority 2 schedule (complete by 12:00 PM IST): clean, sanitize, align chairs, and verify readiness for Regency (verified setup: 1 table + 4 chairs).",
+      "roomAreaId": "room-12",
+      "roomAreaName": "Regency",
+      "priority": "P2",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T06:15:00.000Z",
+      "dueTime": "12:00 PM",
+      "status": "OVERDUE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Verify Regency configuration: 1 table + 4 chairs present and arranged",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean and sanitize table/desk surfaces and coasters",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Clean and align all 4 chairs neatly",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Replenish fresh water supply and verify room readiness",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-28T06:33:47.853Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "AVAILABLE",
+          "toStatus": "OVERDUE",
+          "note": "Automatically marked OVERDUE past deadline (12:00 PM)"
+        }
+      ],
+      "fiveMinAlertSentFor": "2026-10-28T06:15:00.000Z",
+      "dueAlertSentFor": "2026-10-28T06:15:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0,
+      "overdueMarkedFor": "2026-10-28T06:15:00.000Z"
+    },
+    {
+      "id": "task-2026-10-28-plants",
+      "title": "12:00 PM – Water All Office Plants",
+      "description": "Daily 12:00 PM IST plant hydration: inspect soil moisture and water all indoor office plants across Reception, meeting corridors, cabins, Community, and workstation bays.",
+      "roomAreaId": "room-15",
+      "roomAreaName": "Office Plants",
+      "priority": "P2",
+      "taskType": "PLANTS",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic 12:00 PM IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T06:30:00.000Z",
+      "dueTime": "12:30 PM",
+      "status": "AVAILABLE",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Check soil moisture and water indoor plants in Reception and entrance zone",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Water planters outside meeting rooms, The Community, and executive corridors",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Water workstation bay plants carefully without floor spills",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Wipe planter pots, remove dry leaves, and upload verification photo",
+          "completed": false
+        }
+      ],
+      "changeHistory": [
+        {
+          "timestamp": "2026-10-28T06:33:47.853Z",
+          "actorEmail": "system@whitecollarrealty.com",
+          "actorName": "IST Task Scheduler",
+          "fromStatus": "SCHEDULED",
+          "toStatus": "AVAILABLE",
+          "note": "Task automatically activated at scheduled time (28 Oct 2026, 12:00 PM IST)"
+        }
+      ],
+      "fiveMinAlertSentFor": "2026-10-28T06:30:00.000Z",
+      "photoEvidences": [],
+      "photoCount": 0,
+      "dueAlertSentFor": "2026-10-28T06:30:00.000Z"
+    },
+    {
+      "id": "task-2026-10-28-outer-area",
+      "title": "12:20 PM – Clean Areas Outside & Around Prepared Rooms",
+      "description": "Following room preparation, clean corridors, glass exteriors, thresholds, and surrounding walkways outside each prepared room (Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency) and outer entrance area.",
+      "roomAreaId": "room-14",
+      "roomAreaName": "Outer Area",
+      "priority": "P3",
+      "taskType": "OUTER_AREA",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T06:50:00.000Z",
+      "dueTime": "12:50 PM",
+      "status": "SCHEDULED",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Clean corridors and surrounding floor areas outside Prestige Loft, The Skyline, Community, The Summit, WCR Air, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Prime Loft, Regency",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Wipe exterior glass partitions, door handles, and room nameplates around each room",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Sweep entrance walkway, outer porch, and doormat zone",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Verify clear, spotless passageways across all corridors",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live verification photo of outside/around-room areas",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "photoEvidences": [],
+      "photoCount": 0,
+      "fiveMinAlertSentFor": "2026-10-28T06:50:00.000Z"
+    },
+    {
+      "id": "task-2026-10-28-dustbins",
+      "title": "02:00 PM – Office Dustbins Emptying & Liner Replacement",
+      "description": "Afternoon sequence: empty all office and pantry dustbins, fit clean heavy-duty liners, sanitize covers, and return bins to designated spots.",
+      "roomAreaId": "room-13",
+      "roomAreaName": "Office Dustbins",
+      "priority": "P4",
+      "taskType": "ROUTINE_CLEANING",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Daily IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T08:30:00.000Z",
+      "dueTime": "02:30 PM",
+      "status": "SCHEDULED",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Empty all registered office and pantry dustbins",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Fit clean heavy-duty bin liners properly",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Wipe and sanitize exterior dustbin surfaces",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Return dustbins to their designated corners/under-desk spots",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture evidence photo of cleared disposal area",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-water-4pm",
+      "title": "4:00 PM – Refill & Redistribute Water Bottles to Every Employee's Desk",
+      "description": "Afternoon 4:00 PM IST hydration round: collect empty or low bottles, refill with fresh chilled drinking water, and redistribute filled bottles to every employee desk across Employee Desks, Prime Loft, and staff workstations.",
+      "roomAreaId": "room-2",
+      "roomAreaName": "Employee Desks",
+      "priority": "P1",
+      "taskType": "WATER_RECHECK",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic 4:00 PM IST Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T10:30:00.000Z",
+      "dueTime": "04:30 PM",
+      "status": "SCHEDULED",
+      "isUrgent": false,
+      "checklist": [
+        {
+          "id": "c-1",
+          "text": "Collect empty or low water bottles from Employee Desks and workstation rows",
+          "completed": false
+        },
+        {
+          "id": "c-2",
+          "text": "Clean, sanitize, and refill bottles with fresh chilled drinking water in pantry",
+          "completed": false
+        },
+        {
+          "id": "c-3",
+          "text": "Redistribute filled water bottles to every active employee desk (including Priya Sen, Kimmi, Operations Administrator)",
+          "completed": false
+        },
+        {
+          "id": "c-4",
+          "text": "Place refilled bottles neatly on coasters and realign any pushed-out chairs",
+          "completed": false
+        },
+        {
+          "id": "c-5",
+          "text": "Capture and upload live verification photo of 4:00 PM desk water redistribution",
+          "completed": false
+        }
+      ],
+      "changeHistory": [],
+      "photoEvidences": [],
+      "photoCount": 0
+    },
+    {
+      "id": "task-2026-10-28-closing",
+      "title": "7:30 PM – Mandatory End-of-Day Office Closing Inspection",
+      "description": "Comprehensive end-of-day check: Reception, Employee Desks, Lalit Sir Room, Elegance Suite (Kimmi Mam Room), Meeting Rooms, Dustbins, and Pantry Appliance Lockdown.",
+      "roomAreaId": "room-1",
+      "roomAreaName": "Reception & All Areas",
+      "priority": "P1",
+      "taskType": "CLOSING_INSPECTION",
+      "assignedToEmail": "raju.sharma@whitecollarrealty.com",
+      "assignedToName": "Raju Sharma",
+      "createdByEmail": "system@whitecollarrealty.com",
+      "createdByName": "Automatic Closing Scheduler",
+      "createdAt": "2026-10-28T03:30:00.000Z",
+      "scheduledFor": "2026-10-28T14:00:00.000Z",
       "dueTime": "07:55 PM",
       "status": "SCHEDULED",
       "isUrgent": false,
@@ -3827,7 +4931,9 @@
           "completed": false
         }
       ],
-      "changeHistory": []
+      "changeHistory": [],
+      "photoEvidences": [],
+      "photoCount": 0
     }
   ],
   "visitors": [
@@ -3859,6 +4965,666 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1793170006139-xmvb",
+      "timestamp": "2026-10-28T06:46:46.139Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170005833-aj45",
+      "timestamp": "2026-10-28T06:46:45.833Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170005793-6nm4",
+      "timestamp": "2026-10-28T06:46:45.793Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793170004441-3sjk",
+      "timestamp": "2026-10-28T06:46:44.441Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_DELETED",
+      "entityType": "TASK",
+      "entityId": "task-1793170004327-3jcp",
+      "details": "Deleted task \"Audit Durability Verification Task\" in Prestige Loft"
+    },
+    {
+      "id": "audit-1793170004393-mboe",
+      "timestamp": "2026-10-28T06:46:44.393Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "PHOTO_SUBMITTED",
+      "entityType": "PHOTO",
+      "entityId": "photo-1793170004392-d850560a-1",
+      "details": "Uploaded 1 live camera photo(s) for task \"Audit Durability Verification Task\". Server timestamp: 2026-10-28T06:46:44.392Z. Session: live."
+    },
+    {
+      "id": "audit-1793170004328-t9ou",
+      "timestamp": "2026-10-28T06:46:44.328Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_ASSIGNED",
+      "entityType": "TASK",
+      "entityId": "task-1793170004327-3jcp",
+      "details": "Assigned \"Audit Durability Verification Task\" for Prestige Loft (28 Oct 2026, 12:16 PM IST) with priority P3 to Priya Sen"
+    },
+    {
+      "id": "audit-1793170004319-7vkf",
+      "timestamp": "2026-10-28T06:46:44.319Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793170004313-5p0o",
+      "timestamp": "2026-10-28T06:46:44.313Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170004300-ohu9",
+      "timestamp": "2026-10-28T06:46:44.300Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170004294-ntfn",
+      "timestamp": "2026-10-28T06:46:44.294Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170004280-nrko",
+      "timestamp": "2026-10-28T06:46:44.280Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793170004269-9y3t",
+      "timestamp": "2026-10-28T06:46:44.269Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169998308-ux0m",
+      "timestamp": "2026-10-28T06:46:38.308Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "PHOTO_SUBMITTED",
+      "entityType": "PHOTO",
+      "entityId": "photo-1793169998307-e8f53001-1",
+      "details": "Uploaded 2 live camera photo(s) for task \"9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup\". Server timestamp: 2026-10-28T06:46:38.307Z. Session: csess_1793169998302_bc6ef3985a37."
+    },
+    {
+      "id": "audit-1793169998255-2mgq",
+      "timestamp": "2026-10-28T06:46:38.255Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169691455-rpdq",
+      "timestamp": "2026-10-28T06:41:31.455Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "PHOTO_SUBMITTED",
+      "entityType": "PHOTO",
+      "entityId": "photo-1793169691454-9d8cdd6f-1",
+      "details": "Uploaded 2 live camera photo(s) for task \"9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup\". Server timestamp: 2026-10-28T06:41:31.454Z. Session: csess_1793169691448_4fe8411e8aad."
+    },
+    {
+      "id": "audit-1793169691417-4vqs",
+      "timestamp": "2026-10-28T06:41:31.417Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGIN_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged in at 12:11:31 pm IST."
+    },
+    {
+      "id": "audit-1793169691406-rw9i",
+      "timestamp": "2026-10-28T06:41:31.406Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169638510-0fup",
+      "timestamp": "2026-10-28T06:40:38.510Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169637158-uxzb",
+      "timestamp": "2026-10-28T06:40:37.158Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793169603885-6zmd",
+      "timestamp": "2026-10-28T06:40:03.885Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169601978-253c",
+      "timestamp": "2026-10-28T06:40:01.978Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793169601974-4rpz",
+      "timestamp": "2026-10-28T06:40:01.974Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "ATTENDANCE_LOGOUT_RECORDED",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Pantry Boy logged out at 12:10:01 pm IST. Total working duration: 0h 1m."
+    },
+    {
+      "id": "audit-1793169451677-1fjj",
+      "timestamp": "2026-10-28T06:37:31.677Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169451115-khif",
+      "timestamp": "2026-10-28T06:37:31.115Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169451097-79oj",
+      "timestamp": "2026-10-28T06:37:31.097Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169449807-tkx5",
+      "timestamp": "2026-10-28T06:37:29.807Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_DELETED",
+      "entityType": "TASK",
+      "entityId": "task-1793169449733-jx2u",
+      "details": "Deleted task \"Audit Durability Verification Task\" in Prestige Loft"
+    },
+    {
+      "id": "audit-1793169449787-f1k4",
+      "timestamp": "2026-10-28T06:37:29.787Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "PHOTO_SUBMITTED",
+      "entityType": "PHOTO",
+      "entityId": "photo-1793169449787-3fdfe3ee-1",
+      "details": "Uploaded 1 live camera photo(s) for task \"Audit Durability Verification Task\". Server timestamp: 2026-10-28T06:37:29.787Z. Session: live."
+    },
+    {
+      "id": "audit-1793169449735-7hz3",
+      "timestamp": "2026-10-28T06:37:29.735Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_ASSIGNED",
+      "entityType": "TASK",
+      "entityId": "task-1793169449733-jx2u",
+      "details": "Assigned \"Audit Durability Verification Task\" for Prestige Loft (28 Oct 2026, 12:07 PM IST) with priority P3 to Priya Sen"
+    },
+    {
+      "id": "audit-1793169449725-wakr",
+      "timestamp": "2026-10-28T06:37:29.725Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793169449720-o4ga",
+      "timestamp": "2026-10-28T06:37:29.720Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169449708-bwk0",
+      "timestamp": "2026-10-28T06:37:29.708Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169449703-l8f8",
+      "timestamp": "2026-10-28T06:37:29.703Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169449693-5vup",
+      "timestamp": "2026-10-28T06:37:29.693Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169449684-7m26",
+      "timestamp": "2026-10-28T06:37:29.684Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169436588-j9bj",
+      "timestamp": "2026-10-28T06:37:16.588Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "PHOTO_SUBMITTED",
+      "entityType": "PHOTO",
+      "entityId": "photo-1793169436587-2b37f028-1",
+      "details": "Uploaded 2 live camera photo(s) for task \"9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup\". Server timestamp: 2026-10-28T06:37:16.587Z. Session: csess_1793169436580_e5fd31d1569a."
+    },
+    {
+      "id": "audit-1793169436529-7it0",
+      "timestamp": "2026-10-28T06:37:16.529Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169386474-nty3",
+      "timestamp": "2026-10-28T06:36:26.474Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169386120-aix3",
+      "timestamp": "2026-10-28T06:36:26.120Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169386090-h354",
+      "timestamp": "2026-10-28T06:36:26.090Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169384715-4064",
+      "timestamp": "2026-10-28T06:36:24.715Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_DELETED",
+      "entityType": "TASK",
+      "entityId": "task-1793169384627-qckk",
+      "details": "Deleted task \"Audit Durability Verification Task\" in Prestige Loft"
+    },
+    {
+      "id": "audit-1793169384628-tgf7",
+      "timestamp": "2026-10-28T06:36:24.628Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_ASSIGNED",
+      "entityType": "TASK",
+      "entityId": "task-1793169384627-qckk",
+      "details": "Assigned \"Audit Durability Verification Task\" for Prestige Loft (28 Oct 2026, 12:06 PM IST) with priority P3 to Priya Sen"
+    },
+    {
+      "id": "audit-1793169384619-mlv7",
+      "timestamp": "2026-10-28T06:36:24.619Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793169384613-jlsl",
+      "timestamp": "2026-10-28T06:36:24.613Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169384601-rynn",
+      "timestamp": "2026-10-28T06:36:24.601Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169384595-utfn",
+      "timestamp": "2026-10-28T06:36:24.595Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169384581-6av1",
+      "timestamp": "2026-10-28T06:36:24.581Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169384572-wg7w",
+      "timestamp": "2026-10-28T06:36:24.572Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169375951-xo03",
+      "timestamp": "2026-10-28T06:36:15.951Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169329430-xb2s",
+      "timestamp": "2026-10-28T06:35:29.430Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169329072-alng",
+      "timestamp": "2026-10-28T06:35:29.072Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169329044-jbyk",
+      "timestamp": "2026-10-28T06:35:29.044Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "SCHEDULER_MILESTONE_TRIGGERED",
+      "entityType": "SCHEDULE",
+      "entityId": "milestone-9AM_START",
+      "details": "Manually triggered 9AM_START scheduler milestone"
+    },
+    {
+      "id": "audit-1793169327587-leu9",
+      "timestamp": "2026-10-28T06:35:27.587Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_DELETED",
+      "entityType": "TASK",
+      "entityId": "task-1793169327534-vvl2",
+      "details": "Deleted task \"Audit Durability Verification Task\" in Prestige Loft"
+    },
+    {
+      "id": "audit-1793169327536-tsz0",
+      "timestamp": "2026-10-28T06:35:27.536Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "TASK_ASSIGNED",
+      "entityType": "TASK",
+      "entityId": "task-1793169327534-vvl2",
+      "details": "Assigned \"Audit Durability Verification Task\" for Prestige Loft (28 Oct 2026, 12:05 PM IST) with priority P3 to Priya Sen"
+    },
+    {
+      "id": "audit-1793169327520-q7nu",
+      "timestamp": "2026-10-28T06:35:27.520Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGOUT",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged out and revoked session token wcr_sess_user-..."
+    },
+    {
+      "id": "audit-1793169327513-oag2",
+      "timestamp": "2026-10-28T06:35:27.513Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169327500-oq0q",
+      "timestamp": "2026-10-28T06:35:27.500Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169327494-ri04",
+      "timestamp": "2026-10-28T06:35:27.494Z",
+      "actorEmail": "priya.sen@whitecollarrealty.com",
+      "actorName": "Priya Sen",
+      "actorRole": "HR",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-hr-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169327481-l72u",
+      "timestamp": "2026-10-28T06:35:27.481Z",
+      "actorEmail": "raju.sharma@whitecollarrealty.com",
+      "actorName": "Raju Sharma",
+      "actorRole": "PANTRY_BOY",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-pantry-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793169327469-at4j",
+      "timestamp": "2026-10-28T06:35:27.469Z",
+      "actorEmail": "admin.director@whitecollarrealty.com",
+      "actorName": "Operations Administrator",
+      "actorRole": "ADMIN",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-admin-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
+    {
+      "id": "audit-1793168585299-lm0w",
+      "timestamp": "2026-10-28T06:23:05.299Z",
+      "actorEmail": "kimmi.mam@whitecollarrealty.com",
+      "actorName": "Kimmi",
+      "actorRole": "KIMMY_MAM",
+      "action": "USER_LOGIN",
+      "entityType": "USER",
+      "entityId": "user-kimmy-1",
+      "details": "Logged in successfully (Session wcr_sess_user-...)"
+    },
     {
       "id": "audit-1793106198740-bs7d",
       "timestamp": "2026-10-27T13:03:18.740Z",
@@ -7943,6 +9709,192 @@
   ],
   "notifications": [
     {
+      "id": "notif-1793170006134-aj04",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:46:46.134Z"
+    },
+    {
+      "id": "notif-1793170005827-uhxi",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:46:45.827Z"
+    },
+    {
+      "id": "notif-1793170005788-pm9y",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:46:45.788Z"
+    },
+    {
+      "id": "notif-1793169998312-0hjp",
+      "title": "Photo Evidence Submitted: Employee Desks",
+      "message": "Raju Sharma uploaded 2 photo(s) for \"9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup\". Under review by HR / Kimmi.",
+      "type": "PHOTO_SUBMITTED",
+      "recipientRole": "HR",
+      "taskId": "task-2026-10-26-desks",
+      "roomName": "Employee Desks",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:46:38.312Z"
+    },
+    {
+      "id": "notif-1793169900253-zlmw",
+      "title": "⏰ Starts in 5 Mins: 12:20 PM – Clean Areas Outside & Around Prepared Rooms",
+      "message": "Upcoming scheduled task in Outer Area at 28 Oct 2026, 12:20 PM IST. Prepare required supplies.",
+      "type": "TASK_UPCOMING_WARNING",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-2026-10-28-outer-area",
+      "roomId": "room-14",
+      "roomName": "Outer Area",
+      "priority": "P3",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:45:00.253Z"
+    },
+    {
+      "id": "notif-1793169691460-nus2",
+      "title": "Photo Evidence Submitted: Employee Desks",
+      "message": "Raju Sharma uploaded 2 photo(s) for \"9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup\". Under review by HR / Kimmi.",
+      "type": "PHOTO_SUBMITTED",
+      "recipientRole": "HR",
+      "taskId": "task-2026-10-26-desks",
+      "roomName": "Employee Desks",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:41:31.460Z"
+    },
+    {
+      "id": "notif-1793169451672-74ho",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:37:31.672Z"
+    },
+    {
+      "id": "notif-1793169451110-6srs",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:37:31.110Z"
+    },
+    {
+      "id": "notif-1793169451091-focn",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:37:31.091Z"
+    },
+    {
+      "id": "notif-1793169436592-lugd",
+      "title": "Photo Evidence Submitted: Employee Desks",
+      "message": "Raju Sharma uploaded 2 photo(s) for \"9:00–9:15 AM – Employee Desk Cleaning & Workstation Setup\". Under review by HR / Kimmi.",
+      "type": "PHOTO_SUBMITTED",
+      "recipientRole": "HR",
+      "taskId": "task-2026-10-26-desks",
+      "roomName": "Employee Desks",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:37:16.592Z"
+    },
+    {
+      "id": "notif-1793169386467-9x5a",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:36:26.467Z"
+    },
+    {
+      "id": "notif-1793169386116-9o7s",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:36:26.116Z"
+    },
+    {
+      "id": "notif-1793169386086-tj66",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:36:26.086Z"
+    },
+    {
+      "id": "notif-1793169329420-1ofe",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:35:29.420Z"
+    },
+    {
+      "id": "notif-1793169329067-8ewo",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:35:29.067Z"
+    },
+    {
+      "id": "notif-1793169329040-pnbd",
+      "title": "9:00 AM IST Daily Schedule Verified",
+      "message": "Employee Desk Cleaning (by 9:30 AM), Priority 1 rooms (by 11:00 AM), and Priority 2 rooms (by 12:00 PM) are active.",
+      "type": "TASK_ASSIGNED",
+      "recipientRole": "PANTRY_BOY",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:35:29.040Z"
+    },
+    {
+      "id": "notif-1793168700652-k67r",
+      "title": "⏰ Starts in 5 Mins: 12:00 PM – Water All Office Plants",
+      "message": "Upcoming scheduled task in Office Plants at 28 Oct 2026, 12:00 PM IST. Prepare required supplies.",
+      "type": "TASK_UPCOMING_WARNING",
+      "recipientRole": "PANTRY_BOY",
+      "recipientEmail": "raju.sharma@whitecollarrealty.com",
+      "taskId": "task-2026-10-28-plants",
+      "roomId": "room-15",
+      "roomName": "Office Plants",
+      "priority": "P2",
+      "targetOnlyPantryBoy": false,
+      "read": false,
+      "timestamp": "2026-10-28T06:25:00.652Z"
+    },
+    {
       "id": "notif-1793104662972-wi83",
       "title": "🔔 Task Time Now: [WATER SERVICE] Deliver Fresh Water to The Skyline",
       "message": "Scheduled task is due now in The Skyline (27 Oct 2026, 06:07 PM IST). Start task and complete mandatory checklist.",
@@ -8582,7 +10534,7 @@
       "timestamp": "2026-10-26T07:48:15.767Z"
     }
   ],
-  "lastGeneratedDate": "2026-10-27",
+  "lastGeneratedDate": "2026-10-28",
   "pantryRequests": [
     {
       "id": "preq-1793009739261",
@@ -8649,6 +10601,35 @@
     }
   ],
   "attendance": [
+    {
+      "id": "att-2026-10-28-user-pantry-1-s2",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-28",
+      "loginTime": "2026-10-28T06:41:31.412Z",
+      "loginTimeIST": "12:11:31 pm",
+      "status": "PRESENT",
+      "createdAt": "2026-10-28T06:41:31.412Z",
+      "updatedAt": "2026-10-28T06:46:44.284Z"
+    },
+    {
+      "id": "att-2026-10-28-user-pantry-1",
+      "userId": "user-pantry-1",
+      "userEmail": "raju.sharma@whitecollarrealty.com",
+      "userName": "Raju Sharma",
+      "role": "PANTRY_BOY",
+      "date": "2026-10-28",
+      "loginTime": "2026-10-28T09:00:15.000Z",
+      "loginTimeIST": "09:00:15 AM",
+      "status": "COMPLETED",
+      "createdAt": "2026-10-28T09:00:15.000Z",
+      "updatedAt": "2026-10-28T06:40:01.968Z",
+      "logoutTime": "2026-10-28T06:40:01.968Z",
+      "logoutTimeIST": "12:10:01 pm",
+      "elapsedMinutes": 1
+    },
     {
       "id": "att-2026-10-27-user-pantry-1-s14",
       "userId": "user-pantry-1",
@@ -8902,6 +10883,10 @@
     "task-1793097089414-dhu0",
     "task-1793097210454-4snc",
     "task-1793098931618-pm7p",
-    "task-1793100236874-tmrl"
+    "task-1793100236874-tmrl",
+    "task-1793169327534-vvl2",
+    "task-1793169384627-qckk",
+    "task-1793169449733-jx2u",
+    "task-1793170004327-3jcp"
   ]
 }
