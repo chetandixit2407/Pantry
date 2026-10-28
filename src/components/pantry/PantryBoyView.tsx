@@ -229,6 +229,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
   const [tasks, setTasks] = useState<Task[]>([]);
   const [rooms, setRooms] = useState<RoomArea[]>([]);
   const [pantryRequests, setPantryRequests] = useState<PantryRequest[]>([]);
+  const [allRoomEvidence, setAllRoomEvidence] = useState<Record<string, PhotoEvidence[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -404,15 +405,17 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
   // Data loader
   const loadData = useCallback(async () => {
     try {
-      const [fetchedTasks, fetchedRooms, fetchedRequests] = await Promise.all([
+      const [fetchedTasks, fetchedRooms, fetchedRequests, fetchedEvidence] = await Promise.all([
         api.getTasks().catch(() => []),
         api.getRooms().catch(() => []),
         api.getPantryRequests().catch(() => []),
+        api.getRoomEvidence().catch(() => ({})),
       ]);
       const ordered = sortTasksChronologically(fetchedTasks);
       setTasks(ordered);
       setRooms(fetchedRooms);
       setPantryRequests(fetchedRequests);
+      setAllRoomEvidence(fetchedEvidence || {});
       setServerNowMs(getServerNowMs());
 
       setSelectedTask((prevSelected) => {
@@ -718,10 +721,32 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
   );
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === 'COMPLETED'), [tasks]);
 
-  // Persisted evidence mapped per room across assigned tasks (newest first)
+  // Persisted evidence mapped per room across all company operational submissions (newest first)
   const roomEvidenceMap = useMemo(() => {
     const map = new Map<string, PhotoEvidence[]>();
     const seenByRoom = new Map<string, Set<string>>();
+
+    // 1. Seed from company-wide room evidence
+    if (allRoomEvidence && typeof allRoomEvidence === 'object') {
+      for (const [roomId, photos] of Object.entries(allRoomEvidence)) {
+        if (!Array.isArray(photos)) continue;
+        if (!map.has(roomId)) {
+          map.set(roomId, []);
+          seenByRoom.set(roomId, new Set());
+        }
+        const list = map.get(roomId)!;
+        const seen = seenByRoom.get(roomId)!;
+        for (const pe of photos) {
+          const key = pe.id || pe.photoUrl;
+          if (!seen.has(key)) {
+            seen.add(key);
+            list.push(pe);
+          }
+        }
+      }
+    }
+
+    // 2. Overlay any live task photo evidence
     for (const task of tasks) {
       const photos = getTaskPhotoEvidences(task);
       if (photos.length === 0) continue;
@@ -750,7 +775,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
       map.set(roomId, list);
     }
     return map;
-  }, [tasks]);
+  }, [tasks, allRoomEvidence]);
 
   // Task History & Submitted Evidence records (includes COMPLETED + tasks with uploaded evidence)
   const historyWithEvidenceTasks = useMemo(() => {

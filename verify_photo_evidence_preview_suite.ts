@@ -433,15 +433,26 @@ async function run() {
       { headers: { Authorization: `Bearer ${adminToken}` } }
     );
 
+    const unauthPhotoRes = await fetch(
+      `${baseUrl}/api/photos/${encodeURIComponent(multiFileNames[0])}`
+    );
+    const unauthUploadsRes = await fetch(
+      `${baseUrl}/uploads/photos/${encodeURIComponent(multiFileNames[0])}`
+    );
+    const unauthTaskEvRes = await fetch(`${baseUrl}/api/tasks/${multiTask.id}/evidence`);
+
     record(
-      '7. RBAC & BOLA Enforcement Across Roles (Other Pantry Boy 403; HR/Co-Founder/Admin 200)',
-      bolaPhotoRes.status === 403 &&
-        bolaUploadsRes.status === 403 &&
-        bolaTaskEvRes.status === 403 &&
+      '7. Cross-Role Evidence Viewing Across All 4 Roles (Pantry Boys, HR, Co-Founder, Admin 200; Unauth 401)',
+      bolaPhotoRes.status === 200 &&
+        bolaUploadsRes.status === 200 &&
+        bolaTaskEvRes.status === 200 &&
         hrPhotoRes.status === 200 &&
         cofounderPhotoRes.status === 200 &&
-        adminPhotoRes.status === 200,
-      `otherPantryApi=${bolaPhotoRes.status}, otherPantryUploads=${bolaUploadsRes.status}, otherPantryTaskEv=${bolaTaskEvRes.status}, hr=${hrPhotoRes.status}, cofounder=${cofounderPhotoRes.status}, admin=${adminPhotoRes.status}`
+        adminPhotoRes.status === 200 &&
+        unauthPhotoRes.status === 401 &&
+        unauthUploadsRes.status === 401 &&
+        unauthTaskEvRes.status === 401,
+      `otherPantryApi=${bolaPhotoRes.status}, otherPantryUploads=${bolaUploadsRes.status}, otherPantryTaskEv=${bolaTaskEvRes.status}, hr=${hrPhotoRes.status}, cofounder=${cofounderPhotoRes.status}, admin=${adminPhotoRes.status}, unauthApi=${unauthPhotoRes.status}, unauthUploads=${unauthUploadsRes.status}`
     );
 
     // Verify photo approval transitions task to COMPLETED (Task History) while keeping all 3 photos

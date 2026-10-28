@@ -481,6 +481,20 @@ export const api = {
     };
   },
 
+  async getRoomEvidence(): Promise<Record<string, PhotoEvidence[]>> {
+    try {
+      const res = await fetch(`${BASE_URL}/rooms/evidence`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      if (!res.ok) return {};
+      const data = await safeJson<{ roomEvidence?: Record<string, PhotoEvidence[]> }>(res, {});
+      return data.roomEvidence || {};
+    } catch {
+      return {};
+    }
+  },
+
   // Tasks
   async getServerTime(): Promise<{ serverTime: string; timezone: string }> {
     const res = await fetch(`${BASE_URL}/server-time`, {

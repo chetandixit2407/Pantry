@@ -197,50 +197,6 @@ function serveAuthorizedPhotoFile(req: express.Request, res: express.Response, r
     });
   }
 
-  const isManagementViewer =
-    actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin) || Boolean(perms.dashboards?.management);
-
-  const matchingTasks = db.tasks.filter((t) => {
-    const evidences =
-      Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0
-        ? t.photoEvidences
-        : t.photoEvidence
-        ? [t.photoEvidence]
-        : [];
-    return evidences.some((ev) => {
-      if (!ev?.photoUrl) return false;
-      const evBase = path.basename(ev.photoUrl.split('?')[0]);
-      return evBase === safeFileName;
-    });
-  });
-
-  if (!isManagementViewer) {
-    const actorEmailLower = actor.email.toLowerCase();
-    if (matchingTasks.length > 0) {
-      const ownsOrAssigned = matchingTasks.some((t) => {
-        if (t.assignedToEmail && t.assignedToEmail.toLowerCase() === actorEmailLower) return true;
-        const evidences =
-          Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0
-            ? t.photoEvidences
-            : t.photoEvidence
-            ? [t.photoEvidence]
-            : [];
-        return evidences.some((ev) => ev?.userEmail?.toLowerCase() === actorEmailLower);
-      });
-      if (!ownsOrAssigned) {
-        return res.status(403).json({
-          error: 'Access denied: You are only authorized to view photo evidence for your own assigned tasks.',
-          code: 'FORBIDDEN_EVIDENCE_ACCESS',
-        });
-      }
-    } else if (fs.existsSync(path.join(UPLOADS_DIR, safeFileName))) {
-      return res.status(403).json({
-        error: 'Access denied: Photo evidence is not associated with your assigned tasks.',
-        code: 'FORBIDDEN_EVIDENCE_ACCESS',
-      });
-    }
-  }
-
   const targetPath = path.join(UPLOADS_DIR, safeFileName);
   if (!fs.existsSync(targetPath)) {
     return res.status(404).json({
@@ -4709,20 +4665,10 @@ app.get('/api/rooms/:id/history', (req, res) => {
   const room = db.rooms.find((r) => r.id === req.params.id);
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
-  const perms = actor.permissions || getDefaultPermissions(actor.role);
-  const isManagementViewer =
-    actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin) || Boolean(perms.dashboards?.management);
-  const actorEmailLower = actor.email.toLowerCase();
-
   // Gather all photo evidence associated with this room's tasks across single & multi-photo submissions (with internal disk filePath redacted)
   const roomTasks = db.tasks.filter((t) => {
     if (t.roomAreaId !== room.id) return false;
-    const hasEvidence = (Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0) || Boolean(t.photoEvidence);
-    if (!hasEvidence) return false;
-    if (!isManagementViewer) {
-      return t.assignedToEmail?.toLowerCase() === actorEmailLower;
-    }
-    return true;
+    return (Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0) || Boolean(t.photoEvidence);
   });
 
   const photoHistory: PhotoEvidence[] = roomTasks
@@ -5905,7 +5851,69 @@ app.post(['/api/tasks/:id/photo', '/api/tasks/:id/photos'], async (req, res) => 
   }
 });
 
-// 5c. Authorized Photo Asset Retrieval & Task Evidence Metadata
+// 5c. Authorized Photo Asset Retrieval & Task/Room Evidence Metadata
+app.get('/api/rooms/evidence', (req, res) => {
+  const actor = getCurrentUser(req);
+  if (!actor) {
+    return res.status(401).json({
+      error: 'Session expired or authentication required to view room photo evidence.',
+      code: 'SESSION_EXPIRED_OR_UNAUTHENTICATED',
+    });
+  }
+  const canViewOperationalEvidence =
+    checkUserPermission(actor, 'tasks', 'view') || checkUserPermission(actor, 'rooms', 'view');
+  if (!canViewOperationalEvidence) {
+    return res.status(403).json({
+      error: 'Permission denied: Operational view access is required to inspect room evidence.',
+      code: 'FORBIDDEN_EVIDENCE_ACCESS',
+    });
+  }
+
+  const roomEvidence: Record<string, PhotoEvidence[]> = {};
+  for (const room of db.rooms) {
+    const roomTasks = db.tasks.filter((t) => {
+      if (t.roomAreaId !== room.id) return false;
+      return (Array.isArray(t.photoEvidences) && t.photoEvidences.length > 0) || Boolean(t.photoEvidence);
+    });
+    const photos: PhotoEvidence[] = roomTasks
+      .flatMap((t) => {
+        const normalized = normalizeTaskRecord(t);
+        const list =
+          Array.isArray(normalized.photoEvidences) && normalized.photoEvidences.length > 0
+            ? normalized.photoEvidences
+            : normalized.photoEvidence
+            ? [normalized.photoEvidence]
+            : [];
+        return list.map((ev) => {
+          const uploader = db.users.find(
+            (u) => u.email.toLowerCase() === String(ev.userEmail || '').toLowerCase()
+          );
+          const { filePath: _fp, ...safeEv } = ev;
+          return {
+            ...safeEv,
+            taskId: safeEv.taskId || normalized.id,
+            taskTitle: safeEv.taskTitle || normalized.title,
+            roomId: room.id,
+            roomName: normalizeRoomName(room.name),
+            userName: safeEv.userName || uploader?.name || normalized.assignedToName,
+            fileAvailable: isEvidenceFileOnDisk(safeEv.photoUrl),
+          };
+        });
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.serverTimestamp || a.capturedAt || 0).getTime() || 0;
+        const timeB = new Date(b.serverTimestamp || b.capturedAt || 0).getTime() || 0;
+        return timeB - timeA;
+      });
+
+    if (photos.length > 0) {
+      roomEvidence[room.id] = photos;
+    }
+  }
+
+  return res.json({ roomEvidence, serverTime: new Date().toISOString() });
+});
+
 app.get('/api/photos/:fileName', (req, res) => {
   return serveAuthorizedPhotoFile(req, res, req.params.fileName);
 });
@@ -5930,15 +5938,7 @@ app.get('/api/tasks/:id/evidence', (req, res) => {
     return res.status(404).json({ error: 'Task not found.', code: 'TASK_NOT_FOUND' });
   }
 
-  const perms = actor.permissions || getDefaultPermissions(actor.role);
-  const isManagementViewer =
-    actor.role === 'ADMIN' || Boolean(actor.isSuperAdmin) || Boolean(perms.dashboards?.management);
-  if (!isManagementViewer && task.assignedToEmail.toLowerCase() !== actor.email.toLowerCase()) {
-    return res.status(403).json({
-      error: 'Access denied: You can only view photo evidence for tasks assigned to you.',
-      code: 'FORBIDDEN_EVIDENCE_ACCESS',
-    });
-  }
+
 
   const normalized = normalizeTaskRecord(task);
   const evidences = (normalized.photoEvidences || []).map((ev) => {
