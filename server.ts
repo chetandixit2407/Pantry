@@ -6022,6 +6022,11 @@ setInterval(() => {
   }
 }, 1000);
 
+// Ensure any unhandled /api requests return a clean JSON 404 and never fall through to Vite HTML
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+});
+
 // -----------------------------------------------------------------------------
 // Vite Middleware / Static Asset Serving
 // -----------------------------------------------------------------------------

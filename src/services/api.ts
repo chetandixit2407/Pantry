@@ -60,12 +60,20 @@ function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<strin
 
 async function safeJson<T = any>(res: Response, fallback?: T): Promise<T> {
   try {
-    const contentType = res.headers.get('content-type');
-    if (contentType && !contentType.includes('application/json')) {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('text/html') || contentType.includes('text/plain')) {
       return (fallback ?? {}) as T;
     }
-    const data = await res.json().catch(() => fallback);
-    return (data !== undefined && data !== null ? data : fallback) as T;
+    const text = await res.text().catch(() => '');
+    if (!text || text.trim().startsWith('<')) {
+      return (fallback ?? {}) as T;
+    }
+    try {
+      const data = JSON.parse(text);
+      return (data !== undefined && data !== null ? data : fallback) as T;
+    } catch {
+      return (fallback ?? {}) as T;
+    }
   } catch {
     return (fallback ?? {}) as T;
   }
@@ -230,12 +238,16 @@ export const api = {
 
   // Rooms
   async getRooms(): Promise<RoomArea[]> {
-    const res = await fetch(`${BASE_URL}/rooms`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch rooms');
-    const data = await res.json();
-    return Array.isArray(data.rooms) ? data.rooms.map((r: RoomArea) => normalizeRoomRecord(r)) : [];
+    try {
+      const res = await fetch(`${BASE_URL}/rooms`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await safeJson<{ rooms: RoomArea[] }>(res, { rooms: [] });
+      return Array.isArray(data?.rooms) ? data.rooms.map((r: RoomArea) => normalizeRoomRecord(r)) : [];
+    } catch {
+      return [];
+    }
   },
 
   async addRoom(payload: Partial<RoomArea>): Promise<RoomArea> {

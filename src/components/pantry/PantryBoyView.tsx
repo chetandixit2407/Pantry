@@ -395,9 +395,9 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
   const loadData = useCallback(async () => {
     try {
       const [fetchedTasks, fetchedRooms, fetchedRequests] = await Promise.all([
-        api.getTasks(),
-        api.getRooms(),
-        api.getPantryRequests(),
+        api.getTasks().catch(() => []),
+        api.getRooms().catch(() => []),
+        api.getPantryRequests().catch(() => []),
       ]);
       const ordered = sortTasksChronologically(fetchedTasks);
       setTasks(ordered);
@@ -901,21 +901,33 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
       >
         {/* Brand Wordmark & Collapse Button */}
         <div
-          className={`h-16 px-4 flex items-center border-b border-slate-200 shrink-0 transition-all duration-300 ${
-            sidebarCollapsed ? 'justify-center' : 'justify-between'
+          className={`border-b border-slate-200 shrink-0 transition-all duration-300 ${
+            sidebarCollapsed
+              ? 'py-3.5 px-2 flex flex-col items-center justify-center gap-2'
+              : 'h-16 px-4 flex items-center justify-between'
           }`}
         >
-          <div className="flex items-center gap-3 overflow-hidden min-w-0">
+          <div
+            className={`flex items-center min-w-0 ${
+              sidebarCollapsed
+                ? 'justify-center w-full'
+                : 'gap-3 flex-1 mr-2'
+            }`}
+          >
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.96 }}
-              className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs overflow-hidden cursor-pointer"
               onClick={() => {
                 if (sidebarCollapsed) setSidebarCollapsed(false);
               }}
-              title={sidebarCollapsed ? 'Click to expand' : undefined}
+              title={sidebarCollapsed ? 'Click to expand sidebar' : 'White Collar Realty'}
             >
-              <img src="/assets/wcr_logo.png" alt="WCR" className="w-full h-full object-contain" />
+              <img
+                src="/assets/wcr_logo.png"
+                alt="White Collar Realty"
+                className="w-full h-full object-contain"
+              />
             </motion.div>
 
             <AnimatePresence mode="wait">
@@ -925,10 +937,14 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="min-w-0"
+                  className="min-w-0 flex-1 overflow-hidden"
                 >
-                  <div className="font-bold text-slate-900 text-sm leading-tight truncate">White Collar Realty</div>
-                  <div className="text-[10px] text-slate-500 font-medium tracking-tight">SmartPantry Attendant</div>
+                  <div className="font-bold text-slate-900 text-sm leading-tight truncate">
+                    White Collar Realty
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium tracking-tight truncate">
+                    SmartPantry Attendant
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -937,7 +953,7 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
           <button
             type="button"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0 flex items-center justify-center"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -1179,19 +1195,19 @@ export const PantryBoyView: React.FC<PantryBoyViewProps> = ({ isPreviewMode = fa
               className="relative w-72 bg-white wcr-h-dvh flex flex-col p-4 shadow-2xl z-10"
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-3 shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
-                    <img src="/assets/wcr_logo.png" alt="WCR" className="w-full h-full object-contain" />
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                    <img src="/assets/wcr_logo.png" alt="White Collar Realty" className="w-full h-full object-contain" />
                   </div>
-                  <div>
-                    <div className="font-bold text-slate-900 text-xs">White Collar Realty</div>
-                    <div className="text-[10px] text-slate-500">Pantry Attendant Portal</div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-900 text-xs truncate">White Collar Realty</div>
+                    <div className="text-[10px] text-slate-500 truncate">Pantry Attendant Portal</div>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 transition-colors"
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 transition-colors shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
