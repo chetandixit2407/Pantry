@@ -102,7 +102,7 @@ The application implements granular Role-Based Access Control (RBAC) across four
 | :--- | :--- | :--- |
 | **Pantry Boy** (`PANTRY_BOY`) | Operational Pantry View | • View assigned daily routines & urgent tasks<br>• Complete step-by-step checklists<br>• Capture mandatory live camera photo evidence<br>• Fulfill incoming beverage and snack orders<br>• Clock shift attendance |
 | **HR** (`HR`) | Management Console | • Coordinate guest visits & room reservations<br>• Oversee facilities readiness and staff attendance<br>• Monitor task completion rates & delayed areas<br>• Submit VIP refreshment requests |
-| **Co-Founder** (`KIMMY_MAM`) | Executive Management | • Real-time overview of meeting suite availability<br>• Priority dispatch for executive cabins & VIP delegations<br>• Direct visibility into facility upkeep and service logs |
+| **Co-Founder** | Executive Management | • Real-time overview of meeting suite availability<br>• Priority dispatch for executive cabins & VIP delegations<br>• Direct visibility into facility upkeep and service logs |
 | **Administrator** (`ADMIN`) | Full Management Console | • Configure rooms, furniture setups, and checklists<br>• Manage employee accounts, access permissions, and deactivations<br>• Trigger manual IST schedule milestones<br>• Review immutable audit logs & export analytical reports |
 
 ---
