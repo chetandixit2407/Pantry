@@ -118,7 +118,7 @@ Every morning, the scheduler instantiates routine tasks mapped to authoritative 
  09:15 AM ─── Reception Front-Desk Setup & Sanitization
  09:30 AM ─── Priority 1 Meeting Suites (Prestige Loft, The Skyline, etc. - Complete by 11:00 AM)
  10:00 AM ─── Morning Desk-to-Desk Water Bottle Distribution
- 11:00 AM ─── Priority 2 Executive Cabins (Lalit Sir Room, Elegance Suite - Complete by 12:00 PM)
+ 11:00 AM ─── Priority 2 Executive Cabins (CEO Room, CO-FOUNDER - Complete by 12:00 PM)
  12:00 PM ─── Indoor Office Plant Watering
  12:20 PM ─── Corridors & Outer Area Cleaning
  02:00 PM ─── Office & Pantry Dustbin Clearance & Relining
