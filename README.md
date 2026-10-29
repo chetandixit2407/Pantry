@@ -194,19 +194,6 @@ To guarantee authenticity and avoid fraudulent uploads:
 - **Database**: Atomic JSON flat-file storage (`/data/smart_pantry_db.json`)
 - **Binary Assets**: Server disk photo storage (`/uploads/photos`) with authorized streaming
 
----
-
-## Screenshots & UI Previews
-
-| Role-Based Login Screen | Pantry Operations View | Management Real-Time Dashboard |
-| :---: | :---: | :---: |
-| ![Login Screen](public/assets/wcr_logo.png) | ![Pantry Dashboard](public/assets/wcr_logo.png) | ![Management View](public/assets/wcr_logo.png) |
-| *Corporate quick-switch & credential authentication* | *Live checklist, task alerts, and photo submission* | *Room status matrix, visitor schedule, and analytics* |
-
-> *Note: Replace placeholder images with production screenshots of your deployment.*
-
----
-
 ## Getting Started
 
 ### Prerequisites
